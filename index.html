@@ -2846,6 +2846,7 @@ function LaboratoryPipelineStepper({ onCompletePipeline }) {
   const [simRunning, setSimRunning] = useState(false);
   const [pcrCycle, setPcrCycle] = useState(0);
   const [pcrThermalPhase, setPcrThermalPhase] = useState(0); // 0: 95°C, 1: 58°C, 2: 72°C
+  const [extractionStage, setExtractionStage] = useState(0); // 0: intacta, 1: detergente, 2: proteinase K, 3: separação DNA puro
   const simTimerRef = useRef(null);
 
   const step = PIPELINE_STEPS[currentStep];
@@ -2880,7 +2881,28 @@ function LaboratoryPipelineStepper({ onCompletePipeline }) {
     soundEngine.playLabPulse(currentStep);
     setSimRunning(true);
 
-    if (step.id === 'pcr') {
+    if (step.id === 'extracao') {
+      // Velocidade cadenciada em 3 sub-etapas (1400ms cada -> ~4.2s total) para acompanhar a lise celular
+      setExtractionStage(1);
+      let stage = 1;
+      const targetId = step.id;
+      simTimerRef.current = setInterval(() => {
+        stage += 1;
+        if (stage <= 3) {
+          setExtractionStage(stage);
+          soundEngine.playTone(400 + stage * 90, 0.09, 'sine', 0.04);
+        }
+        if (stage >= 3) {
+          clearSimTimer();
+          simTimerRef.current = setTimeout(() => {
+            simTimerRef.current = null;
+            setSimRunning(false);
+            markStepExecuted(targetId);
+            soundEngine.playSuccess();
+          }, 1400);
+        }
+      }, 1400);
+    } else if (step.id === 'pcr') {
       // Velocidade cadenciada (500ms por pulso de 3 ciclos) para leitura didática das 3 fases térmicas
       setPcrCycle(0);
       setPcrThermalPhase(0);
@@ -3020,6 +3042,7 @@ function LaboratoryPipelineStepper({ onCompletePipeline }) {
                 clearSimTimer();
                 setCurrentStep(idx);
                 setSimRunning(false);
+                setExtractionStage(0);
               }}
               className={`p-3.5 border text-left transition-colors relative overflow-hidden ${
                 idx === 4 ? 'col-span-2 sm:col-span-1 ' : ''
@@ -3117,6 +3140,7 @@ function LaboratoryPipelineStepper({ onCompletePipeline }) {
                     soundEngine.playClick();
                     clearSimTimer();
                     setSimRunning(false);
+                    setExtractionStage(0);
                     setCurrentStep((s) => s + 1);
                   }}
                   className="px-4 py-3 border border-zinc-800 bg-black hover:border-yellow-400 hover:text-yellow-400 text-xs font-mono uppercase tracking-[0.1em] text-zinc-300 transition-colors"
@@ -3314,7 +3338,9 @@ function LaboratoryPipelineStepper({ onCompletePipeline }) {
             )}
 
             {/* STAGE 2: EXTRAÇÃO (Ilustração Citológica e Bioquímica Detalhada: Célula Eucariótica + Lise + Pellet/Sobrenadante) */}
-            {step.id === 'extracao' && (
+            {step.id === 'extracao' && (() => {
+              const extStage = simRunning ? extractionStage : isStepDone ? 3 : 0;
+              return (
               <div className="relative z-10 flex-1 flex flex-col items-center justify-center py-1">
                 <svg
                   data-testid="extracao-cell-svg"
@@ -3327,8 +3353,10 @@ function LaboratoryPipelineStepper({ onCompletePipeline }) {
                   {/* ZONA ESQUERDA: CÉLULA EUCARIÓTICA DETALHADA SOFRENDO LISE (cx=142, cy=108) */}
                   <g data-testid="eukaryotic-cell-diagram">
                     <text x="142" y="23" textAnchor="middle" fill="#22D3EE" fontSize="9" fontWeight="bold" fontFamily="JetBrains Mono">
-                      {simRunning || isStepDone
+                      {extStage >= 2
                         ? '1. LISE CELULAR E NUCLEAR (MEMBRANAS ROMPIDAS)'
+                        : extStage === 1
+                        ? '1. DETERGENTE ROMPENDO MEMBRANA PLASMÁTICA'
                         : '1. CÉLULA EUCARIÓTICA NUCLEADA INTACTA'}
                     </text>
 
@@ -3339,9 +3367,9 @@ function LaboratoryPipelineStepper({ onCompletePipeline }) {
                       r="68"
                       fill="#18181B"
                       fillOpacity="0.7"
-                      stroke="#22D3EE"
+                      stroke={extStage === 1 ? '#FACC15' : '#22D3EE'}
                       strokeWidth="2.5"
-                      strokeDasharray={simRunning || isStepDone ? '10 9 6 11' : 'none'}
+                      strokeDasharray={extStage >= 1 ? '10 9 6 11' : 'none'}
                     />
                     <circle
                       cx="142"
@@ -3350,33 +3378,65 @@ function LaboratoryPipelineStepper({ onCompletePipeline }) {
                       fill="none"
                       stroke="#0891B2"
                       strokeWidth="1.2"
-                      strokeDasharray={simRunning || isStepDone ? '6 10' : '3 2'}
+                      strokeDasharray={extStage >= 1 ? '6 10' : '3 2'}
                     />
 
                     {/* Organelas Citoplasmáticas: Mitocôndrias, Retículo e Proteínas/Histonas */}
                     {/* Mitocôndria 1 */}
-                    <g transform="translate(92, 74) rotate(-20)">
+                    <g transform="translate(92, 74) rotate(-20)" opacity={extStage >= 2 ? 0.35 : 1}>
                       <ellipse cx="0" cy="0" rx="12" ry="6.5" fill="#09090B" stroke="#F43F5E" strokeWidth="1.3" />
                       <path d="M-8,0 Q-4,-4 0,0 T8,0" fill="none" stroke="#F43F5E" strokeWidth="1" />
                     </g>
                     {/* Mitocôndria 2 */}
-                    <g transform="translate(190, 138) rotate(25)">
+                    <g transform="translate(190, 138) rotate(25)" opacity={extStage >= 2 ? 0.35 : 1}>
                       <ellipse cx="0" cy="0" rx="11" ry="6" fill="#09090B" stroke="#F43F5E" strokeWidth="1.3" />
                       <path d="M-7,0 Q-3,-3 0,0 T7,0" fill="none" stroke="#F43F5E" strokeWidth="1" />
                     </g>
                     {/* Retículo Endoplasmático / Proteínas Celulares */}
-                    <path d="M95,134 Q108,148 124,142" fill="none" stroke="#A78BFA" strokeWidth="1.8" />
-                    <circle cx="188" cy="76" r="4.5" fill="#FB7185" fillOpacity="0.6" />
-                    <circle cx="102" cy="122" r="4" fill="#FB7185" fillOpacity="0.6" />
+                    <path d="M95,134 Q108,148 124,142" fill="none" stroke="#A78BFA" strokeWidth="1.8" opacity={extStage >= 2 ? 0.3 : 1} />
+                    <circle cx="188" cy="76" r="4.5" fill="#FB7185" fillOpacity={extStage >= 2 ? '0.2' : '0.6'} />
+                    <circle cx="102" cy="122" r="4" fill="#FB7185" fillOpacity={extStage >= 2 ? '0.2' : '0.6'} />
 
                     {/* Reagentes de Lise atuando (Detergente SDS + Proteinase K) */}
                     <g>
-                      <rect x="16" y="34" width="84" height="20" fill="#000" stroke="#FACC15" strokeWidth="1" />
-                      <text x="58" y="47" textAnchor="middle" fill="#FACC15" fontSize="7.5" fontWeight="bold" fontFamily="JetBrains Mono">
+                      <rect
+                        x="16"
+                        y="34"
+                        width="84"
+                        height="20"
+                        fill={extStage === 1 ? '#FACC15' : '#000'}
+                        stroke="#FACC15"
+                        strokeWidth="1"
+                      />
+                      <text
+                        x="58"
+                        y="47"
+                        textAnchor="middle"
+                        fill={extStage === 1 ? '#000' : '#FACC15'}
+                        fontSize="7.5"
+                        fontWeight="bold"
+                        fontFamily="JetBrains Mono"
+                      >
                         + DETERGENTE
                       </text>
-                      <rect x="16" y="168" width="92" height="20" fill="#000" stroke="#F43F5E" strokeWidth="1" />
-                      <text x="62" y="181" textAnchor="middle" fill="#F43F5E" fontSize="7.5" fontWeight="bold" fontFamily="JetBrains Mono">
+                      <rect
+                        x="16"
+                        y="168"
+                        width="92"
+                        height="20"
+                        fill={extStage === 2 ? '#F43F5E' : '#000'}
+                        stroke="#F43F5E"
+                        strokeWidth="1"
+                      />
+                      <text
+                        x="62"
+                        y="181"
+                        textAnchor="middle"
+                        fill={extStage === 2 ? '#000' : '#F43F5E'}
+                        fontSize="7.5"
+                        fontWeight="bold"
+                        fontFamily="JetBrains Mono"
+                      >
                         + PROTEINASE K
                       </text>
                     </g>
@@ -3387,9 +3447,9 @@ function LaboratoryPipelineStepper({ onCompletePipeline }) {
                       cy="108"
                       r="34"
                       fill="#000000"
-                      stroke="#FACC15"
+                      stroke={extStage === 2 ? '#F43F5E' : '#FACC15'}
                       strokeWidth="2"
-                      strokeDasharray={simRunning || isStepDone ? '7 7' : '4 2'}
+                      strokeDasharray={extStage >= 2 ? '7 7' : '4 2'}
                     />
                     <text x="142" y="84" textAnchor="middle" fill="#FACC15" fontSize="7.5" fontWeight="bold" fontFamily="JetBrains Mono">
                       NÚCLEO
@@ -3414,7 +3474,7 @@ function LaboratoryPipelineStepper({ onCompletePipeline }) {
                   </g>
 
                   {/* SETA DE TRANSIÇÃO BIOQUÍMICA */}
-                  <g>
+                  <g opacity={extStage >= 2 ? 1 : 0.35}>
                     <line x1="224" y1="108" x2="278" y2="108" stroke="#FACC15" strokeWidth="2" strokeDasharray="4 3" />
                     <polygon points="278,103 288,108 278,113" fill="#FACC15" />
                     <text x="256" y="96" textAnchor="middle" fill="#FACC15" fontSize="7.5" fontWeight="bold" fontFamily="JetBrains Mono">
@@ -3423,7 +3483,7 @@ function LaboratoryPipelineStepper({ onCompletePipeline }) {
                   </g>
 
                   {/* ZONA DIREITA: TUBO DE SEPARAÇÃO DE FASES (SOBRENADANTE AQUOSO COM DNA PURO vs PELLET NO FUNDO) */}
-                  <g data-testid="extraction-tube-separation">
+                  <g data-testid="extraction-tube-separation" opacity={extStage >= 3 ? 1 : extStage >= 1 ? 0.5 : 0.35}>
                     <text x="386" y="23" textAnchor="middle" fill="#FACC15" fontSize="9" fontWeight="bold" fontFamily="JetBrains Mono">
                       2. SEPARAÇÃO DE FASES NO TUBO
                     </text>
@@ -3432,7 +3492,7 @@ function LaboratoryPipelineStepper({ onCompletePipeline }) {
                     <path
                       d="M326,38 L446,38 L446,136 L406,192 L366,192 L326,136 Z"
                       fill="#000000"
-                      stroke="#A1A1AA"
+                      stroke={extStage >= 3 ? '#FACC15' : '#A1A1AA'}
                       strokeWidth="1.8"
                     />
 
@@ -3440,7 +3500,7 @@ function LaboratoryPipelineStepper({ onCompletePipeline }) {
                     <path
                       d="M328,52 L444,52 L444,132 L328,132 Z"
                       fill="#22D3EE"
-                      fillOpacity={simRunning || isStepDone ? '0.16' : '0.06'}
+                      fillOpacity={extStage >= 3 ? '0.2' : '0.06'}
                     />
                     <text x="386" y="66" textAnchor="middle" fill="#22D3EE" fontSize="8" fontWeight="bold" fontFamily="JetBrains Mono">
                       SOBRENADANTE AQUOSO
@@ -3450,28 +3510,32 @@ function LaboratoryPipelineStepper({ onCompletePipeline }) {
                     </text>
 
                     {/* Hélices de DNA Puro Flutuando no Sobrenadante */}
-                    <path
-                      d="M342,96 Q364,82 386,96 T430,96"
-                      fill="none"
-                      stroke="#FACC15"
-                      strokeWidth="2.4"
-                      className={simRunning || isStepDone ? 'svg-draw-line' : ''}
-                      style={{ '--dash-len': 120 }}
-                    />
-                    <path
-                      d="M342,112 Q364,126 386,112 T430,112"
-                      fill="none"
-                      stroke="#34D399"
-                      strokeWidth="2.2"
-                      className={simRunning || isStepDone ? 'svg-draw-line' : ''}
-                      style={{ '--dash-len': 120 }}
-                    />
+                    {extStage >= 3 && (
+                      <>
+                        <path
+                          d="M342,96 Q364,82 386,96 T430,96"
+                          fill="none"
+                          stroke="#FACC15"
+                          strokeWidth="2.4"
+                          className="svg-draw-line"
+                          style={{ '--dash-len': 120 }}
+                        />
+                        <path
+                          d="M342,112 Q364,126 386,112 T430,112"
+                          fill="none"
+                          stroke="#34D399"
+                          strokeWidth="2.2"
+                          className="svg-draw-line"
+                          style={{ '--dash-len': 120 }}
+                        />
+                      </>
+                    )}
 
                     {/* FASE INFERIOR (FUNDO DO TUBO): PELLET DE DETRITOS CELULARES, LIPÍDIOS E PROTEÍNAS */}
                     <path
                       d="M328,133 L444,133 L405,190 L367,190 Z"
                       fill="#713F12"
-                      fillOpacity={simRunning || isStepDone ? '0.65' : '0.3'}
+                      fillOpacity={extStage >= 3 ? '0.72' : '0.25'}
                       stroke="#CA8A04"
                       strokeWidth="1"
                     />
@@ -3489,24 +3553,44 @@ function LaboratoryPipelineStepper({ onCompletePipeline }) {
 
                 {/* Legendas Explicativas das 3 Etapas Bioquímicas */}
                 <div className="grid grid-cols-3 gap-2 w-full text-center text-[10px] font-mono mt-2">
-                  <div className="p-2 bg-zinc-950 border border-zinc-800 text-cyan-400">
+                  <div
+                    data-testid="extraction-step-1"
+                    className={`p-2 border transition-colors ${
+                      extStage === 1
+                        ? 'bg-cyan-400 border-cyan-400 text-black font-bold'
+                        : extStage >= 1
+                        ? 'bg-zinc-950 border-cyan-400/60 text-cyan-400'
+                        : 'bg-zinc-950 border-zinc-800 text-cyan-400/70'
+                    }`}
+                  >
                     1. Detergente: Rompe Membranas
                   </div>
-                  <div className="p-2 bg-zinc-950 border border-zinc-800 text-rose-400">
+                  <div
+                    data-testid="extraction-step-2"
+                    className={`p-2 border transition-colors ${
+                      extStage === 2
+                        ? 'bg-rose-500 border-rose-500 text-black font-bold'
+                        : extStage >= 2
+                        ? 'bg-zinc-950 border-rose-500/60 text-rose-400'
+                        : 'bg-zinc-950 border-zinc-800 text-rose-400/70'
+                    }`}
+                  >
                     2. Proteinase K: Digere Proteínas
                   </div>
                   <div
-                    className={`p-2 border font-bold ${
-                      isStepDone
+                    data-testid="extraction-step-3"
+                    className={`p-2 border font-bold transition-colors ${
+                      extStage >= 3
                         ? 'bg-yellow-400 border-yellow-400 text-black'
-                        : 'bg-zinc-950 border-zinc-800 text-yellow-400'
+                        : 'bg-zinc-950 border-zinc-800 text-yellow-400/70'
                     }`}
                   >
                     3. Sobrenadante: DNA Puro Isolado
                   </div>
                 </div>
               </div>
-            )}
+              );
+            })()}
 
             {/* STAGE 3: PCR (Velocidade Cadenciada + Ilustração das 3 Fases Térmicas) */}
             {step.id === 'pcr' && (
@@ -5317,7 +5401,6 @@ function ModulePaginationFooter({ activeModule, onSelectModule }) {
  * ============================================================================ */
 function App() {
   const [activeModule, setActiveModule] = useState(1);
-  const [visitedModules, setVisitedModules] = useState({ 1: true });
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [posterOpen, setPosterOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -5332,7 +5415,6 @@ function App() {
     const validId = Math.max(1, Math.min(6, Number(modId) || 1));
     soundEngine.playClick();
     setActiveModule(validId);
-    setVisitedModules((prev) => ({ ...prev, [validId]: true }));
     setMobileMenuOpen(false);
     if (typeof window !== 'undefined') {
       try {
@@ -5417,30 +5499,7 @@ function App() {
             </div>
           </button>
 
-          {/* Navegação Desktop dos 6 Módulos */}
-          <nav className="hidden xl:flex items-center gap-1" aria-label="Navegação por Módulos">
-            {MODULES_CONFIG.map((mod) => {
-              const isActive = activeModule === mod.id;
-              return (
-                <button
-                  key={mod.id}
-                  type="button"
-                  data-testid={`nav-mod-${mod.id}`}
-                  aria-current={isActive ? 'page' : undefined}
-                  onClick={() => selectModule(mod.id)}
-                  className={`px-2.5 py-1.5 text-[11px] font-mono uppercase tracking-[0.08em] border transition-colors ${
-                    isActive
-                      ? 'bg-yellow-400 border-yellow-400 text-black font-bold'
-                      : 'bg-black border-transparent text-zinc-300 hover:border-zinc-700 hover:text-yellow-400'
-                  }`}
-                >
-                  {mod.shortLabel}
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* Controles à Direita */}
+          {/* Controles à Direita (Sem barra horizontal de módulos — apenas o Menu) */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <div
               data-testid="mission-counter"
@@ -5480,82 +5539,54 @@ function App() {
               type="button"
               data-testid="mobile-menu-toggle"
               onClick={() => setMobileMenuOpen((o) => !o)}
-              aria-label="Abrir menu de módulos"
+              aria-label="Abrir menu de navegação"
               aria-expanded={mobileMenuOpen}
-              className="xl:hidden px-3 py-1.5 border border-yellow-400/80 bg-zinc-950 text-[10px] font-mono font-bold uppercase tracking-[0.12em] text-yellow-400"
+              className="px-3.5 py-1.5 border border-yellow-400/80 bg-zinc-950 hover:bg-yellow-400 hover:text-black text-[11px] font-mono font-bold uppercase tracking-[0.12em] text-yellow-400 transition-colors"
             >
-              {mobileMenuOpen ? 'FECHAR [X]' : `MÓDULOS (${activeModule}/6)`}
+              {mobileMenuOpen ? 'FECHAR [X]' : 'MENU'}
             </button>
           </div>
         </div>
 
-        {/* Barra de Acesso Rápido aos 6 Módulos (Visível em todas as telas para orientação imediata) */}
-        <div className="border-t border-zinc-800/90 bg-zinc-950/95">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between gap-2 overflow-x-auto">
-            <div className="flex items-center gap-1.5 shrink-0">
-              {MODULES_CONFIG.map((mod) => {
-                const isActive = activeModule === mod.id;
-                const isVisited = Boolean(visitedModules[mod.id]);
-                return (
-                  <button
-                    key={mod.id}
-                    type="button"
-                    data-testid={`subnav-mod-${mod.id}`}
-                    onClick={() => selectModule(mod.id)}
-                    className={`px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.08em] border transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-                      isActive
-                        ? 'bg-yellow-400 border-yellow-400 text-black font-bold'
-                        : isVisited
-                        ? 'bg-black border-zinc-700 text-zinc-200 hover:border-yellow-400'
-                        : 'bg-black border-zinc-800 text-zinc-400 hover:border-zinc-600'
-                    }`}
-                  >
-                    <span>{mod.navLabel}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <span className="hidden lg:inline-block text-[10px] font-mono text-zinc-500 whitespace-nowrap tabular-nums">
-              MÓDULO ATIVO: 0{activeModule} / 06
-            </span>
-          </div>
-        </div>
-
-        {/* Drawer / Menu Mobile Completo com os 6 Módulos */}
+        {/* Drawer / Menu Completo com os 6 Módulos (Desktop e Mobile) */}
         {mobileMenuOpen && (
           <div
             data-testid="mobile-menu-drawer"
-            className="xl:hidden border-t border-zinc-800 bg-black px-4 py-3 space-y-1.5"
+            className="border-t border-zinc-800 bg-black px-4 sm:px-6 py-4"
           >
-            {MODULES_CONFIG.map((mod) => {
-              const isActive = activeModule === mod.id;
-              return (
-                <button
-                  key={mod.id}
-                  type="button"
-                  data-testid={`mobile-nav-mod-${mod.id}`}
-                  onClick={() => selectModule(mod.id)}
-                  className={`w-full text-left px-3.5 py-2.5 text-xs font-mono uppercase tracking-[0.1em] border flex items-center justify-between ${
-                    isActive
-                      ? 'bg-yellow-400 border-yellow-400 text-black font-bold'
-                      : 'bg-zinc-950 border-zinc-800 text-zinc-200 hover:border-yellow-400'
-                  }`}
-                >
-                  <span>{mod.title}</span>
-                  <span>{isActive ? 'ATIVO ●' : 'ABRIR →'}</span>
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                setPosterOpen(true);
-              }}
-              className="w-full text-left px-3.5 py-2.5 text-xs font-mono font-bold uppercase tracking-[0.12em] text-black bg-yellow-400 mt-2"
-            >
-              ABRIR PÔSTER OFICIAL UFPA
-            </button>
+            <div className="max-w-7xl mx-auto space-y-2">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {MODULES_CONFIG.map((mod) => {
+                  const isActive = activeModule === mod.id;
+                  return (
+                    <button
+                      key={mod.id}
+                      type="button"
+                      data-testid={`mobile-nav-mod-${mod.id}`}
+                      onClick={() => selectModule(mod.id)}
+                      className={`w-full text-left px-3.5 py-2.5 text-xs font-mono uppercase tracking-[0.08em] border flex items-center justify-between gap-2 transition-colors ${
+                        isActive
+                          ? 'bg-yellow-400 border-yellow-400 text-black font-bold'
+                          : 'bg-zinc-950 border-zinc-800 text-zinc-200 hover:border-yellow-400'
+                      }`}
+                    >
+                      <span className="truncate">{mod.title}</span>
+                      <span className="shrink-0">{isActive ? 'ATIVO ●' : 'ABRIR →'}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setPosterOpen(true);
+                }}
+                className="w-full sm:w-auto px-4 py-2.5 text-xs font-mono font-bold uppercase tracking-[0.12em] text-black bg-yellow-400 hover:bg-yellow-300 transition-colors"
+              >
+                ABRIR PÔSTER OFICIAL UFPA
+              </button>
+            </div>
           </div>
         )}
       </header>
