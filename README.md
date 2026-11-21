@@ -91,14 +91,6 @@ O script universal `ecosystem-nav.js` (Web Component em Shadow DOM isolado) cone
 ## 📂 Estrutura de Arquivos
 
 ```text
-ev/
-├── .github/
-│   └── workflows/
-│       └── ci.yml               # Validação automática de sintaxe JS e links relativos
-├── .editorconfig                # Padrão de codificação (UTF-8, LF e indentação)
-├── .gitattributes               # Normalização de quebras de linha e binários para Git
-├── .gitignore                   # Exclusão de arquivos locais, logs e skills externas
-├── .nojekyll                    # Compatibilidade direta com GitHub Pages (sem Jekyll)
 ├── index.html                   # Portal principal autocontido (6 módulos + SVG memory cards)
 ├── src/
 │   └── App.jsx                  # Código-fonte modular React sincronizado 100% com o index.html
@@ -113,8 +105,6 @@ ev/
 ├── DESIGN.md                    # Documentação do Design System do Portal & Ecossistema
 ├── MISTERY-DESIGN.md            # Contrato visual e de áudio do Arquivo Confidencial
 ├── DNA E DIAGNÓSTICO BIOTEC...  # Pôster acadêmico oficial da extensão UFPA (alta resolução)
-├── qrcode-biotec-red.png        # QR Code para acesso rápido em dispositivos móveis
-├── qrcode-biotec-red.svg        # Vetor SVG do QR Code
 └── README.md                    # Documentação técnica e científica do projeto
 ```
 
@@ -131,11 +121,6 @@ npx serve .
 # ou
 python -m http.server 8000
 ```
-
-### Opção 3: Publicação no GitHub Pages
-1. Suba o repositório para o GitHub na branch `main`.
-2. Em **Settings → Pages**, selecione **Deploy from a branch** → branch `main` → pasta `/ (root)`.
-3. O arquivo `.nojekyll` garante o carregamento direto de todas as páginas e assets estáticos.
 
 ---
 
