@@ -498,7 +498,7 @@
         .home-view {
             max-width: 1240px;
             margin: 1.15rem auto 0;
-            padding: 0 1rem calc(5.75rem + env(safe-area-inset-bottom, 0px));
+            padding: 0 1rem calc(6.5rem + env(safe-area-inset-bottom, 0px));
         }
 
         .home-grid {
@@ -1113,7 +1113,7 @@
         .workspace {
             max-width: 1240px;
             margin: 0.75rem auto 0;
-            padding: 0 1rem calc(5.75rem + env(safe-area-inset-bottom, 0px));
+            padding: 0 1rem calc(6.5rem + env(safe-area-inset-bottom, 0px));
         }
 
         .nav-tabs {
@@ -3026,7 +3026,7 @@
         }
 
         .notebook-body {
-            padding: 1rem;
+            padding: 1rem 1rem calc(4.75rem + env(safe-area-inset-bottom, 0px));
             flex: 1;
             display: flex;
             flex-direction: column;
@@ -3068,13 +3068,13 @@
             left: 50%;
             transform: translate(-50%, -50%) scale(0.96);
             width: min(560px, calc(100vw - 1.5rem));
-            max-height: 88dvh;
+            max-height: min(86dvh, calc(100dvh - 110px));
             overflow-y: auto;
             background: var(--paper);
             color: var(--ink);
             border: 2px solid var(--ink);
             border-radius: 6px;
-            padding: 1.3rem;
+            padding: 1.3rem 1.3rem 1.5rem;
             z-index: 110;
             box-shadow: 0 18px 46px rgba(0, 0, 0, 0.72);
             display: none;
@@ -3178,7 +3178,7 @@
 
         .toast {
             position: fixed;
-            bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+            bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
             left: 50%;
             transform: translateX(-50%) translateY(140%);
             background: #1b1511;
@@ -3271,7 +3271,7 @@
             .home-view,
             .workspace {
                 padding-inline: 0.7rem;
-                padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+                padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
             }
             .case-selector-bar {
                 padding-inline: 0.7rem;

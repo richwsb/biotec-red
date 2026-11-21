@@ -1,0 +1,58 @@
+# ==============================================================================
+# .gitignore — Extensão Biotecnologia Vermelha (UFPA / ICB / FABIOTEC)
+# ==============================================================================
+
+# Pastas locais não versionadas (skills externas de apoio e referências visuais)
+_local/
+*-main/
+awesome-design-md-main/
+awesome-gamedev-agent-skills-main/
+img2threejs-main/
+impeccable-main/
+playwright-cli-main/
+taste-skill-main/
+ui-ux-pro-max-skill-main/
+referencia-jogo-da-memoria/
+image.png
+image copy.png
+
+# Scripts e artefatos locais de rede/teste em celular (IPs internos)
+conectar_celular.html
+iniciar_servidor_celular.bat
+qr_ascii.txt
+qr_code.svg
+
+# Dependências e builds (caso ferramentas Node/Vite sejam usadas futuramente)
+node_modules/
+dist/
+build/
+.vite/
+.parcel-cache/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Python / ambientes virtuais
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Variáveis de ambiente e credenciais
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs, temporários e arquivos de sistema / IDE
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

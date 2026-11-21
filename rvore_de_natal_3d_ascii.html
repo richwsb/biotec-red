@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#04070d" />
+  <title>Árvore de Natal 3D ASCII — Feliz Natal 2026</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #04070d;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      cursor: grab;
+      touch-action: none;
+    }
+    canvas:active {
+      cursor: grabbing;
+    }
+    .glass-btn {
+      background: rgba(10, 18, 34, 0.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(125, 185, 255, 0.22);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .glass-btn:hover {
+      background: rgba(20, 36, 66, 0.85);
+      border-color: rgba(255, 215, 100, 0.55);
+      transform: translateY(-1px);
+      box-shadow: 0 0 18px rgba(255, 200, 70, 0.2);
+    }
+    .glass-btn:active {
+      transform: translateY(0px) scale(0.98);
+    }
+  </style>
+</head>
+<body class="relative bg-[#04070d] text-slate-200">
+
+  <!-- Tela Principal ASCII 3D -->
+  <canvas id="asciiCanvas"></canvas>
+
+  <!-- Controles Discretos no Canto Inferior Esquerdo (sem colidir com o .eco-dock à direita) -->
+  <div class="fixed bottom-[calc(12px+env(safe-area-inset-bottom,0px))] left-[calc(12px+env(safe-area-inset-left,0px))] sm:bottom-[calc(16px+env(safe-area-inset-bottom,0px))] sm:left-[calc(16px+env(safe-area-inset-left,0px))] z-20 flex flex-wrap items-center gap-2 max-w-[calc(100vw-190px)]">
+    <a
+      href="./natal.html"
+      aria-label="Voltar à Vila Natalina 2D"
+      class="glass-btn flex items-center gap-1.5 rounded-full px-3 py-2 sm:px-3.5 sm:py-2.5 min-h-[40px] sm:min-h-[42px] text-[11px] sm:text-xs font-bold tracking-wide text-sky-200 shadow-lg no-underline"
+    >
+      <svg class="h-3.5 w-3.5 text-sky-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M19 12H5" /><path d="m12 19-7-7 7-7" />
+      </svg>
+      <span class="hidden sm:inline">Voltar à Vila Natalina 2D</span>
+      <span class="sm:hidden">Cena 2D</span>
+    </a>
+
+    <button
+      id="replayBtn"
+      type="button"
+      aria-label="Repetir Animação 3D"
+      class="glass-btn flex items-center gap-1.5 rounded-full px-3 py-2 sm:px-4 sm:py-2.5 min-h-[40px] sm:min-h-[42px] text-[11px] sm:text-xs font-bold tracking-wider text-amber-200/95 shadow-lg cursor-pointer"
+    >
+      <svg class="h-3.5 w-3.5 text-amber-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+        <path d="M3 3v5h5" />
+      </svg>
+      <span class="hidden sm:inline">Repetir Animação</span>
+      <span class="sm:hidden">Repetir</span>
+    </button>
+  </div>
+
+  <!-- Indicador Sutil de Interação no Topo Esquerdo -->
+  <div id="hintBadge" class="pointer-events-none fixed top-[calc(12px+env(safe-area-inset-top,0px))] left-[calc(12px+env(safe-area-inset-left,0px))] z-10 rounded-full border border-sky-400/20 bg-slate-950/60 px-3 py-1.5 text-[11px] tracking-wide text-sky-200/75 backdrop-blur-sm transition-opacity duration-700 sm:top-4 sm:left-4">
+    Arraste para girar • Árvore 3D 2026
+  </div>
+
+  <script>
+    /**
+     * Motor Gráfico Volumétrico 3D ASCII — Feliz Natal 2026
+     * Renderiza toda a cena em uma grade de células tipográficas nítidas e espessas
+     * com Z-buffer por célula, iluminação direcional topo-esquerda, paralaxe de neve
+     * em 3 camadas e sequência coreografada em 7 fases.
+     */
+    (() => {
+      const canvas = document.getElementById('asciiCanvas');
+      const ctx = canvas.getContext('2d', { alpha: false });
+      const replayBtn = document.getElementById('replayBtn');
+      const hintBadge = document.getElementById('hintBadge');
+
+      // Configuração de estado e câmera
+      let width = 0;
+      let height = 0;
+      let dpr = 1;
+      let cellW = 9;
+      let cellH = 14;
+      let cols = 0;
+      let rows = 0;
+
+      // Buffers da grade ASCII para Z-sorting preciso por célula
+      let zBuffer = new Float32Array(0);
+      let charBuffer = [];
+      let colorBuffer = [];
+      let glowBuffer = new Float32Array(0);
+      let weightBuffer = new Uint8Array(0); // 0 = normal, 1 = bold, 2 = extra-bold
+
+      // Rotação e interação do usuário
+      let rotationY = 0;
+      let baseAngularSpeed = 0.42; // radianos/seg
+      let userVelocityY = 0;
+      let isDragging = false;
+      let lastPointerX = 0;
+
+      // Controle de tempo da coreografia
+      let startTime = performance.now();
+      let lastFrameTime = startTime;
+
+      // Vetor de luz direcional (topo-esquerda-frente para profundidade rica)
+      const lightDir = normalize3({ x: -0.68, y: 0.62, z: 0.39 });
+
+      // Estruturas geométricas da cena
+      let ambientEyes = [];
+      let floorPoints = [];
+      let trunkPoints = [];
+      let treePoints = [];
+      let garlandBulbs = [];
+      let ornaments = [];
+      let starPoints = [];
+      let giftBoxes = [];
+      let snowLayers = [[], [], []];
+
+      // Frase repetida na folhagem da árvore
+      const TREE_PHRASE = 'FELIZNATAL';
+      const FINAL_MESSAGE = 'FELIZ NATAL 2026';
+
+      function normalize3(v) {
+        const len = Math.hypot(v.x, v.y, v.z) || 1;
+        return { x: v.x / len, y: v.y / len, z: v.z / len };
+      }
+
+      function dot3(a, b) {
+        return a.x * b.x + a.y * b.y + a.z * b.z;
+      }
+
+      function clamp(val, min, max) {
+        return Math.max(min, Math.min(max, val));
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function smoothstep(edge0, edge1, x) {
+        const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
+        return t * t * (3 - 2 * t);
+      }
+
+      function easeOutBack(x) {
+        const c1 = 1.70158;
+        const c3 = c1 + 1;
+        return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+      }
+
+      function easeOutCubic(x) {
+        return 1 - Math.pow(1 - x, 3);
+      }
+
+      /**
+       * Constrói todos os modelos 3D paramétricos da cena:
+       * - Chão circular azul em texto ASCII
+       * - Tronco cilíndrico castanho
+       * - Árvore de 3 degraus (saias em escada) com borda de neve branca e letras 'FELIZ NATAL'
+       * - Espiral de 176 lâmpadas douradas
+       * - Ornamentos esféricos vermelhos e dourados
+       * - Estrela 3D pontiaguda no topo
+       * - 4 Caixas de presente (vermelha, azul, branca, dourada/vermelha) com laços
+       */
+      function buildSceneGeometry() {
+        // 1. "Olhos" e estrelas sutis no fundo escuro (Fase 1)
+        ambientEyes = [];
+        const eyePairs = [
+          { x: -0.36, y: 0.22, phase: 0.2 },
+          { x: 0.38, y: 0.14, phase: 1.9 },
+          { x: -0.28, y: -0.18, phase: 3.4 },
+          { x: 0.31, y: -0.25, phase: 4.7 },
+          { x: -0.44, y: -0.02, phase: 2.5 },
+          { x: 0.43, y: 0.30, phase: 5.3 }
+        ];
+        eyePairs.forEach((p, idx) => {
+          ambientEyes.push({
+            nx: p.x,
+            ny: p.y,
+            phase: p.phase,
+            isPair: idx < 4
+          });
+        });
+
+        // 2. Chão circular azul em perspectiva 3D (y = -1.25)
+        floorPoints = [];
+        const floorY = -1.25;
+        const maxFloorR = 1.48;
+        const rings = 22;
+        const floorChars = ['~', '.', '*', 'o', '+', '·'];
+        for (let rIdx = 1; rIdx <= rings; rIdx++) {
+          const rNorm = rIdx / rings;
+          const radius = rNorm * maxFloorR;
+          const circumference = 2 * Math.PI * radius;
+          const count = Math.max(12, Math.floor(circumference * 26));
+          for (let i = 0; i < count; i++) {
+            const angle = (i / count) * Math.PI * 2 + (rIdx % 2) * 0.12;
+            const ch = floorChars[(rIdx + i) % floorChars.length];
+            floorPoints.push({
+              x: Math.cos(angle) * radius,
+              y: floorY,
+              z: Math.sin(angle) * radius,
+              rNorm,
+              angle,
+              ch
+            });
+          }
+        }
+
+        // 3. Tronco castanho (y de -1.25 até -0.78)
+        trunkPoints = [];
+        const trunkBottom = -1.25;
+        const trunkTop = -0.76;
+        const trunkRadius = 0.165;
+        const trunkRows = 14;
+        const trunkCols = 24;
+        const trunkChars = ['#', '|', 'H', 'M', 'I', '@'];
+        for (let iy = 0; iy < trunkRows; iy++) {
+          const t = iy / (trunkRows - 1);
+          const y = lerp(trunkBottom, trunkTop, t);
+          const flare = 1 + Math.pow(1 - t, 2.5) * 0.22; // leve alargamento na base
+          const r = trunkRadius * flare;
+          for (let ia = 0; ia < trunkCols; ia++) {
+            const theta = (ia / trunkCols) * Math.PI * 2;
+            const nx = Math.cos(theta);
+            const nz = Math.sin(theta);
+            trunkPoints.push({
+              x: nx * r,
+              y,
+              z: nz * r,
+              nx,
+              ny: 0.05,
+              nz,
+              t,
+              ch: trunkChars[(iy + ia) % trunkChars.length]
+            });
+          }
+        }
+
+        // 4. Árvore de 3 degraus (saias em escada) com letras grossas 'FELIZ NATAL'
+        // Degrau 0 (Base): y de -0.82 a -0.14 | Degrau 1 (Meio): y de -0.22 a 0.44 | Degrau 2 (Topo afiado): y de 0.36 a 1.18
+        treePoints = [];
+        const tiers = [
+          { yMin: -0.82, yMax: -0.10, rBottom: 1.04, rTop: 0.44, snowBand: 0.16, slopeNy: 0.55 },
+          { yMin: -0.20, yMax: 0.46,  rBottom: 0.78, rTop: 0.27, snowBand: 0.17, slopeNy: 0.58 },
+          { yMin: 0.36,  yMax: 1.18,  rBottom: 0.52, rTop: 0.015, snowBand: 0.18, slopeNy: 0.62 }
+        ];
+
+        const treeTotalBottom = -0.82;
+        const treeTotalTop = 1.18;
+        let globalCharCursor = 0;
+
+        tiers.forEach((tier, tierIdx) => {
+          const tierHeight = tier.yMax - tier.yMin;
+          const verticalSteps = tierIdx === 2 ? 25 : 22;
+
+          for (let s = 0; s <= verticalSteps; s++) {
+            const v = s / verticalSteps; // 0 = borda inferior da saia, 1 = topo da camada
+            const y = lerp(tier.yMin, tier.yMax, v);
+
+            // Curva côncava suave para dar caimento de "saia" aberta em cada degrau
+            const skirtCurve = Math.pow(1 - v, 1.24);
+            const baseR = lerp(tier.rTop, tier.rBottom, skirtCurve);
+
+            // Borda de neve branca espessa na parte superior de cada camada (degrau)
+            // E também uma borda nevada na extremidade de cada degrau para realçar o corte em escada
+            const isTopSnowRim = v >= (1 - tier.snowBand);
+            const isOverhangLip = v <= 0.075 && tierIdx < 3;
+            const isSnow = isTopSnowRim || (isOverhangLip && tierIdx > 0);
+
+            const ringCircumference = Math.max(0.12, 2 * Math.PI * baseR);
+            const angularSteps = Math.max(8, Math.round(ringCircumference * 25));
+
+            for (let a = 0; a < angularSteps; a++) {
+              const theta = (a / angularSteps) * Math.PI * 2 + tierIdx * 0.45 + s * 0.08;
+              // Ondulação orgânica sutil nos galhos
+              const branchWave = 1 + 0.045 * Math.sin(theta * 7 + v * 5) + 0.025 * Math.cos(theta * 13);
+              const r = baseR * branchWave;
+
+              const nx = Math.cos(theta);
+              const nz = Math.sin(theta);
+              const normal = normalize3({ x: nx, y: tier.slopeNy, z: nz });
+
+              // Seleciona letra de FELIZ NATAL em sequência contínua
+              const letter = TREE_PHRASE[globalCharCursor % TREE_PHRASE.length];
+              globalCharCursor++;
+
+              const heightProgress = clamp((y - treeTotalBottom) / (treeTotalTop - treeTotalBottom), 0, 1);
+
+              treePoints.push({
+                x: nx * r,
+                y,
+                z: nz * r,
+                nx: normal.x,
+                ny: normal.y,
+                nz: normal.z,
+                isSnow,
+                tierIdx,
+                heightProgress,
+                letter,
+                seed: (s * 31 + a * 17 + tierIdx * 13) % 100
+              });
+            }
+          }
+        });
+
+        // 5. Linha de lâmpadas douradas em espiral (exatamente 176 lâmpadas da base ao topo)
+        garlandBulbs = [];
+        const totalBulbs = 176;
+        const turns = 6.2;
+        for (let i = 0; i < totalBulbs; i++) {
+          const t = i / (totalBulbs - 1); // 0 na base, 1 no topo
+          const y = lerp(-0.79, 1.12, t);
+          const theta = t * turns * Math.PI * 2;
+
+          // Calcula o raio externo correspondente à altura y nos 3 degraus
+          let rAtY = 0.05;
+          if (y < -0.14) {
+            const v = clamp((y - (-0.82)) / (-0.10 - (-0.82)), 0, 1);
+            rAtY = lerp(0.44, 1.04, Math.pow(1 - v, 1.24));
+          } else if (y < 0.42) {
+            const v = clamp((y - (-0.20)) / (0.46 - (-0.20)), 0, 1);
+            rAtY = lerp(0.27, 0.78, Math.pow(1 - v, 1.24));
+          } else {
+            const v = clamp((y - 0.36) / (1.18 - 0.36), 0, 1);
+            rAtY = lerp(0.02, 0.52, Math.pow(1 - v, 1.24));
+          }
+
+          // Fica ligeiramente para fora da folhagem para brilhar com nitidez
+          const r = rAtY + 0.045;
+          garlandBulbs.push({
+            index: i,
+            x: Math.cos(theta) * r,
+            y,
+            z: Math.sin(theta) * r,
+            phase: i * 0.35
+          });
+        }
+
+        // 6. Ornamentos vermelhos e dourados aparecendo um a um
+        ornaments = [];
+        const ornamentSpecs = [
+          // Degrau inferior
+          { y: -0.66, theta: 0.3, color: 'red' },
+          { y: -0.52, theta: 1.5, color: 'gold' },
+          { y: -0.68, theta: 2.7, color: 'gold' },
+          { y: -0.45, theta: 3.9, color: 'red' },
+          { y: -0.62, theta: 5.1, color: 'red' },
+          { y: -0.32, theta: 0.9, color: 'gold' },
+          { y: -0.28, theta: 2.3, color: 'red' },
+          { y: -0.34, theta: 4.5, color: 'gold' },
+          // Degrau do meio
+          { y: -0.05, theta: 0.6, color: 'red' },
+          { y: 0.04,  theta: 2.0, color: 'gold' },
+          { y: -0.02, theta: 3.4, color: 'red' },
+          { y: 0.12,  theta: 4.8, color: 'gold' },
+          { y: 0.25,  theta: 1.3, color: 'red' },
+          { y: 0.28,  theta: 3.8, color: 'gold' },
+          // Degrau superior
+          { y: 0.50,  theta: 0.4, color: 'gold' },
+          { y: 0.56,  theta: 2.4, color: 'red' },
+          { y: 0.64,  theta: 4.4, color: 'gold' },
+          { y: 0.78,  theta: 1.6, color: 'red' }
+        ];
+
+        ornamentSpecs.forEach((spec, idx) => {
+          let rAtY = 0.2;
+          if (spec.y < -0.14) {
+            const v = clamp((spec.y - (-0.82)) / (-0.10 - (-0.82)), 0, 1);
+            rAtY = lerp(0.44, 1.04, Math.pow(1 - v, 1.24));
+          } else if (spec.y < 0.42) {
+            const v = clamp((spec.y - (-0.20)) / (0.46 - (-0.20)), 0, 1);
+            rAtY = lerp(0.27, 0.78, Math.pow(1 - v, 1.24));
+          } else {
+            const v = clamp((spec.y - 0.36) / (1.18 - 0.36), 0, 1);
+            rAtY = lerp(0.02, 0.52, Math.pow(1 - v, 1.24));
+          }
+          const r = rAtY + 0.055;
+          ornaments.push({
+            index: idx,
+            x: Math.cos(spec.theta) * r,
+            y: spec.y,
+            z: Math.sin(spec.theta) * r,
+            color: spec.color
+          });
+        });
+
+        // 7. Estrela 3D no topo afiado (y = 1.28)
+        starPoints = [];
+        const starCenterY = 1.29;
+        const spikes = 5;
+        const outerR = 0.19;
+        const innerR = 0.078;
+        // Constrói estrela volumétrica com frente/verso e raios preenchidos em ASCII
+        for (let zOff of [-0.025, 0, 0.025]) {
+          const scaleZ = zOff === 0 ? 1 : 0.65;
+          starPoints.push({ x: 0, y: starCenterY, z: zOff, ch: '@', core: true });
+          for (let i = 0; i < spikes * 2; i++) {
+            const angle = (i * Math.PI) / spikes + Math.PI / 2;
+            const rad = (i % 2 === 0 ? outerR : innerR) * scaleZ;
+            const steps = 5;
+            for (let st = 1; st <= steps; st++) {
+              const frac = st / steps;
+              starPoints.push({
+                x: Math.cos(angle) * rad * frac,
+                y: starCenterY + Math.sin(angle) * rad * frac,
+                z: zOff * (1 - frac * 0.5),
+                ch: st === steps ? '*' : (zOff === 0 ? '#' : '+'),
+                core: frac < 0.5
+              });
+            }
+          }
+        }
+
+        // 8. 4 Caixas de presentes (vermelha, azul, branca e dourada/carmesim) com fita e arco
+        giftBoxes = [];
+        const boxConfigs = [
+          {
+            // Caixa 1: Vermelha com fita dourada
+            angle: 0.55,
+            dist: 0.62,
+            w: 0.27,
+            h: 0.22,
+            d: 0.27,
+            rotY: 0.3,
+            boxPalette: ['#ef4444', '#dc2626', '#991b1b'],
+            ribbonColor: '#fde047',
+            bowColor: '#fef08a'
+          },
+          {
+            // Caixa 2: Azul royal com fita branca/prata
+            angle: 2.15,
+            dist: 0.66,
+            w: 0.25,
+            h: 0.26,
+            d: 0.25,
+            rotY: -0.4,
+            boxPalette: ['#3b82f6', '#2563eb', '#1e40af'],
+            ribbonColor: '#f8fafc',
+            bowColor: '#ffffff'
+          },
+          {
+            // Caixa 3: Branca neve com fita vermelha
+            angle: 3.75,
+            dist: 0.60,
+            w: 0.28,
+            h: 0.20,
+            d: 0.24,
+            rotY: 0.5,
+            boxPalette: ['#f8fafc', '#e2e8f0', '#94a3b8'],
+            ribbonColor: '#f43f5e',
+            bowColor: '#fda4af'
+          },
+          {
+            // Caixa 4: Vermelho rubi / azul-turquesa com laço dourado
+            angle: 5.25,
+            dist: 0.65,
+            w: 0.24,
+            h: 0.24,
+            d: 0.24,
+            rotY: -0.25,
+            boxPalette: ['#e11d48', '#be123c', '#881337'],
+            ribbonColor: '#facc15',
+            bowColor: '#fef9c3'
+          }
+        ];
+
+        boxConfigs.forEach((cfg, idx) => {
+          const voxels = [];
+          const nxSteps = 7;
+          const nySteps = 6;
+          const nzSteps = 7;
+          const midX = Math.floor(nxSteps / 2);
+          const midZ = Math.floor(nzSteps / 2);
+
+          for (let ix = 0; ix < nxSteps; ix++) {
+            for (let iy = 0; iy < nySteps; iy++) {
+              for (let iz = 0; iz < nzSteps; iz++) {
+                // Renderiza apenas a casca externa da caixa para performance e nitidez
+                const isShell =
+                  ix === 0 || ix === nxSteps - 1 ||
+                  iy === 0 || iy === nySteps - 1 ||
+                  iz === 0 || iz === nzSteps - 1;
+                if (!isShell) continue;
+
+                const lx = ((ix / (nxSteps - 1)) - 0.5) * cfg.w;
+                const ly = (iy / (nySteps - 1)) * cfg.h;
+                const lz = ((iz / (nzSteps - 1)) - 0.5) * cfg.d;
+
+                // Fita cruzando o centro em X e Z, e faixa no topo
+                const isRibbon = (ix === midX || iz === midZ);
+
+                // Normal aproximada da face
+                let fnx = 0, fny = 0, fnz = 0;
+                if (ix === 0) fnx = -1;
+                else if (ix === nxSteps - 1) fnx = 1;
+                if (iy === nySteps - 1) fny = 1;
+                if (iz === 0) fnz = -1;
+                else if (iz === nzSteps - 1) fnz = 1;
+
+                voxels.push({
+                  lx,
+                  ly,
+                  lz,
+                  fnx,
+                  fny,
+                  fnz,
+                  isRibbon,
+                  isBow: false,
+                  ch: isRibbon ? '#' : '@'
+                });
+              }
+            }
+          }
+
+          // Arco/laço decorativo no topo da caixa
+          const bowY = cfg.h + 0.035;
+          const bowOffsets = [
+            { dx: 0, dy: 0, dz: 0, ch: '*' },
+            { dx: -0.045, dy: 0.025, dz: 0, ch: '(' },
+            { dx: 0.045, dy: 0.025, dz: 0, ch: ')' },
+            { dx: 0, dy: 0.025, dz: -0.045, ch: '~' },
+            { dx: 0, dy: 0.025, dz: 0.045, ch: '~' },
+            { dx: -0.035, dy: -0.01, dz: 0.035, ch: '/' },
+            { dx: 0.035, dy: -0.01, dz: -0.035, ch: '\\' }
+          ];
+          bowOffsets.forEach(b => {
+            voxels.push({
+              lx: b.dx,
+              ly: bowY + b.dy,
+              lz: b.dz,
+              fnx: 0,
+              fny: 1,
+              fnz: 0,
+              isRibbon: true,
+              isBow: true,
+              ch: b.ch
+            });
+          });
+
+          giftBoxes.push({
+            index: idx,
+            orbitAngle: cfg.angle,
+            orbitDist: cfg.dist,
+            localRotY: cfg.rotY,
+            boxPalette: cfg.boxPalette,
+            ribbonColor: cfg.ribbonColor,
+            bowColor: cfg.bowColor,
+            voxels
+          });
+        });
+      }
+
+      /**
+       * Inicializa as 3 camadas de neve em paralaxe
+       */
+      function initSnow() {
+        const counts = [95, 55, 30]; // Distante, Média, Próxima
+        const charsByLayer = [
+          ['.', '·', '`'],
+          ['*', '+', '•'],
+          ['❄', '*', '#', '✦']
+        ];
+        const speeds = [18, 42, 88]; // px/seg
+
+        for (let l = 0; l < 3; l++) {
+          snowLayers[l] = [];
+          for (let i = 0; i < counts[l]; i++) {
+            snowLayers[l].push({
+              x: Math.random() * (width || window.innerWidth),
+              y: Math.random() * (height || window.innerHeight),
+              vy: speeds[l] * (0.8 + Math.random() * 0.45),
+              vx: (Math.random() - 0.5) * (10 + l * 14),
+              swayPhase: Math.random() * Math.PI * 2,
+              swayFreq: 0.8 + Math.random() * 1.4,
+              ch: charsByLayer[l][i % charsByLayer[l].length]
+            });
+          }
+        }
+      }
+
+      /**
+       * Ajusta dimensões responsivas da grade ASCII
+       */
+      function resize() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // Tamanho adaptativo da célula ASCII para manter alta densidade e legibilidade
+        const minDim = Math.min(width, height);
+        if (minDim < 520) {
+          cellW = 7.5;
+          cellH = 11.5;
+        } else if (minDim < 900) {
+          cellW = 8.5;
+          cellH = 13;
+        } else {
+          cellW = 9.5;
+          cellH = 14.5;
+        }
+
+        cols = Math.ceil(width / cellW);
+        rows = Math.ceil(height / cellH);
+        const totalCells = cols * rows;
+
+        zBuffer = new Float32Array(totalCells);
+        glowBuffer = new Float32Array(totalCells);
+        weightBuffer = new Uint8Array(totalCells);
+        charBuffer = new Array(totalCells);
+        colorBuffer = new Array(totalCells);
+
+        if (snowLayers[0].length === 0) {
+          initSnow();
+        }
+      }
+
+      /**
+       * Projeta ponto 3D (x, y, z) rotacionado em Y para coordenadas da grade ASCII
+       */
+      function projectPoint(x, y, z, rotY, centerX, centerY, scale) {
+        const cosR = Math.cos(rotY);
+        const sinR = Math.sin(rotY);
+        const rx = x * cosR - z * sinR;
+        const rz = x * sinR + z * cosR;
+
+        // Câmera posicionada levemente acima olhando para o centro da árvore
+        const camDist = 3.55;
+        const tiltAngle = 0.14; // leve inclinação de câmera para ver o disco azul e os presentes
+        const cosT = Math.cos(tiltAngle);
+        const sinT = Math.sin(tiltAngle);
+
+        const ty = y * cosT - rz * sinT;
+        const tz = y * sinT + rz * cosT;
+
+        const depth = camDist - tz;
+        if (depth <= 0.25) return null;
+
+        const persp = scale / depth;
+        const screenX = centerX + rx * persp;
+        const screenY = centerY - (ty - 0.04) * persp;
+
+        const col = Math.floor(screenX / cellW);
+        const row = Math.floor(screenY / cellH);
+
+        return { col, row, depth, rx, ry: ty, rz };
+      }
+
+      /**
+       * Escreve um caractere na grade ASCII com teste de profundidade (Z-Buffer)
+       */
+      function plotCell(col, row, depth, ch, color, weight = 1, glow = 0) {
+        if (col < 0 || col >= cols || row < 0 || row >= rows) return;
+        const idx = row * cols + col;
+        if (depth < zBuffer[idx]) {
+          zBuffer[idx] = depth;
+          charBuffer[idx] = ch;
+          colorBuffer[idx] = color;
+          weightBuffer[idx] = weight;
+          glowBuffer[idx] = glow;
+        }
+      }
+
+      /**
+       * Mistura duas cores RGB
+       */
+      function rgbStr(r, g, b, a = 1) {
+        if (a >= 0.999) return `rgb(${r | 0},${g | 0},${b | 0})`;
+        return `rgba(${r | 0},${g | 0},${b | 0},${a.toFixed(3)})`;
+      }
+
+      /**
+       * Loop principal de atualização e renderização (60fps)
+       */
+      function render(now) {
+        const dt = Math.min((now - lastFrameTime) / 1000, 0.05);
+        lastFrameTime = now;
+        const elapsed = (now - startTime) / 1000;
+
+        // Atualiza rotação contínua + inércia do arraste do usuário
+        if (!isDragging) {
+          rotationY += (baseAngularSpeed + userVelocityY) * dt;
+          userVelocityY *= Math.pow(0.06, dt);
+        }
+
+        // Limpa buffers da grade
+        zBuffer.fill(9999);
+        glowBuffer.fill(0);
+        weightBuffer.fill(0);
+        charBuffer.fill('');
+        colorBuffer.fill('');
+
+        // Fundo noturno silencioso com gradiente radial muito sutil
+        const bgGrad = ctx.createRadialGradient(
+          width * 0.5, height * 0.48, height * 0.05,
+          width * 0.5, height * 0.5, Math.max(width, height) * 0.75
+        );
+        bgGrad.addColorStop(0, '#091222');
+        bgGrad.addColorStop(0.55, '#050a14');
+        bgGrad.addColorStop(1, '#020409');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, width, height);
+
+        const centerX = width * 0.5;
+        const centerY = height * 0.51;
+        // Escala responsiva para caber confortavelmente em retrato ou paisagem
+        const minSpan = Math.min(width * 0.92, height * 0.84);
+        const scale = minSpan * 1.16;
+
+        // =====================================================================
+        // LINHA DO TEMPO DA COREOGRAFIA (Fases 1 a 7)
+        // =====================================================================
+        // Fase 1 (0.0s - 2.2s): Olhos/estrelas sutis e chão circular azul aparecem
+        const p1Eyes = smoothstep(0.1, 1.4, elapsed);
+        const p1Floor = smoothstep(0.5, 2.2, elapsed);
+
+        // Fase 2 (1.8s - 3.3s): Tronco castanho sobe do centro com brilho pulsante
+        const p2Trunk = smoothstep(1.8, 3.3, elapsed);
+
+        // Fase 3 (3.0s - 7.4s): Árvore 'FELIZ NATAL' sobe de baixo para cima
+        const p3Tree = clamp((elapsed - 3.0) / 4.4, 0, 1);
+
+        // Fase 4 (7.2s - 10.6s): Espiral dourada (0 -> 176 lâmpadas) e ornamentos 1 a 1
+        const p4Garland = clamp((elapsed - 7.2) / 2.2, 0, 1);
+        const p4Ornaments = clamp((elapsed - 8.6) / 2.2, 0, 1);
+
+        // Fase 5 (10.5s - 12.0s): Estrela no topo + feixe de luz
+        const p5Star = smoothstep(10.5, 11.8, elapsed);
+
+        // Fase 6 (11.6s - 13.8s): 4 caixas de presentes aparecem 1 a 1
+        const p6Gifts = clamp((elapsed - 11.6) / 2.2, 0, 1);
+
+        // Fase 7 (13.6s+): 'FELIZ NATAL 2026' digitado letra por letra em amarelo
+        const p7TextProgress = Math.max(0, elapsed - 13.6);
+
+        // =====================================================================
+        // CAMADA DE NEVE DISTANTE (Fundo)
+        // =====================================================================
+        updateAndDrawSnowLayer(0, dt, elapsed, centerX, centerY, scale * 0.34, p1Eyes);
+
+        // =====================================================================
+        // FASE 1: "Olhos" piscando suavemente na escuridão & Chão circular azul
+        // =====================================================================
+        if (p1Eyes > 0) {
+          ambientEyes.forEach(eye => {
+            const blink = 0.45 + 0.55 * Math.sin(elapsed * 1.9 + eye.phase);
+            const alpha = p1Eyes * blink * 0.72;
+            const c = Math.floor((0.5 + eye.nx) * cols);
+            const r = Math.floor((0.5 + eye.ny) * rows);
+            const colStr = rgbStr(135, 195, 255, alpha);
+            plotCell(c, r, 900, '•', colStr, 1, alpha * 0.6);
+            if (eye.isPair) {
+              plotCell(c + 2, r, 900, '•', colStr, 1, alpha * 0.6);
+            }
+          });
+        }
+
+        if (p1Floor > 0) {
+          floorPoints.forEach(pt => {
+            // Revela radialmente de dentro para fora
+            if (pt.rNorm > p1Floor * 1.08) return;
+            const localFade = clamp((p1Floor * 1.08 - pt.rNorm) * 6, 0, 1);
+            const proj = projectPoint(pt.x, pt.y, pt.z, rotationY * 0.65, centerX, centerY, scale);
+            if (!proj) return;
+
+            const wave = 0.75 + 0.25 * Math.sin(pt.rNorm * 10 - elapsed * 2.4 + pt.angle * 2);
+            const edgeFade = 1 - Math.pow(pt.rNorm, 2.2) * 0.65;
+            const intensity = localFade * wave * edgeFade;
+
+            const rCol = lerp(22, 85, intensity);
+            const gCol = lerp(65, 175, intensity);
+            const bCol = lerp(140, 255, intensity);
+
+            plotCell(
+              proj.col,
+              proj.row,
+              proj.depth,
+              pt.ch,
+              rgbStr(rCol, gCol, bCol, intensity * 0.92),
+              pt.rNorm < 0.55 ? 1 : 0,
+              intensity * 0.35
+            );
+          });
+        }
+
+        // =====================================================================
+        // FASE 2: Tronco castanho subindo com brilho/sopro sutil ao redor
+        // =====================================================================
+        if (p2Trunk > 0) {
+          const trunkEase = easeOutCubic(p2Trunk);
+          const breath = 0.5 + 0.5 * Math.sin(elapsed * 2.8);
+
+          // Sopro/aura quente sutil em volta do tronco
+          const auraCenter = projectPoint(0, -1.02, 0, rotationY, centerX, centerY, scale);
+          if (auraCenter) {
+            const auraGrad = ctx.createRadialGradient(
+              auraCenter.col * cellW, auraCenter.row * cellH, 2,
+              auraCenter.col * cellW, auraCenter.row * cellH, scale * (0.14 + breath * 0.035)
+            );
+            auraGrad.addColorStop(0, `rgba(217, 138, 60, ${(0.22 + breath * 0.12) * trunkEase})`);
+            auraGrad.addColorStop(1, 'rgba(217, 138, 60, 0)');
+            ctx.fillStyle = auraGrad;
+            ctx.fillRect(0, 0, width, height);
+          }
+
+          const yOffset = (1 - trunkEase) * -0.45;
+          trunkPoints.forEach(pt => {
+            if (pt.t > trunkEase * 1.05) return;
+            const proj = projectPoint(pt.x, pt.y + yOffset, pt.z, rotationY, centerX, centerY, scale);
+            if (!proj) return;
+
+            // Rotaciona normal para iluminação direcional
+            const cosR = Math.cos(rotationY);
+            const sinR = Math.sin(rotationY);
+            const rnx = pt.nx * cosR - pt.nz * sinR;
+            const rnz = pt.nx * sinR + pt.nz * cosR;
+            const ndotl = clamp(dot3({ x: rnx, y: pt.ny, z: rnz }, lightDir), -1, 1);
+            const shade = clamp(0.45 + ndotl * 0.55, 0.18, 1);
+
+            const rCol = lerp(58, 158, shade) + breath * 14;
+            const gCol = lerp(32, 96, shade) + breath * 9;
+            const bCol = lerp(18, 52, shade) + breath * 4;
+
+            plotCell(proj.col, proj.row, proj.depth, pt.ch, rgbStr(rCol, gCol, bCol), 2, breath * 0.25);
+          });
+        }
+
+        // =====================================================================
+        // FASE 3: Árvore 'FELIZ NATAL' de 3 degraus subindo de baixo para cima
+        // =====================================================================
+        if (p3Tree > 0) {
+          const cosR = Math.cos(rotationY);
+          const sinR = Math.sin(rotationY);
+
+          treePoints.forEach(pt => {
+            // Cada letra surge progressivamente da base (heightProgress = 0) ao topo (1)
+            const trigger = pt.heightProgress * 0.88 + (pt.seed / 100) * 0.08;
+            if (p3Tree < trigger) return;
+
+            const age = (p3Tree - trigger) / 0.14; // 0 -> 1+ conforme a letra assenta
+            const settle = clamp(age, 0, 1);
+            const riseOffset = (1 - easeOutCubic(settle)) * -0.14;
+
+            // Flash branco intenso ao nascer e depois transição suave para verde/neve
+            const whiteFlash = Math.pow(1 - settle, 2.2);
+
+            const proj = projectPoint(pt.x, pt.y + riseOffset, pt.z, rotationY, centerX, centerY, scale);
+            if (!proj) return;
+
+            // Iluminação direcional do topo-esquerda
+            const rnx = pt.nx * cosR - pt.nz * sinR;
+            const rnz = pt.nx * sinR + pt.nz * cosR;
+            const ndotl = dot3({ x: rnx, y: pt.ny, z: rnz }, lightDir);
+            const lightFactor = clamp(0.48 + ndotl * 0.56, 0.14, 1.0);
+
+            let rCol, gCol, bCol;
+            if (pt.isSnow) {
+              // Borda de neve branca no topo de cada degrau (com sombreado azulado suave na sombra)
+              rCol = lerp(175, 255, lightFactor);
+              gCol = lerp(198, 255, lightFactor);
+              bCol = lerp(228, 255, lightFactor);
+            } else {
+              // Folhagem verde rica: verde-esmeralda/lima brilhante na luz até verde-floresta profundo na sombra
+              rCol = lerp(10, 74, Math.pow(lightFactor, 1.35));
+              gCol = lerp(52, 224, Math.pow(lightFactor, 0.92));
+              bCol = lerp(28, 96, Math.pow(lightFactor, 1.25));
+            }
+
+            // Aplica o flash branco inicial da coreografia
+            if (whiteFlash > 0.01) {
+              rCol = lerp(rCol, 255, whiteFlash);
+              gCol = lerp(gCol, 255, whiteFlash);
+              bCol = lerp(bCol, 255, whiteFlash);
+            }
+
+            plotCell(
+              proj.col,
+              proj.row,
+              proj.depth - 0.005, // leve prioridade sobre preenchimento interno
+              pt.letter,
+              rgbStr(rCol, gCol, bCol),
+              2,
+              whiteFlash * 0.9 + (pt.isSnow ? 0.2 : 0)
+            );
+          });
+        }
+
+        // =====================================================================
+        // FASE 4: Espiral de lâmpadas douradas (0 a 176) e ornamentos 1 a 1
+        // =====================================================================
+        if (p4Garland > 0) {
+          const activeCount = Math.floor(p4Garland * garlandBulbs.length);
+          for (let i = 0; i < activeCount; i++) {
+            const bulb = garlandBulbs[i];
+            const proj = projectPoint(bulb.x, bulb.y, bulb.z, rotationY, centerX, centerY, scale);
+            if (!proj) continue;
+
+            const twinkle = 0.72 + 0.28 * Math.sin(elapsed * 5.2 + bulb.phase);
+            // Ligeiramente mais para frente no Z-buffer para não ser engolida pelas letras
+            const isFront = proj.rz >= -0.15;
+            const alpha = isFront ? 1 : 0.45;
+
+            const rCol = 255;
+            const gCol = lerp(185, 238, twinkle);
+            const bCol = lerp(45, 145, twinkle);
+            const ch = twinkle > 0.88 ? '✦' : '•';
+
+            plotCell(
+              proj.col,
+              proj.row,
+              proj.depth - 0.03,
+              ch,
+              rgbStr(rCol, gCol, bCol, alpha),
+              2,
+              twinkle * 0.95
+            );
+          }
+        }
+
+        if (p4Ornaments > 0) {
+          const visibleOrnaments = Math.floor(p4Ornaments * (ornaments.length + 0.99));
+          for (let i = 0; i < Math.min(visibleOrnaments, ornaments.length); i++) {
+            const orn = ornaments[i];
+            const popAge = clamp((p4Ornaments * ornaments.length) - i, 0, 1);
+            const popScale = easeOutBack(popAge);
+            if (popScale <= 0.05) continue;
+
+            const proj = projectPoint(orn.x, orn.y, orn.z, rotationY, centerX, centerY, scale);
+            if (!proj) continue;
+
+            const shine = 0.8 + 0.2 * Math.sin(elapsed * 3.5 + i);
+            const color = orn.color === 'red'
+              ? rgbStr(255, 58 * shine, 78 * shine)
+              : rgbStr(255, 215 * shine, 64 * shine);
+
+            // Desenha bola ornamental em cluster ASCII (centro + reflexo)
+            plotCell(proj.col, proj.row, proj.depth - 0.04, '@', color, 2, 0.85);
+            if (popScale > 0.65) {
+              plotCell(proj.col + 1, proj.row, proj.depth - 0.038, ')', color, 1, 0.5);
+              plotCell(proj.col - 1, proj.row, proj.depth - 0.038, '(', color, 1, 0.5);
+            }
+          }
+        }
+
+        // =====================================================================
+        // FASE 5: Estrela dourada no topo + feixe de luz volumétrico
+        // =====================================================================
+        if (p5Star > 0) {
+          const starProj = projectPoint(0, 1.29, 0, rotationY, centerX, centerY, scale);
+          if (starProj) {
+            const sx = starProj.col * cellW + cellW * 0.5;
+            const sy = starProj.row * cellH + cellH * 0.5;
+            const pulse = 0.88 + 0.12 * Math.sin(elapsed * 4.2);
+
+            // Feixe de luz radial + raios diagonais suaves atrás da estrela
+            ctx.save();
+            const beamRadius = scale * (0.48 + 0.06 * Math.sin(elapsed * 2.5)) * p5Star;
+            const starGlow = ctx.createRadialGradient(sx, sy, 2, sx, sy, beamRadius);
+            starGlow.addColorStop(0, `rgba(255, 248, 190, ${0.55 * p5Star})`);
+            starGlow.addColorStop(0.28, `rgba(255, 210, 85, ${0.24 * p5Star})`);
+            starGlow.addColorStop(0.65, `rgba(255, 185, 55, ${0.07 * p5Star})`);
+            starGlow.addColorStop(1, 'rgba(255, 185, 55, 0)');
+            ctx.fillStyle = starGlow;
+            ctx.beginPath();
+            ctx.arc(sx, sy, beamRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Feixes de luz cruzados (raios estelares)
+            ctx.translate(sx, sy);
+            ctx.rotate(Math.sin(elapsed * 0.8) * 0.08);
+            const rayLen = beamRadius * 1.25;
+            const rayGrad = ctx.createLinearGradient(-rayLen, 0, rayLen, 0);
+            rayGrad.addColorStop(0, 'rgba(255, 235, 140, 0)');
+            rayGrad.addColorStop(0.5, `rgba(255, 242, 175, ${0.28 * p5Star * pulse})`);
+            rayGrad.addColorStop(1, 'rgba(255, 235, 140, 0)');
+            ctx.fillStyle = rayGrad;
+            ctx.fillRect(-rayLen, -2.5, rayLen * 2, 5);
+            ctx.rotate(Math.PI / 2);
+            ctx.fillRect(-rayLen * 0.85, -2.5, rayLen * 1.7, 5);
+            ctx.restore();
+          }
+
+          // Renderiza os pontos 3D da estrela girando ligeiramente mais rápido
+          const starRot = rotationY * 1.35;
+          starPoints.forEach(sp => {
+            const proj = projectPoint(sp.x, sp.y, sp.z, starRot, centerX, centerY, scale);
+            if (!proj) return;
+            const color = sp.core ? '#fffbeb' : '#fde047';
+            plotCell(proj.col, proj.row, proj.depth - 0.06, sp.ch, color, 2, 1.0);
+          });
+        }
+
+        // =====================================================================
+        // FASE 6: 4 Caixas de presentes aparecendo 1 a 1 e girando com a árvore
+        // =====================================================================
+        if (p6Gifts > 0) {
+          const totalBoxes = giftBoxes.length;
+          giftBoxes.forEach((box, idx) => {
+            const boxStart = idx / totalBoxes;
+            if (p6Gifts <= boxStart) return;
+
+            const boxProgress = clamp((p6Gifts - boxStart) * totalBoxes, 0, 1);
+            const bounce = easeOutBack(boxProgress);
+            const dropY = (1 - clamp(boxProgress * 1.4, 0, 1)) * 0.25;
+
+            // Posição orbital da caixa no chão azul, sincronizada com a rotação da árvore
+            const bx = Math.cos(box.orbitAngle) * box.orbitDist;
+            const bz = Math.sin(box.orbitAngle) * box.orbitDist;
+            const by = -1.24 + dropY;
+
+            const cosLocal = Math.cos(box.localRotY);
+            const sinLocal = Math.sin(box.localRotY);
+            const totalRot = rotationY + box.localRotY;
+            const cosTotal = Math.cos(totalRot);
+            const sinTotal = Math.sin(totalRot);
+
+            box.voxels.forEach(v => {
+              const sx = v.lx * bounce;
+              const sy = v.ly * bounce;
+              const sz = v.lz * bounce;
+
+              // Rotaciona voxel localmente em torno do eixo Y da caixa
+              const wx = bx + (sx * cosLocal - sz * sinLocal);
+              const wy = by + sy;
+              const wz = bz + (sx * sinLocal + sz * cosLocal);
+
+              const proj = projectPoint(wx, wy, wz, rotationY, centerX, centerY, scale);
+              if (!proj) return;
+
+              let color;
+              if (v.isBow) {
+                color = box.bowColor;
+              } else if (v.isRibbon) {
+                color = box.ribbonColor;
+              } else {
+                const rnx = v.fnx * cosTotal - v.fnz * sinTotal;
+                const rnz = v.fnx * sinTotal + v.fnz * cosTotal;
+                const ndotl = dot3({ x: rnx, y: v.fny, z: rnz }, lightDir);
+                if (ndotl > 0.25) color = box.boxPalette[0];
+                else if (ndotl > -0.25) color = box.boxPalette[1];
+                else color = box.boxPalette[2];
+              }
+
+              plotCell(proj.col, proj.row, proj.depth - 0.01, v.ch, color, 2, v.isBow ? 0.7 : 0.15);
+            });
+          });
+        }
+
+        // =====================================================================
+        // DESENHA TODA A GRADE ASCII PROJETADA NO CANVAS
+        // =====================================================================
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const fontSizeNormal = Math.round(cellH * 0.88);
+        const fontSizeBold = Math.round(cellH * 0.96);
+        const fontNormal = `500 ${fontSizeNormal}px "JetBrains Mono", monospace`;
+        const fontBold = `800 ${fontSizeBold}px "JetBrains Mono", monospace`;
+
+        let currentFont = '';
+        for (let r = 0; r < rows; r++) {
+          const py = r * cellH + cellH * 0.5;
+          const rowOffset = r * cols;
+          for (let c = 0; c < cols; c++) {
+            const idx = rowOffset + c;
+            const ch = charBuffer[idx];
+            if (!ch) continue;
+
+            const desiredFont = weightBuffer[idx] >= 1 ? fontBold : fontNormal;
+            if (currentFont !== desiredFont) {
+              ctx.font = desiredFont;
+              currentFont = desiredFont;
+            }
+
+            const px = c * cellW + cellW * 0.5;
+            const glow = glowBuffer[idx];
+            if (glow > 0.35) {
+              ctx.shadowColor = colorBuffer[idx];
+              ctx.shadowBlur = glow * 9;
+            } else if (ctx.shadowBlur !== 0) {
+              ctx.shadowBlur = 0;
+            }
+
+            ctx.fillStyle = colorBuffer[idx];
+            ctx.fillText(ch, px, py);
+          }
+        }
+        ctx.shadowBlur = 0;
+
+        // =====================================================================
+        // CAMADAS DE NEVE MÉDIA E PRÓXIMA (Brilham rapidamente ao passar junto à árvore)
+        // =====================================================================
+        updateAndDrawSnowLayer(1, dt, elapsed, centerX, centerY, scale * 0.34, 1);
+        updateAndDrawSnowLayer(2, dt, elapsed, centerX, centerY, scale * 0.34, 1);
+
+        // =====================================================================
+        // FASE 7: 'FELIZ NATAL 2026' digitado um a um em amarelo dourado
+        // =====================================================================
+        if (p7TextProgress > 0) {
+          drawTypedBanner(p7TextProgress, elapsed, centerX, height);
+        }
+
+        requestAnimationFrame(render);
+      }
+
+      /**
+       * Atualiza e desenha cada uma das 3 camadas de neve em paralaxe
+       */
+      function updateAndDrawSnowLayer(layerIdx, dt, elapsed, treeCx, treeCy, treeRadiusPx, opacityMult) {
+        const particles = snowLayers[layerIdx];
+        const baseSize = layerIdx === 0 ? 10 : (layerIdx === 1 ? 14 : 20);
+        ctx.font = `${layerIdx === 2 ? '700' : '500'} ${baseSize}px "JetBrains Mono", monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          p.y += p.vy * dt;
+          p.x += (p.vx + Math.sin(elapsed * p.swayFreq + p.swayPhase) * (8 + layerIdx * 10)) * dt;
+
+          if (p.y > height + 20) {
+            p.y = -15;
+            p.x = Math.random() * width;
+          }
+          if (p.x < -20) p.x = width + 20;
+          if (p.x > width + 20) p.x = -20;
+
+          // Distância até o centro iluminado da árvore para o brilho rápido na camada próxima
+          const dx = p.x - treeCx;
+          const dy = p.y - treeCy;
+          const dist = Math.hypot(dx, dy);
+          const nearTree = clamp(1 - dist / (treeRadiusPx * 1.25), 0, 1);
+
+          let alpha;
+          if (layerIdx === 0) {
+            alpha = (0.22 + nearTree * 0.15) * opacityMult;
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = `rgba(165, 205, 255, ${alpha.toFixed(3)})`;
+          } else if (layerIdx === 1) {
+            alpha = 0.45 + nearTree * 0.35;
+            ctx.shadowBlur = nearTree > 0.3 ? 6 : 0;
+            ctx.shadowColor = '#bae6fd';
+            ctx.fillStyle = `rgba(215, 238, 255, ${alpha.toFixed(3)})`;
+          } else {
+            // Camada próxima: grande, rápida e brilha intensamente ao passar perto da árvore
+            const glint = nearTree > 0.15 ? (0.5 + 0.5 * Math.sin(elapsed * 18 + i * 3.1)) * nearTree : 0;
+            alpha = 0.62 + glint * 0.38;
+            ctx.shadowBlur = 6 + glint * 14;
+            ctx.shadowColor = glint > 0.35 ? '#fef08a' : '#e0f2fe';
+            ctx.fillStyle = glint > 0.45
+              ? `rgba(255, 252, 220, ${alpha.toFixed(3)})`
+              : `rgba(235, 246, 255, ${alpha.toFixed(3)})`;
+          }
+
+          ctx.fillText(p.ch, p.x, p.y);
+        }
+        ctx.shadowBlur = 0;
+      }
+
+      /**
+       * Renderiza o título 'FELIZ NATAL 2026' digitado caractere por caractere
+       */
+      function drawTypedBanner(timeSinceStart, elapsed, centerX, screenH) {
+        const charsPerSec = 9.5;
+        const count = Math.min(FINAL_MESSAGE.length, Math.floor(timeSinceStart * charsPerSec) + 1);
+        const visibleStr = FINAL_MESSAGE.slice(0, count);
+        const isTyping = count < FINAL_MESSAGE.length;
+        const cursorBlink = Math.floor(elapsed * 3) % 2 === 0;
+
+        // Posiciona na parte superior com margem elegante sem cobrir a estrela
+        const bannerY = Math.max(44, screenH * 0.085);
+        const fontSize = clamp(Math.floor(width / 22), 18, 34);
+
+        ctx.save();
+        ctx.font = `800 ${fontSize}px "JetBrains Mono", monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const glowPulse = 0.85 + 0.15 * Math.sin(elapsed * 3.2);
+        ctx.shadowColor = 'rgba(250, 204, 21, 0.85)';
+        ctx.shadowBlur = 16 * glowPulse;
+        ctx.fillStyle = '#fde047';
+
+        const displayStr = isTyping && cursorBlink ? `${visibleStr}_` : visibleStr;
+        // Espaçamento visual ampliado para estética tipográfica ASCII
+        const spacedText = displayStr.split('').join(' ');
+        ctx.fillText(spacedText, centerX, bannerY);
+
+        // Linha decorativa ASCII sutil sob o texto após concluir a digitação
+        if (!isTyping) {
+          const lineAlpha = clamp((timeSinceStart - FINAL_MESSAGE.length / charsPerSec) * 1.5, 0, 0.55);
+          ctx.shadowBlur = 0;
+          ctx.font = `500 ${Math.max(10, Math.floor(fontSize * 0.42))}px "JetBrains Mono", monospace`;
+          ctx.fillStyle = `rgba(253, 224, 71, ${lineAlpha.toFixed(3)})`;
+          ctx.fillText('· · ✦ · ·', centerX, bannerY + fontSize * 0.95);
+        }
+        ctx.restore();
+      }
+
+      // =======================================================================
+      // EVENTOS DE INTERAÇÃO (Arraste para girar & Botão Repetir Animação)
+      // =======================================================================
+      function onPointerDown(e) {
+        isDragging = true;
+        lastPointerX = e.clientX;
+        userVelocityY = 0;
+        if (hintBadge) hintBadge.style.opacity = '0';
+      }
+
+      function onPointerMove(e) {
+        if (!isDragging) return;
+        const dx = e.clientX - lastPointerX;
+        lastPointerX = e.clientX;
+        const deltaRot = (dx / Math.max(width, 320)) * Math.PI * 2.2;
+        rotationY += deltaRot;
+        userVelocityY = deltaRot * 24;
+      }
+
+      function onPointerUp() {
+        isDragging = false;
+      }
+
+      canvas.addEventListener('pointerdown', onPointerDown);
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerUp);
+
+      replayBtn.addEventListener('click', () => {
+        startTime = performance.now();
+        rotationY = 0;
+        userVelocityY = 0;
+      });
+
+      window.addEventListener('resize', resize);
+
+      // Inicialização
+      buildSceneGeometry();
+      resize();
+      requestAnimationFrame(render);
+    })();
+  </script>
+  <script src="./ecosystem-nav.js" defer data-page="natal.html" data-theme="dark" data-idle-dim="true"></script>
+</body>
+</html>

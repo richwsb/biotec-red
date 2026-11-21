@@ -4,7 +4,14 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1220" />
     <title>BioForense 3D — Laboratório Interativo de Análise de DNA</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230b1220'/><path d='M12 6h8M14 6v6l-5 10a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-10V6' stroke='%2322d3ee' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+
+    <!-- Tipografia Científica: Space Grotesk + Inter + JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
 
     <!-- Import Map oficial do Three.js v0.160.0 via unpkg -->
     <script type="importmap">
@@ -21,11 +28,12 @@
        ESTILOS GLOBAIS E DESIGN SYSTEM (GLASSMORPHISM CIENTÍFICO)
        ========================================================================= */
         :root {
+            color-scheme: dark;
             --bg-dark: #0b1220;
-            --glass-bg: rgba(13, 22, 39, 0.76);
-            --glass-bg-strong: rgba(11, 18, 33, 0.9);
-            --glass-border: rgba(94, 214, 255, 0.22);
-            --glass-border-strong: rgba(94, 214, 255, 0.48);
+            --glass-bg: rgba(10, 17, 32, 0.84);
+            --glass-bg-strong: rgba(9, 15, 29, 0.94);
+            --glass-border: rgba(148, 163, 184, 0.22);
+            --glass-border-strong: rgba(34, 211, 238, 0.56);
             --accent-cyan: #22d3ee;
             --accent-blue: #3b82f6;
             --accent-emerald: #10b981;
@@ -33,11 +41,13 @@
             --accent-rose: #f43f5e;
             --accent-violet: #a855f7;
             --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
             --shadow-lg: 0 18px 45px rgba(0, 0, 0, 0.55);
             --radius-md: 12px;
             --radius-lg: 16px;
+            --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+            --font-display: 'Space Grotesk', 'Inter', -apple-system, sans-serif;
             --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, monospace;
         }
@@ -46,6 +56,16 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
+        }
+
+        ::selection {
+            background: #22d3ee;
+            color: #06131f;
+        }
+
+        :focus-visible {
+            outline: 2px solid var(--accent-cyan);
+            outline-offset: 2px;
         }
 
         html,
@@ -100,7 +120,7 @@
             backdrop-filter: blur(14px);
             -webkit-backdrop-filter: blur(14px);
             border: 1px solid var(--glass-border);
-            box-shadow: var(--shadow-lg);
+            box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.07);
             pointer-events: auto;
         }
 
@@ -126,11 +146,13 @@
         }
 
         .brand-title {
-            font-size: 0.85rem;
+            font-family: var(--font-display);
+            font-size: 0.9rem;
             font-weight: 700;
-            letter-spacing: 0.06em;
+            letter-spacing: -0.01em;
             text-transform: uppercase;
             line-height: 1.1;
+            text-wrap: balance;
         }
 
         .brand-sub {
@@ -182,9 +204,10 @@
             justify-content: center;
             font-size: 0.7rem;
             font-family: var(--font-mono);
+            font-variant-numeric: tabular-nums;
             background: rgba(148, 163, 184, 0.14);
             color: var(--text-secondary);
-            transition: all 0.25s ease;
+            transition: all 0.25s var(--ease-out);
         }
 
         .step-pill.unlocked {
@@ -248,17 +271,19 @@
             font-size: 0.78rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: background-color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), transform 0.15s var(--ease-out);
         }
 
-        .icon-btn:hover {
-            border-color: var(--glass-border-strong);
-            background: rgba(34, 211, 238, 0.14);
-            transform: translateY(-1px);
+        @media (hover: hover) and (pointer: fine) {
+            .icon-btn:hover {
+                border-color: var(--glass-border-strong);
+                background: rgba(34, 211, 238, 0.14);
+                transform: translateY(-1px);
+            }
         }
 
         .icon-btn:active {
-            transform: translateY(0);
+            transform: scale(0.985);
         }
 
         /* =========================================================================
@@ -361,25 +386,30 @@
         }
 
         .stage-title {
-            font-size: 1.12rem;
+            font-family: var(--font-display);
+            font-size: 1.16rem;
             font-weight: 700;
+            letter-spacing: -0.02em;
             color: #ffffff;
             line-height: 1.25;
+            text-wrap: balance;
         }
 
         .stage-objective {
             font-size: 0.82rem;
             color: var(--text-secondary);
-            line-height: 1.45;
-            margin-top: 3px;
+            line-height: 1.5;
+            margin-top: 4px;
+            text-wrap: pretty;
         }
 
         /* Caixa de Instrução Ativa */
         .action-box {
-            padding: 12px 13px;
+            padding: 12px 14px;
             border-radius: var(--radius-md);
-            background: linear-gradient(135deg, rgba(34, 211, 238, 0.14), rgba(59, 130, 246, 0.12));
-            border: 1px solid rgba(34, 211, 238, 0.42);
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.14), rgba(34, 211, 238, 0.10));
+            border: 1px solid rgba(16, 185, 129, 0.44);
+            box-shadow: inset 0 1px 0 rgba(52, 211, 153, 0.12);
             position: relative;
         }
 
@@ -388,7 +418,7 @@
             font-family: var(--font-mono);
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            color: var(--accent-cyan);
+            color: #34d399;
             margin-bottom: 5px;
             display: flex;
             align-items: center;
@@ -432,9 +462,15 @@
             transition: all 0.2s ease;
         }
 
-        .btn-primary:hover:not(:disabled) {
-            filter: brightness(1.12);
-            transform: translateY(-1px);
+        @media (hover: hover) and (pointer: fine) {
+            .btn-primary:hover:not(:disabled) {
+                filter: brightness(1.12);
+                transform: translateY(-1px);
+            }
+        }
+
+        .btn-primary:active:not(:disabled) {
+            transform: scale(0.985);
         }
 
         .btn-primary:disabled {
@@ -504,6 +540,7 @@
         .telemetry-value {
             font-size: 0.98rem;
             font-family: var(--font-mono);
+            font-variant-numeric: tabular-nums;
             font-weight: 700;
             color: var(--accent-cyan);
             margin-top: 2px;
@@ -609,14 +646,15 @@
         .science-text {
             font-size: 0.79rem;
             color: var(--text-secondary);
-            line-height: 1.5;
+            line-height: 1.55;
+            text-wrap: pretty;
         }
 
-        /* Dica de controle de câmera */
+        /* Dica de controle de câmera (à esquerda do .eco-dock fixo) */
         .controls-hint {
             position: fixed;
-            bottom: 14px;
-            right: 16px;
+            bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+            right: calc(278px + env(safe-area-inset-right, 0px));
             z-index: 15;
             padding: 7px 12px;
             border-radius: 999px;
@@ -626,6 +664,12 @@
             align-items: center;
             gap: 10px;
             pointer-events: none;
+        }
+
+        .hint-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
         }
 
         /* Tooltip 3D Hover */
@@ -662,7 +706,7 @@
         /* Toast de Feedback Técnico */
         #feedback-toast {
             position: fixed;
-            bottom: 20px;
+            bottom: calc(74px + env(safe-area-inset-bottom, 0px));
             left: 50%;
             transform: translateX(-50%) translateY(24px);
             z-index: 40;
@@ -762,9 +806,12 @@
         }
 
         .report-title {
-            font-size: 1.25rem;
-            font-weight: 800;
+            font-family: var(--font-display);
+            font-size: 1.3rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
             color: #ffffff;
+            text-wrap: balance;
         }
 
         .report-stats {
@@ -790,7 +837,9 @@
 
         .stat-box .val {
             font-size: 1.05rem;
-            font-weight: 800;
+            font-family: var(--font-mono);
+            font-variant-numeric: tabular-nums;
+            font-weight: 700;
             color: var(--accent-emerald);
             margin-top: 3px;
         }
@@ -801,6 +850,7 @@
             font-size: 0.78rem;
             margin-bottom: 18px;
             font-family: var(--font-mono);
+            font-variant-numeric: tabular-nums;
         }
 
         .loci-table th,
@@ -832,12 +882,14 @@
         }
 
         /* Responsividade para Tablets e Celulares */
-        @media (max-width: 960px) {
-            .brand-badge {
+        @media (max-width: 1180px) {
+            .controls-hint {
                 display: none;
             }
+        }
 
-            .controls-hint {
+        @media (max-width: 960px) {
+            .brand-badge {
                 display: none;
             }
 
@@ -875,7 +927,8 @@
             }
 
             .step-pill {
-                padding: 5px 9px;
+                padding: 6px 10px;
+                min-height: 40px;
                 font-size: 0.72rem;
                 gap: 5px;
             }
@@ -895,16 +948,29 @@
             }
 
             .icon-btn {
-                padding: 7px 9px;
+                min-width: 44px;
+                min-height: 44px;
+                padding: 8px 10px;
                 font-size: 0.85rem;
             }
 
-            /* Bottom Sheet responsivo no celular para liberar a bancada 3D */
+            .collapse-btn {
+                min-width: 38px;
+                min-height: 38px;
+            }
+
+            .btn-primary,
+            .btn-secondary,
+            .suspect-choice-btn {
+                min-height: 44px;
+            }
+
+            /* Bottom Sheet responsivo no celular para liberar a bancada 3D e o .eco-dock */
             .side-panel-wrapper {
                 top: auto;
                 left: 10px;
                 right: 10px;
-                bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+                bottom: calc(72px + env(safe-area-inset-bottom, 0px));
                 width: auto;
                 max-width: none;
                 transform: none;
@@ -919,7 +985,7 @@
             }
 
             .side-panel {
-                max-height: 42dvh;
+                max-height: min(44dvh, calc(100dvh - 150px));
                 border-radius: 14px;
             }
 
@@ -1009,6 +1075,27 @@
                 flex-direction: column;
             }
         }
+
+        @media (pointer: coarse) {
+            .step-pill,
+            .icon-btn,
+            .btn-primary,
+            .btn-secondary,
+            .suspect-choice-btn,
+            .collapse-btn {
+                min-height: 44px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
     </style>
 </head>
 
@@ -1060,11 +1147,23 @@
         </nav>
 
         <div class="top-actions">
-            <button id="btn-recenter" class="icon-btn glass-panel" title="Recentralizar câmera na estação atual">
-                <span>🎯</span><span class="btn-label">Câmera</span>
+            <button id="btn-recenter" class="icon-btn glass-panel" title="Recentralizar câmera na estação atual" aria-label="Recentralizar câmera na estação atual">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="7" />
+                    <circle cx="12" cy="12" r="2.2" />
+                    <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+                </svg>
+                <span class="btn-label">Câmera</span>
             </button>
-            <button id="btn-mute" class="icon-btn glass-panel" title="Ativar ou silenciar áudio">
-                <span id="mute-icon">🔊</span><span class="btn-label">Áudio</span>
+            <button id="btn-mute" class="icon-btn glass-panel" title="Ativar ou silenciar áudio" aria-label="Ativar ou silenciar áudio" aria-pressed="false">
+                <span id="mute-icon" style="display:inline-flex;align-items:center;" aria-hidden="true">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                    </svg>
+                </span>
+                <span class="btn-label">Áudio</span>
             </button>
         </div>
     </header>
@@ -1105,7 +1204,13 @@
 
                 <div class="science-card">
                     <div class="science-title">
-                        <span>🧬</span> O que está acontecendo?
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                            <path d="M4 5c4 0 4 14 8 14s4-14 8-14" />
+                            <path d="M4 19c4 0 4-14 8-14s4 14 8 14" />
+                            <line x1="7" y1="9" x2="17" y2="9" />
+                            <line x1="7" y1="15" x2="17" y2="15" />
+                        </svg>
+                        <span>O que está acontecendo?</span>
                     </div>
                     <p class="science-text" id="hud-science-text">
                         Vestígios biológicos (como sangue ou saliva) contêm células nucleadas que armazenam o DNA
@@ -1119,11 +1224,29 @@
 
     <!-- Dica discreta de navegação 3D -->
     <div class="controls-hint glass-panel">
-        <span>🖱️ Arraste: Orbitar</span>
+        <span class="hint-item">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="7" y="3" width="10" height="18" rx="5" />
+                <line x1="12" y1="7" x2="12" y2="10" />
+            </svg>
+            <span>Arraste: Orbitar</span>
+        </span>
         <span>•</span>
-        <span>🔍 Scroll: Zoom</span>
+        <span class="hint-item">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m21 21-4.35-4.35" />
+            </svg>
+            <span>Scroll: Zoom</span>
+        </span>
         <span>•</span>
-        <span>👆 Clique nos itens iluminados</span>
+        <span class="hint-item">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <circle cx="12" cy="12" r="2.5" />
+            </svg>
+            <span>Clique nos itens iluminados</span>
+        </span>
     </div>
 
     <!-- Toast de Feedback Técnico -->
@@ -3931,19 +4054,19 @@
                     setGuideTarget(new THREE.Vector3(STATION_X[3] - 1.35, 0.08, 0.55), 0.85, 0.98);
                 } else if (state.st3Step === 1) {
                     hudInstruction.textContent = 'Inicie o Ciclo 1: aqueça o bloco a 95 °C (Desnaturação) para separar as duas fitas da dupla-hélice.';
-                    btnLabel = '🔥 1. Desnaturação (95 °C)';
+                    btnLabel = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2c.5 4-3 6-3 10a5 5 0 0 0 10 0c0-3-2-5-2-8-1.5 1-2.5 2-3 3.5C13.5 5 13 3.5 12 2z"/></svg><span>1. Desnaturação (95 °C)</span>';
                     setGuideTarget(new THREE.Vector3(STATION_X[3] - 0.25, 0.08, 0.05), 2.1, 1.25);
                 } else if (state.st3Step === 2) {
                     hudInstruction.textContent = 'Resfrie para 58 °C (Anelamento) para que os primers fluorescentes se acoplem às fitas simples.';
-                    btnLabel = '❄️ 2. Anelamento (58 °C)';
+                    btnLabel = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20M2 12h20M4.9 4.9l14.2 14.2M19.1 4.9 4.9 19.1"/></svg><span>2. Anelamento (58 °C)</span>';
                     setGuideTarget(new THREE.Vector3(STATION_X[3] - 0.25, 0.08, 0.05), 2.1, 1.25);
                 } else if (state.st3Step === 3) {
                     hudInstruction.textContent = 'Ajuste para 72 °C (Extensão) para que a Taq polimerase sintetize as fitas complementares.';
-                    btnLabel = '🧬 3. Extensão (72 °C)';
+                    btnLabel = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 5c4 0 4 14 8 14s4-14 8-14"/><path d="M4 19c4 0 4-14 8-14s4 14 8 14"/></svg><span>3. Extensão (72 °C)</span>';
                     setGuideTarget(new THREE.Vector3(STATION_X[3] - 0.25, 0.08, 0.05), 2.1, 1.25);
                 } else if (state.st3Step === 4) {
                     hudInstruction.textContent = 'Agora acelere a amplificação exponencial até completar os 30 ciclos térmicos (2³⁰ cópias).';
-                    btnLabel = '⚡ Acelerar até 30 Ciclos (2³⁰)';
+                    btnLabel = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span>Acelerar até 30 Ciclos (2³⁰)</span>';
                     setGuideTarget(new THREE.Vector3(STATION_X[3] - 0.25, 0.08, 0.05), 2.1, 1.25);
                 } else {
                     hudInstruction.textContent = 'Amplificação concluída! Mais de 1 bilhão de cópias dos marcadores STR prontas para separação em gel.';
@@ -3986,7 +4109,7 @@
                 } else if (!state.st4MigrationDone) {
                     hudInstruction.textContent = 'Clique na fonte de energia digital (à direita da cuba) para aplicar 120 V e iniciar a migração.';
                     setGuideTarget(new THREE.Vector3(STATION_X[4] + 1.38, 0.08, -0.15), 1.45, 0.92);
-                    hudControls.innerHTML = `<button class="btn-primary" id="btn-run-electro" ${state.busy ? 'disabled' : ''}>⚡ Ligar Fonte (120 V)</button>`;
+                    hudControls.innerHTML = `<button class="btn-primary" id="btn-run-electro" ${state.busy ? 'disabled' : ''}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span>Ligar Fonte (120 V)</span></button>`;
                     document.getElementById('btn-run-electro').addEventListener('click', actionRunElectrophoresis);
                 } else {
                     hudInstruction.textContent = state.st4UVActive
@@ -3996,7 +4119,8 @@
 
                     hudControls.innerHTML = `
             <button class="btn-primary btn-uv ${state.st4UVActive ? 'uv-active' : ''}" id="btn-toggle-uv">
-              ${state.st4UVActive ? '💡 Desligar Luz UV' : '🟣 Ativar Luz UV (Transiluminador)'}
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2h6c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/></svg>
+              <span>${state.st4UVActive ? 'Desligar Luz UV' : 'Ativar Luz UV (Transiluminador)'}</span>
             </button>
             ${state.st4UVActive ? `<button class="btn-primary btn-emerald" id="btn-go-st5">Prosseguir para Comparação STR →</button>` : ''}
           `;
@@ -4035,7 +4159,7 @@
             <button class="suspect-choice-btn" data-suspect="C">Suspeito C</button>
           </div>
           ${state.st5Solved
-                        ? `<button class="btn-primary btn-emerald" id="btn-open-report">📄 Ver Laudo Pericial Final</button>`
+                        ? `<button class="btn-primary btn-emerald" id="btn-open-report"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg><span>Ver Laudo Pericial Final</span></button>`
                         : ''
                     }
         `;
@@ -4175,10 +4299,15 @@
             focusStation(state.stage);
         });
 
-        document.getElementById('btn-mute').addEventListener('click', () => {
+        const PCR_AUDIO_ON_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" /></svg>`;
+        const PCR_AUDIO_OFF_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" /></svg>`;
+
+        const btnMute = document.getElementById('btn-mute');
+        btnMute.addEventListener('click', () => {
             const nextMuted = !audio.muted;
             audio.setMuted(nextMuted);
-            document.getElementById('mute-icon').textContent = nextMuted ? '🔇' : '🔊';
+            document.getElementById('mute-icon').innerHTML = nextMuted ? PCR_AUDIO_OFF_SVG : PCR_AUDIO_ON_SVG;
+            btnMute.setAttribute('aria-pressed', String(nextMuted));
             if (!nextMuted) audio.playClick(880, 0.04, 0.08);
         });
 

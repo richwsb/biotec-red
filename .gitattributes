@@ -1,0 +1,43 @@
+# ==============================================================================
+# .gitattributes — Normalização de fim de linha e detecção de binários
+# ==============================================================================
+
+# Auto-detecção com LF como padrão no repositório
+* text=auto eol=lf
+
+# Arquivos web, código e documentação sempre em LF
+*.html text eol=lf
+*.css  text eol=lf
+*.js   text eol=lf
+*.jsx  text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.svg  text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+.gitignore     text eol=lf
+.gitattributes text eol=lf
+.editorconfig  text eol=lf
+.nojekyll      text eol=lf
+
+# Scripts Windows em CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Arquivos binários (sem conversão de fim de linha)
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.mp3   binary
+*.wav   binary
+*.ogg   binary
+*.pdf   binary

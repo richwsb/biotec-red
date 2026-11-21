@@ -3,8 +3,10 @@
 
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#e5efe6" />
     <title>Folder 3D Interativo — Empresa Borcelle • Sustentabilidade</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23245526'/><path d='M22 7C12 9 9.5 17 7 24.5l2.2.8 1.2-2.7c.6.2 1.2.3 1.7.3C19.5 23 23 7 23 7Z' fill='%2397C39A'/></svg>" />
 
     <!-- Google Fonts: Barlow Condensed (headlines) & Poppins (body & UI) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -28,15 +30,34 @@
 
     <style>
         :root {
+            color-scheme: light;
             --forest: #245526;
             --forest-dark: #1b411d;
+            --ink-deep: #143316;
+            --ink-muted: #2f5e32;
             --sage: #97C39A;
             --paper: #ECF2EC;
+            --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         * {
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
+        }
+
+        ::selection {
+            background: var(--forest);
+            color: #ffffff;
+        }
+
+        :focus-visible {
+            outline: 2px solid var(--forest);
+            outline-offset: 2px;
+        }
+
+        .font-display-cond {
+            font-family: 'Barlow Condensed', 'Poppins', system-ui, sans-serif;
+            letter-spacing: 0.02em;
         }
 
         html,
@@ -63,11 +84,71 @@
 
         /* Frosted Glass UI Surfaces */
         .glass-panel {
-            background: rgba(255, 255, 255, 0.76);
+            background: rgba(252, 254, 252, 0.88);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(36, 85, 38, 0.13);
-            box-shadow: 0 10px 30px -10px rgba(24, 58, 26, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+            border: 1px solid rgba(36, 85, 38, 0.18);
+            box-shadow:
+                0 14px 36px -12px rgba(24, 58, 26, 0.22),
+                0 4px 12px -4px rgba(24, 58, 26, 0.10),
+                inset 0 1px 0 rgba(255, 255, 255, 0.92);
+        }
+
+        .state-btn {
+            min-height: 40px;
+            border: 1px solid transparent;
+            transition: background-color 0.2s var(--ease-out), color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), transform 0.14s var(--ease-out), box-shadow 0.2s var(--ease-out);
+        }
+
+        .state-btn:active {
+            transform: scale(0.985);
+        }
+
+        /* Posicionamento responsivo do HUD inferior sem colisão com o .eco-dock fixo */
+        #folder-bottom-hud {
+            position: fixed;
+            bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(520px, calc(100vw - 560px));
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.4rem;
+            pointer-events: none;
+        }
+
+        @media (max-width: 1080px) {
+            #folder-bottom-hud {
+                left: calc(16px + env(safe-area-inset-left, 0px));
+                right: auto;
+                transform: none;
+                width: calc(100vw - 285px);
+                max-width: 520px;
+                align-items: stretch;
+            }
+        }
+
+        @media (max-width: 640px) {
+            #folder-bottom-hud {
+                bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+                left: 10px;
+                right: 10px;
+                width: auto;
+                max-width: none;
+                transform: none;
+                align-items: center;
+            }
+        }
+
+        @media (pointer: coarse) {
+            .state-btn,
+            #btn-flip-side,
+            #btn-reset-cam,
+            #btn-open-upload {
+                min-height: 44px;
+            }
         }
 
         /* Custom Range Slider */
@@ -121,7 +202,17 @@
 
         /* Toast Notification */
         #toast {
-            transition: opacity 0.3s ease, transform 0.3s ease;
+            transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-out);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
         }
     </style>
 </head>
@@ -155,8 +246,8 @@
                 </svg>
             </div>
             <div class="leading-tight min-w-0">
-                <h1 class="text-xs sm:text-sm font-bold text-[#1d441f] tracking-tight truncate">Folder 3D</h1>
-                <p class="hidden sm:block text-[11px] sm:text-xs font-medium text-[#245526]/75 truncate">Empresa Borcelle • Sustentabilidade</p>
+                <h1 class="font-display-cond text-base sm:text-lg font-extrabold text-[var(--ink-deep)] leading-none truncate [text-wrap:balance]">Folder 3D Interativo</h1>
+                <p class="hidden sm:block text-[11px] sm:text-xs font-medium text-[var(--ink-muted)] mt-0.5 truncate">Empresa Borcelle • Sustentabilidade</p>
             </div>
         </div>
 
@@ -197,12 +288,11 @@
     </div>
 
     <!-- Bottom Floating Pill Toolbar -->
-    <footer
-        class="fixed bottom-[max(0.65rem,env(safe-area-inset-bottom))] left-2.5 right-2.5 sm:bottom-5 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-20 flex flex-col items-center gap-1.5 sm:gap-2 pointer-events-none">
+    <footer id="folder-bottom-hud">
         <div
-            class="glass-panel rounded-2xl sm:rounded-3xl px-2.5 py-2 sm:px-4 sm:py-3 w-full max-w-[540px] flex flex-col gap-2 sm:gap-2.5 pointer-events-auto">
+            class="glass-panel rounded-2xl sm:rounded-3xl px-2.5 py-2 sm:px-4 sm:py-3 w-full flex flex-col gap-2 sm:gap-2.5 pointer-events-auto border border-[#97C39A]/45">
             <!-- State Buttons -->
-            <div class="grid grid-cols-4 gap-1 sm:gap-1.5 bg-[#245526]/[0.07] p-1 rounded-xl sm:rounded-2xl" role="group"
+            <div class="grid grid-cols-4 gap-1 sm:gap-1.5 bg-[#245526]/[0.08] border border-[#245526]/10 p-1 rounded-xl sm:rounded-2xl" role="group"
                 aria-label="Estados de abertura do folder">
                 <button data-state="0"
                     class="state-btn rounded-lg sm:rounded-xl py-1.5 sm:py-2 px-1 sm:px-2 text-[11px] sm:text-xs font-semibold transition-all cursor-pointer whitespace-nowrap">Fechado</button>
@@ -226,20 +316,20 @@
 
         <!-- Subtle Hint Line -->
         <p
-            class="text-[10px] sm:text-xs font-medium text-[#245526]/75 bg-white/50 backdrop-blur-sm px-3 py-0.5 sm:px-3.5 sm:py-1 rounded-full text-center">
+            class="text-[10px] sm:text-xs font-medium text-[var(--ink-muted)] bg-white/75 backdrop-blur-sm border border-[#245526]/10 px-3 py-0.5 sm:px-3.5 sm:py-1 rounded-full text-center">
             <span class="sm:hidden">Toque para abrir • Arraste • Pinça</span>
             <span class="hidden sm:inline">Clique no folder para abrir • Arraste para girar • Role para aproximar</span>
         </p>
     </footer>
 
     <!-- Optional Custom Image Upload Modal -->
-    <div id="upload-modal"
-        class="fixed inset-0 z-40 hidden items-center justify-center bg-[#18381a]/40 backdrop-blur-sm p-3 sm:p-4">
+    <div id="upload-modal" role="dialog" aria-modal="true" aria-labelledby="upload-modal-title"
+        class="fixed inset-0 z-40 hidden items-center justify-center bg-[#18381a]/45 backdrop-blur-sm p-3 sm:p-4">
         <div class="glass-panel bg-white/95 rounded-3xl w-full max-w-md max-h-[90dvh] overflow-y-auto p-4 sm:p-6 shadow-2xl">
             <div class="flex items-center justify-between mb-3">
                 <div>
-                    <h2 class="text-base font-bold text-[#245526]">Trocar Imagens do Folder</h2>
-                    <p class="text-xs text-[#245526]/70">Cada imagem é dividida automaticamente em 3 painéis.</p>
+                    <h2 id="upload-modal-title" class="font-display-cond text-xl font-extrabold text-[var(--ink-deep)] [text-wrap:balance]">Trocar Imagens do Folder</h2>
+                    <p class="text-xs text-[var(--ink-muted)] [text-wrap:pretty]">Cada imagem é dividida automaticamente em 3 painéis.</p>
                 </div>
                 <button id="btn-close-modal" type="button"
                     class="w-8 h-8 rounded-full hover:bg-[#245526]/10 flex items-center justify-center text-[#245526] cursor-pointer"
@@ -1444,7 +1534,9 @@
 
             stateBtns.forEach((btn) => {
                 const idx = Number(btn.dataset.state);
-                if (idx === activeStateIdx) {
+                const isActive = idx === activeStateIdx;
+                btn.setAttribute('aria-pressed', String(isActive));
+                if (isActive) {
                     btn.classList.add('bg-[#245526]', 'text-white', 'shadow-sm');
                     btn.classList.remove('text-[#245526]', 'hover:bg-[#245526]/10');
                 } else {
@@ -1757,14 +1849,29 @@
 
             // Optional Image Upload Modal Controls
             const modal = document.getElementById('upload-modal');
-            const openModal = () => { modal.classList.remove('hidden'); modal.classList.add('flex'); };
-            const closeModal = () => { modal.classList.add('hidden'); modal.classList.remove('flex'); };
+            const btnOpenUpload = document.getElementById('btn-open-upload');
+            const btnCloseModal = document.getElementById('btn-close-modal');
+            const openModal = () => {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                if (btnCloseModal) btnCloseModal.focus({ preventScroll: true });
+            };
+            const closeModal = () => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                if (btnOpenUpload) btnOpenUpload.focus({ preventScroll: true });
+            };
 
-            document.getElementById('btn-open-upload').addEventListener('click', openModal);
-            document.getElementById('btn-close-modal').addEventListener('click', closeModal);
+            btnOpenUpload.addEventListener('click', openModal);
+            btnCloseModal.addEventListener('click', closeModal);
             document.getElementById('btn-done-modal').addEventListener('click', closeModal);
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) closeModal();
+            });
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+                    closeModal();
+                }
             });
 
             /**

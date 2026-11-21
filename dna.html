@@ -3,14 +3,16 @@
 
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#070d1a" />
     <title>Dupla-Hélice de B-DNA 3D — Visualizador Molecular Interativo</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23070d1a'/><path d='M8 7c5 0 5 18 16 18' stroke='%2322d3ee' stroke-width='2.4' fill='none' stroke-linecap='round'/><path d='M8 25c5 0 5-18 16-18' stroke='%2334d399' stroke-width='2.4' fill='none' stroke-linecap='round'/></svg>" />
 
-    <!-- Fontes científicas modernas: Inter + JetBrains Mono -->
+    <!-- Fontes científicas modernas: Space Grotesk + Inter + JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap"
         rel="stylesheet" />
 
     <!-- Tailwind CSS via CDN -->
@@ -20,8 +22,9 @@
             theme: {
                 extend: {
                     fontFamily: {
+                        display: ['"Space Grotesk"', 'Inter', 'system-ui', 'sans-serif'],
                         sans: ['Inter', 'system-ui', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
                     },
                 },
             },
@@ -41,11 +44,26 @@
     <style>
         :root {
             color-scheme: dark;
+            --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         * {
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
+        }
+
+        ::selection {
+            background: rgba(34, 211, 238, 0.35);
+            color: #f8fafc;
+        }
+
+        :focus-visible {
+            outline: 2px solid #22d3ee;
+            outline-offset: 2px;
+        }
+
+        .tabular-nums {
+            font-variant-numeric: tabular-nums;
         }
 
         html,
@@ -81,18 +99,18 @@
 
         /* Superfícies Glassmorphism de Laboratório */
         .glass-panel {
-            background: rgba(9, 16, 30, 0.76);
+            background: rgba(9, 16, 30, 0.82);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(148, 163, 184, 0.16);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            box-shadow: 0 14px 42px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
         }
 
         .glass-pill {
-            background: rgba(15, 23, 42, 0.72);
+            background: rgba(15, 23, 42, 0.78);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(148, 163, 184, 0.18);
+            border: 1px solid rgba(148, 163, 184, 0.22);
         }
 
         /* Sliders customizados */
@@ -183,11 +201,100 @@
         }
 
         /* Animação do indicador de modo ativo */
+        .mode-btn,
+        .filter-row {
+            transition: background-color 0.18s var(--ease-out), border-color 0.18s var(--ease-out), color 0.18s var(--ease-out), transform 0.14s var(--ease-out);
+        }
+
+        .mode-btn:active,
+        .filter-row:active {
+            transform: scale(0.985);
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+            .mode-btn:hover:not(.active) {
+                background: rgba(30, 41, 59, 0.65);
+            }
+        }
+
         .mode-btn.active {
-            background: linear-gradient(135deg, rgba(14, 165, 233, 0.32), rgba(56, 189, 248, 0.18));
-            border-color: rgba(56, 189, 248, 0.6);
-            color: #e0f2fe;
-            box-shadow: 0 0 16px rgba(14, 165, 233, 0.25);
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.34), rgba(56, 189, 248, 0.2));
+            border-color: rgba(56, 189, 248, 0.65);
+            color: #f0f9ff;
+            box-shadow: 0 0 16px rgba(14, 165, 233, 0.26);
+        }
+
+        /* Dock de controles inferiores sem colisão com o .eco-dock fixo no canto inferior direito */
+        #dna-bottom-dock {
+            position: fixed;
+            bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            width: min(680px, calc(100vw - 560px));
+            pointer-events: none;
+        }
+
+        #parts-hud {
+            max-height: calc(100dvh - 148px);
+        }
+
+        @media (max-width: 1219px) {
+            #dna-bottom-dock {
+                left: calc(16px + env(safe-area-inset-left, 0px));
+                right: auto;
+                transform: none;
+                width: calc(100vw - 285px);
+                max-width: 720px;
+            }
+        }
+
+        @media (max-width: 640px) {
+            #dna-bottom-dock {
+                bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+                left: 10px;
+                right: 10px;
+                width: auto;
+                max-width: none;
+                transform: none;
+            }
+
+            #parts-hud {
+                max-height: calc(100dvh - 220px);
+            }
+
+            .mode-btn,
+            #btn-highlight-hbonds,
+            #btn-toggle-rotate,
+            #btn-new-seq,
+            #btn-reset-cam,
+            #btn-toggle-sliders,
+            #btn-toggle-hud {
+                min-height: 40px;
+            }
+        }
+
+        @media (pointer: coarse) {
+            .mode-btn,
+            #btn-highlight-hbonds,
+            #btn-toggle-rotate,
+            #btn-new-seq,
+            #btn-reset-cam,
+            #btn-toggle-sliders,
+            #btn-toggle-hud,
+            .filter-row {
+                min-height: 44px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
         }
     </style>
 </head>
@@ -217,14 +324,14 @@
                     </div>
                     <div class="min-w-0">
                         <div class="flex items-center gap-2">
-                            <h1 class="text-xs sm:text-base font-bold tracking-tight text-slate-100 truncate">
+                            <h1 class="font-display text-xs sm:text-base font-bold tracking-[-0.02em] text-slate-100 truncate [text-wrap:balance]">
                                 Dupla-Hélice B-DNA 3D</h1>
                             <span
                                 class="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-cyan-500/15 text-cyan-300 border border-cyan-400/25">
                                 Forma B
                             </span>
                         </div>
-                        <p class="hidden sm:block text-[11px] text-slate-400 truncate">
+                        <p class="hidden sm:block text-[11px] text-slate-300 truncate">
                             Antiparalela 5'→3' / 3'→5' • Sulco Maior 220° / Menor 140° • 10 pb/volta
                         </p>
                     </div>
@@ -233,9 +340,9 @@
 
             <!-- Sequência interativa (clique em um par para destacar na molécula) -->
             <div class="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-slate-700/50">
-                <div class="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                <div class="flex items-center justify-between text-[10px] text-slate-300 mb-1">
                     <span class="font-medium uppercase tracking-wider">Sequência (5'→3')</span>
-                    <span id="sequence-summary" class="font-mono text-cyan-300/90">16 pb • GC 50%</span>
+                    <span id="sequence-summary" class="font-mono text-cyan-300 tabular-nums">16 pb • GC 50%</span>
                 </div>
                 <div id="sequence-strip" class="flex items-center gap-1 overflow-x-auto thin-scroll pb-0.5">
                     <!-- Preenchido dinamicamente -->
@@ -248,26 +355,26 @@
     <button id="btn-toggle-hud" type="button" title="Alternar painel de contagem de peças"
         class="fixed top-2.5 right-2.5 sm:top-3 sm:right-3 z-30 glass-panel rounded-xl p-2 sm:p-2.5 text-slate-200 hover:text-cyan-300 hover:border-cyan-400/40 transition flex items-center gap-1.5 text-xs font-medium cursor-pointer">
         <svg id="icon-hud-toggle" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round">
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="3" y="3" width="18" height="18" rx="3" />
             <line x1="15" y1="3" x2="15" y2="21" />
         </svg>
         <span class="hidden sm:inline">Peças</span>
         <span id="badge-visible-mini"
-            class="font-mono text-[11px] px-1.5 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300">0</span>
+            class="font-mono tabular-nums text-[11px] px-1.5 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300">0</span>
     </button>
 
     <!-- =====================================================================
        PAINEL DIREITO: Contagem de Peças em Tempo Real & Filtros Interativos
        ===================================================================== -->
     <aside id="parts-hud"
-        class="hud-drawer fixed top-14 right-2.5 sm:right-3 z-20 w-[min(285px,calc(100vw-20px))] sm:w-[310px] max-h-[calc(100dvh-165px)] sm:max-h-[calc(100dvh-190px)] flex flex-col glass-panel rounded-2xl overflow-hidden">
+        class="hud-drawer fixed top-14 right-2.5 sm:right-3 z-20 w-[min(285px,calc(100vw-20px))] sm:w-[310px] flex flex-col glass-panel rounded-2xl overflow-hidden">
         <!-- Cabeçalho do contador -->
         <div class="px-3.5 py-3 border-b border-slate-700/50 bg-slate-900/40">
             <div class="flex items-center justify-between gap-2">
                 <div>
-                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-200">Contagem de Peças</h2>
-                    <p class="text-[10px] text-slate-400">Clique em uma categoria para filtrar</p>
+                    <h2 class="font-display text-xs font-bold uppercase tracking-wider text-slate-100 [text-wrap:balance]">Contagem de Peças</h2>
+                    <p class="text-[10px] text-slate-300">Clique em uma categoria para filtrar</p>
                 </div>
                 <button id="btn-show-all" type="button"
                     class="hidden text-[10px] font-semibold px-2 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-400/30 transition cursor-pointer">
@@ -277,11 +384,11 @@
 
             <!-- Total em tempo real -->
             <div class="mt-2.5 flex items-baseline justify-between">
-                <span class="text-[11px] text-slate-400">Peças moleculares visíveis</span>
-                <div class="font-mono text-sm font-bold text-slate-100">
+                <span class="text-[11px] text-slate-300">Peças moleculares visíveis</span>
+                <div class="font-mono tabular-nums text-sm font-bold text-slate-100">
                     <span id="count-visible" class="text-cyan-300">0</span>
-                    <span class="text-slate-500 font-normal">/</span>
-                    <span id="count-total" class="text-slate-300">0</span>
+                    <span class="text-slate-400 font-normal">/</span>
+                    <span id="count-total" class="text-slate-200">0</span>
                 </div>
             </div>
             <div class="mt-1.5 h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
@@ -467,35 +574,25 @@
     <!-- =====================================================================
        DOCK DE CONTROLES INFERIOR: Modos, Explosão, Ligações de H, Sequência
        ===================================================================== -->
-    <section class="fixed bottom-[max(0.65rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-20 w-[calc(100vw-16px)] sm:w-[calc(100vw-24px)] max-w-4xl pointer-events-none">
+    <section id="dna-bottom-dock">
         <div class="glass-panel rounded-2xl p-2 sm:px-4 sm:py-3 pointer-events-auto flex flex-col gap-2 sm:gap-2.5">
             <!-- Linha principal: Modos + Ações-chave -->
             <div class="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2">
-                <!-- Seletor de Modos de Visualização -->
+                <!-- Seletor de Modos de Visualização (Montada e Explodida) -->
                 <div class="flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800/80"
                     role="tablist" aria-label="Modos de visualização">
-                    <button id="mode-assembled" type="button" data-mode="assembled"
-                        class="mode-btn active px-2 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-300 border border-transparent hover:text-white transition cursor-pointer flex items-center gap-1 sm:gap-1.5">
-                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <button id="mode-assembled" type="button" data-mode="assembled" role="tab" aria-selected="true"
+                        class="mode-btn active px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-300 border border-transparent hover:text-white transition cursor-pointer flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <circle cx="12" cy="12" r="8" />
                             <circle cx="12" cy="12" r="3" />
                         </svg>
                         <span>Montada</span>
                     </button>
 
-                    <button id="mode-xray" type="button" data-mode="xray"
-                        class="mode-btn px-2 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-300 border border-transparent hover:text-white transition cursor-pointer flex items-center gap-1 sm:gap-1.5">
-                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polygon points="12 2 2 7 12 12 22 7 12 2" />
-                            <polyline points="2 17 12 22 22 17" />
-                            <polyline points="2 12 12 17 22 12" />
-                        </svg>
-                        <span>Raio-X</span>
-                    </button>
-
-                    <button id="mode-exploded" type="button" data-mode="exploded"
-                        class="mode-btn px-2 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-300 border border-transparent hover:text-white transition cursor-pointer flex items-center gap-1 sm:gap-1.5">
-                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <button id="mode-exploded" type="button" data-mode="exploded" role="tab" aria-selected="false"
+                        class="mode-btn px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-300 border border-transparent hover:text-white transition cursor-pointer flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <polyline points="15 3 21 3 21 9" />
                             <polyline points="9 21 3 21 3 15" />
                             <line x1="21" y1="3" x2="14" y2="10" />
@@ -557,35 +654,35 @@
             <div id="dna-sliders-row" class="hidden sm:grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-slate-800/80 text-[11px]">
                 <!-- Fator de Explosão -->
                 <div class="flex items-center gap-2.5">
-                    <label for="slider-explode" class="text-slate-400 whitespace-nowrap font-medium">Explosão</label>
+                    <label for="slider-explode" class="text-slate-300 whitespace-nowrap font-medium">Explosão</label>
                     <input id="slider-explode" type="range" min="0" max="100" value="0" class="sci-slider w-full" />
-                    <span id="val-explode" class="font-mono text-cyan-300 w-9 text-right">0%</span>
+                    <span id="val-explode" class="font-mono tabular-nums text-cyan-300 w-9 text-right">0%</span>
                 </div>
 
                 <!-- Pares de Bases -->
                 <div class="flex items-center gap-2.5">
-                    <label for="slider-bp" class="text-slate-400 whitespace-nowrap font-medium">Pares (pb)</label>
+                    <label for="slider-bp" class="text-slate-300 whitespace-nowrap font-medium">Pares (pb)</label>
                     <input id="slider-bp" type="range" min="8" max="28" value="16" step="1" class="sci-slider w-full" />
-                    <span id="val-bp" class="font-mono text-emerald-300 w-9 text-right">16</span>
+                    <span id="val-bp" class="font-mono tabular-nums text-emerald-300 w-9 text-right">16</span>
                 </div>
 
                 <!-- Velocidade de Rotação -->
                 <div class="flex items-center gap-2.5">
-                    <label for="slider-speed" class="text-slate-400 whitespace-nowrap font-medium">Rotação</label>
+                    <label for="slider-speed" class="text-slate-300 whitespace-nowrap font-medium">Rotação</label>
                     <input id="slider-speed" type="range" min="0" max="200" value="45" class="sci-slider w-full" />
-                    <span id="val-speed" class="font-mono text-slate-300 w-9 text-right">0.45×</span>
+                    <span id="val-speed" class="font-mono tabular-nums text-slate-200 w-9 text-right">0.45×</span>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Indicação discreta dos controles (visível em telas maiores) -->
+    <!-- Indicação discreta dos controles (visível em telas amplas) -->
     <div
-        class="fixed bottom-3 left-3 z-10 hidden xl:flex items-center gap-2 glass-pill rounded-xl px-3 py-1.5 text-[11px] text-slate-400 pointer-events-none">
+        class="fixed bottom-4 left-4 z-10 hidden 2xl:flex items-center gap-2 glass-pill rounded-xl px-3 py-1.5 text-[11px] text-slate-300 pointer-events-none">
         <span>Arrastar: orbitar</span>
-        <span class="text-slate-600">•</span>
+        <span class="text-slate-500">•</span>
         <span>Scroll: zoom</span>
-        <span class="text-slate-600">•</span>
+        <span class="text-slate-500">•</span>
         <span>Hover/Clique: inspecionar</span>
     </div>
 
@@ -595,7 +692,7 @@
         style="left: 0; top: 0;">
         <div class="flex items-center gap-2">
             <span id="tt-dot" class="w-2.5 h-2.5 rounded-full bg-cyan-400 shrink-0"></span>
-            <span id="tt-title" class="text-xs font-bold text-slate-100">Componente</span>
+            <span id="tt-title" class="font-display text-xs font-bold text-slate-100 [text-wrap:balance]">Componente</span>
         </div>
         <p id="tt-subtitle" class="text-[11px] text-cyan-300/90 font-medium mt-0.5"></p>
         <div id="tt-details" class="text-[10px] text-slate-300 mt-1 space-y-0.5 font-mono"></div>
@@ -637,7 +734,6 @@
             guanine: 0xa855f7,        // Roxo violeta (Purina - G)
             hbond: 0x38bdf8,          // Ciano luminoso (Ligações de H)
             hbondGlow: 0x67e8f9,
-            xrayWire: 0x38bdf8,
         };
 
         const BASE_INFO = {
@@ -701,10 +797,9 @@
         const state = {
             bpCount: DNA_CONFIG.DEFAULT_BP_COUNT,
             sequence: [],                  // Array de 'A' | 'T' | 'C' | 'G' na fita 5'→3'
-            mode: 'assembled',             // 'assembled' | 'xray' | 'exploded'
+            mode: 'assembled',             // 'assembled' | 'exploded'
             explodeFactor: 0,              // Valor atual animado [0..1]
             targetExplodeFactor: 0,        // Valor alvo [0..1]
-            xrayBlend: 0,                  // Transição visual suave [0..1]
             highlightHBonds: false,
             isRotating: true,
             rotationSpeed: 0.45,
@@ -732,7 +827,7 @@
         let particleField = null;        // Partículas sutis de laboratório ao fundo
 
         // Registro de todas as peças moleculares individuais para animação, filtro e contagem
-        let molecularParts = [];         // { id, category, object, basePos, radialDir, radialDist, axialScale, pairIndex, meta, meshes, wireframes }
+        let molecularParts = [];         // { id, category, object, basePos, radialDir, radialDist, axialScale, pairIndex, meta, meshes }
         let raycastTargets = [];         // Meshes clicáveis/inspecionáveis (apontam para userData.partRef)
         let hbondParts = [];             // Referência rápida às ligações de hidrogênio
 
@@ -950,51 +1045,8 @@
         }
 
         /* -----------------------------------------------------------------------
-           5. FÁBRICA DE MATERIAIS PBR + SHADER FRESNEL DE RAIO-X
+           5. FÁBRICA DE MATERIAIS PBR
            ----------------------------------------------------------------------- */
-
-        /**
-         * Cria um ShaderMaterial com efeito Fresnel translúcido para o modo Raio-X.
-         */
-        function createXrayFresnelMaterial(hexColor) {
-            return new THREE.ShaderMaterial({
-                uniforms: {
-                    uColor: { value: new THREE.Color(hexColor) },
-                    uOpacity: { value: 0.55 },
-                    uBoost: { value: 1.0 },
-                },
-                vertexShader: `
-          varying vec3 vNormal;
-          varying vec3 vViewDir;
-          void main() {
-            vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
-            vNormal = normalize(normalMatrix * normal);
-            vViewDir = normalize(-mvPos.xyz);
-            gl_Position = projectionMatrix * mvPos;
-          }
-        `,
-                fragmentShader: `
-          uniform vec3 uColor;
-          uniform float uOpacity;
-          uniform float uBoost;
-          varying vec3 vNormal;
-          varying vec3 vViewDir;
-          void main() {
-            float ndotv = abs(dot(normalize(vNormal), normalize(vViewDir)));
-            float fresnel = pow(1.0 - ndotv, 2.2);
-            vec3 coreTint = mix(vec3(0.08, 0.45, 0.72), uColor, 0.55);
-            vec3 rim = mix(vec3(0.22, 0.85, 1.0), uColor, 0.35);
-            vec3 finalColor = (coreTint * 0.35 + rim * fresnel * 1.45) * uBoost;
-            float alpha = clamp((0.12 + fresnel * 0.78) * uOpacity, 0.05, 0.92);
-            gl_FragColor = vec4(finalColor, alpha);
-          }
-        `,
-                transparent: true,
-                depthWrite: false,
-                blending: THREE.AdditiveBlending,
-                side: THREE.DoubleSide,
-            });
-        }
 
         /**
          * Cria material físico PBR de laboratório para cada componente.
@@ -1014,30 +1066,14 @@
         }
 
         /**
-         * Helper: cria um Mesh sólido + overlay wireframe oculto (ativado no modo Raio-X).
+         * Helper: cria um Mesh molecular PBR e registra para raycasting e controle visual.
          */
-        function createMolecularMesh(geometry, solidMat, xrayMat, wireColor, partRef) {
+        function createMolecularMesh(geometry, solidMat, partRef) {
             const mesh = new THREE.Mesh(geometry, solidMat);
             mesh.userData.partRef = partRef;
             mesh.userData.solidMat = solidMat;
-            mesh.userData.xrayMat = xrayMat;
-
-            // Overlay wireframe técnico (compartilha a mesma geometria sem z-fighting)
-            const wireMat = new THREE.MeshBasicMaterial({
-                color: wireColor,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.38,
-                depthWrite: false,
-            });
-            const wireMesh = new THREE.Mesh(geometry, wireMat);
-            wireMesh.scale.setScalar(1.006);
-            wireMesh.visible = false;
-            wireMesh.raycast = () => { }; // Não interceptar raycaster duplicadamente
-            mesh.add(wireMesh);
 
             partRef.meshes.push(mesh);
-            partRef.wireframes.push(wireMesh);
             raycastTargets.push(mesh);
             return mesh;
         }
@@ -1094,7 +1130,6 @@
                 dnaRootGroup.traverse((obj) => {
                     if (obj.isMesh || obj.isLineSegments) {
                         if (obj.userData.solidMat) obj.userData.solidMat.dispose();
-                        if (obj.userData.xrayMat) obj.userData.xrayMat.dispose();
                         if (obj.material) {
                             if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose());
                             else obj.material.dispose();
@@ -1138,7 +1173,6 @@
                 pairIndex,
                 meta,
                 meshes: [],
-                wireframes: [],
             };
             object.position.copy(basePos);
             dnaRootGroup.add(object);
@@ -1243,15 +1277,13 @@
 
                     // Núcleo de Fósforo (P)
                     const pSolid = createSolidMaterial(COLORS.phosphate, { roughness: 0.24, metalness: 0.45, clearcoat: 0.6 });
-                    const pXray = createXrayFresnelMaterial(COLORS.phosphate);
-                    const pCore = createMolecularMesh(sharedGeos.phosphorusCore, pSolid, pXray, 0xfbbf24, partRef);
+                    const pCore = createMolecularMesh(sharedGeos.phosphorusCore, pSolid, partRef);
                     group.add(pCore);
 
                     // 4 Átomos de Oxigênio tetraédricos (O)
                     tetraDirs.forEach((td) => {
                         const oSolid = createSolidMaterial(COLORS.oxygen, { roughness: 0.3, metalness: 0.25 });
-                        const oXray = createXrayFresnelMaterial(COLORS.oxygen);
-                        const oMesh = createMolecularMesh(sharedGeos.oxygenAtom, oSolid, oXray, 0xfb923c, partRef);
+                        const oMesh = createMolecularMesh(sharedGeos.oxygenAtom, oSolid, partRef);
                         oMesh.position.copy(td).multiplyScalar(0.31);
                         group.add(oMesh);
                     });
@@ -1283,8 +1315,7 @@
                     });
 
                     const sSolid = createSolidMaterial(COLORS.sugar, { roughness: 0.28, metalness: 0.32, clearcoat: 0.5 });
-                    const sXray = createXrayFresnelMaterial(COLORS.sugar);
-                    const sMesh = createMolecularMesh(sharedGeos.sugar, sSolid, sXray, 0x38bdf8, partRef);
+                    const sMesh = createMolecularMesh(sharedGeos.sugar, sSolid, partRef);
 
                     // Orientação realista tangente à hélice e invertida na fita antiparalela
                     sMesh.rotation.y = -sg.angle + Math.PI * 0.5;
@@ -1362,8 +1393,7 @@
                     });
 
                     const gSolid = createSolidMaterial(COLORS.glycosidic, { roughness: 0.35, metalness: 0.4 });
-                    const gXray = createXrayFresnelMaterial(COLORS.glycosidic);
-                    const gMesh = createMolecularMesh(sharedGeos.unitCylinder, gSolid, gXray, 0x94a3b8, glycoRef);
+                    const gMesh = createMolecularMesh(sharedGeos.unitCylinder, gSolid, glycoRef);
                     const localP1 = b.sugarPos.clone().sub(glycoMid);
                     const localP2 = b.startPos.clone().sub(glycoMid);
                     orientCylinderBetween(gMesh, localP1, localP2, 0.085);
@@ -1395,8 +1425,7 @@
                         clearcoat: 0.48,
                         emissiveIntensity: 0.08,
                     });
-                    const bXray = createXrayFresnelMaterial(b.info.colorInt);
-                    const bMesh = createMolecularMesh(bGeo, bSolid, bXray, b.info.colorInt, baseRef);
+                    const bMesh = createMolecularMesh(bGeo, bSolid, baseRef);
 
                     // Alinha o eixo +X da geometria do anel ao longo de `b.axisDir` (apontando para a base parceira)
                     const yaw = Math.atan2(-b.axisDir.z, b.axisDir.x);
@@ -1412,8 +1441,7 @@
                             metalness: 0.2,
                             emissiveIntensity: 0.18,
                         });
-                        const nubXray = createXrayFresnelMaterial(b.info.colorInt);
-                        const nub = createMolecularMesh(sharedGeos.funcGroupAtom, nubSolid, nubXray, b.info.colorInt, baseRef);
+                        const nub = createMolecularMesh(sharedGeos.funcGroupAtom, nubSolid, baseRef);
                         const localPos = b.axisDir.clone().multiplyScalar(faceDist).addScaledVector(vDir, vOff);
                         nub.position.copy(localPos);
                         baseGroup.add(nub);
@@ -1468,15 +1496,7 @@
                             transparent: true,
                             opacity: 0.96,
                         });
-                        const dashXray = new THREE.MeshStandardMaterial({
-                            color: 0xffffff,
-                            emissive: new THREE.Color(0x22d3ee),
-                            emissiveIntensity: 2.8,
-                            roughness: 0.1,
-                            transparent: true,
-                            opacity: 1.0,
-                        });
-                        const dashMesh = createMolecularMesh(sharedGeos.hbondDash, dashSolid, dashXray, 0x67e8f9, hRef);
+                        const dashMesh = createMolecularMesh(sharedGeos.hbondDash, dashSolid, hRef);
                         dashMesh.position.copy(uDir).multiplyScalar(t * (hSpan * 0.92));
                         dashMesh.quaternion.copy(dashQuat);
                         bondGroup.add(dashMesh);
@@ -1532,8 +1552,7 @@
                     metalness: 0.55,
                     clearcoat: 0.4,
                 });
-                const xrayMat = createXrayFresnelMaterial(0x94a3b8);
-                const cyl = createMolecularMesh(sharedGeos.unitCylinder, solidMat, xrayMat, 0x7dd3fc, bRef);
+                const cyl = createMolecularMesh(sharedGeos.unitCylinder, solidMat, bRef);
                 orientCylinderBetween(cyl, pStart.clone().sub(mid), pEnd.clone().sub(mid), 0.105);
                 group.add(cyl);
             };
@@ -1623,11 +1642,10 @@
         }
 
         /**
-         * Aplica materiais correspondentes ao modo atual (Montada / Explodida vs Raio-X/Wireframe)
-         * e ao toggle de destaque das Ligações de Hidrogênio.
+         * Aplica materiais PBR correspondentes ao estado de destaque das Ligações de Hidrogênio
+         * e do par de bases selecionado/inspecionado.
          */
         function applyVisualModeMaterials() {
-            const isXray = state.mode === 'xray';
             const dimOthers = state.highlightHBonds;
             const activePair = state.hoveredPairIndex !== -1 ? state.hoveredPairIndex : state.lockedPairIndex;
 
@@ -1638,40 +1656,20 @@
 
                 for (let j = 0; j < part.meshes.length; j++) {
                     const mesh = part.meshes[j];
-                    const wire = part.wireframes[j];
                     const solidMat = mesh.userData.solidMat;
-                    const xrayMat = mesh.userData.xrayMat;
+                    mesh.material = solidMat;
 
-                    if (isXray) {
-                        mesh.material = xrayMat;
-                        wire.visible = !isHBond; // Ligações de H brilham sólidas no núcleo do raio-X
-
-                        if (isHBond) {
-                            xrayMat.emissiveIntensity = isHighlightedPair ? 4.2 : (dimOthers ? 3.8 : 2.6);
-                            xrayMat.opacity = 1.0;
-                        } else {
-                            xrayMat.uniforms.uOpacity.value = dimOthers ? 0.24 : (isHighlightedPair ? 0.95 : 0.56);
-                            xrayMat.uniforms.uBoost.value = isHighlightedPair ? 1.8 : 1.0;
-                            wire.material.opacity = dimOthers ? 0.14 : (isHighlightedPair ? 0.85 : 0.34);
-                        }
+                    if (isHBond) {
+                        solidMat.opacity = 1.0;
+                        solidMat.emissiveIntensity = isHighlightedPair ? 3.8 : (dimOthers ? 3.2 : 1.5);
+                    } else if (dimOthers && !isHighlightedPair) {
+                        solidMat.opacity = 0.26;
+                        solidMat.depthWrite = false;
+                        solidMat.emissiveIntensity = 0.02;
                     } else {
-                        mesh.material = solidMat;
-                        wire.visible = false;
-
-                        if (isHBond) {
-                            solidMat.opacity = 1.0;
-                            solidMat.emissiveIntensity = isHighlightedPair ? 3.8 : (dimOthers ? 3.2 : 1.5);
-                        } else {
-                            if (dimOthers && !isHighlightedPair) {
-                                solidMat.opacity = 0.26;
-                                solidMat.depthWrite = false;
-                                solidMat.emissiveIntensity = 0.02;
-                            } else {
-                                solidMat.opacity = 1.0;
-                                solidMat.depthWrite = true;
-                                solidMat.emissiveIntensity = isHighlightedPair ? 0.58 : (part.category === 'phosphate' ? 0.08 : 0.06);
-                            }
-                        }
+                        solidMat.opacity = 1.0;
+                        solidMat.depthWrite = true;
+                        solidMat.emissiveIntensity = isHighlightedPair ? 0.58 : (part.category === 'phosphate' ? 0.08 : 0.06);
                     }
                 }
 
@@ -1679,7 +1677,7 @@
                 if (isHBond && part.haloMesh) {
                     part.haloMesh.material.opacity = isHighlightedPair
                         ? 0.55
-                        : (dimOthers ? 0.44 : (isXray ? 0.34 : 0.16));
+                        : (dimOthers ? 0.44 : 0.16);
                 }
             }
         }
@@ -2046,18 +2044,20 @@
            ----------------------------------------------------------------------- */
 
         function setVisualMode(newMode) {
-            state.mode = newMode;
+            state.mode = newMode === 'exploded' ? 'exploded' : 'assembled';
 
-            // Atualiza visual dos botões de modo
+            // Atualiza visual e estado ARIA dos botões de modo (Montada | Explodida)
             document.querySelectorAll('.mode-btn').forEach((btn) => {
-                btn.classList.toggle('active', btn.dataset.mode === newMode);
+                const isSelected = btn.dataset.mode === state.mode;
+                btn.classList.toggle('active', isSelected);
+                btn.setAttribute('aria-selected', String(isSelected));
             });
 
             // Ajusta fator de explosão alvo automaticamente
             const explodeSlider = document.getElementById('slider-explode');
             const explodeVal = document.getElementById('val-explode');
 
-            if (newMode === 'exploded') {
+            if (state.mode === 'exploded') {
                 state.targetExplodeFactor = 0.85;
                 explodeSlider.value = 85;
                 explodeVal.textContent = '85%';
@@ -2071,7 +2071,7 @@
         }
 
         function bindUIEvents() {
-            // Botões de modo (Montada, Raio-X, Explodida)
+            // Botões de modo (Montada, Explodida)
             document.querySelectorAll('.mode-btn').forEach((btn) => {
                 btn.addEventListener('click', () => setVisualMode(btn.dataset.mode));
             });
@@ -2087,14 +2087,18 @@
                 // Sincroniza estado visual dos botões se usuário arrastar manualmente
                 if (pct > 0 && state.mode === 'assembled') {
                     state.mode = 'exploded';
-                    document.querySelectorAll('.mode-btn').forEach((b) =>
-                        b.classList.toggle('active', b.dataset.mode === 'exploded')
-                    );
+                    document.querySelectorAll('.mode-btn').forEach((b) => {
+                        const active = b.dataset.mode === 'exploded';
+                        b.classList.toggle('active', active);
+                        b.setAttribute('aria-selected', String(active));
+                    });
                 } else if (pct === 0 && state.mode === 'exploded') {
                     state.mode = 'assembled';
-                    document.querySelectorAll('.mode-btn').forEach((b) =>
-                        b.classList.toggle('active', b.dataset.mode === 'assembled')
-                    );
+                    document.querySelectorAll('.mode-btn').forEach((b) => {
+                        const active = b.dataset.mode === 'assembled';
+                        b.classList.toggle('active', active);
+                        b.setAttribute('aria-selected', String(active));
+                    });
                 }
             });
 
@@ -2315,9 +2319,7 @@
                 if (!hPart.object.visible) continue;
 
                 const isPairActive = activePair !== -1 && hPart.pairIndex === activePair;
-                const baseEmissive = state.mode === 'xray'
-                    ? (state.highlightHBonds ? 3.5 : 2.4)
-                    : (state.highlightHBonds ? 3.0 : 1.45);
+                const baseEmissive = state.highlightHBonds ? 3.0 : 1.45;
                 const pulseAmp = state.highlightHBonds || isPairActive ? 1.15 : 0.35;
                 const finalEmissive = baseEmissive + pulse * pulseAmp + (isPairActive ? 1.2 : 0);
 
@@ -2329,7 +2331,7 @@
                 }
 
                 if (hPart.haloMesh) {
-                    const baseHalo = isPairActive ? 0.52 : (state.highlightHBonds ? 0.40 : (state.mode === 'xray' ? 0.32 : 0.14));
+                    const baseHalo = isPairActive ? 0.52 : (state.highlightHBonds ? 0.40 : 0.14);
                     hPart.haloMesh.material.opacity = baseHalo + pulse * (state.highlightHBonds ? 0.18 : 0.07);
                     const scalePulse = 1 + pulse * (state.highlightHBonds ? 0.22 : 0.08);
                     hPart.haloMesh.scale.x = scalePulse;

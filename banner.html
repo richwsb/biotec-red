@@ -3,17 +3,19 @@
 
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0d080c" />
     <title>Biotecnologia Vermelha • Banner 3D Interativo (UFPA)</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%237a0000'/><path d='M9 7c5 0 5 18 14 18M9 25c5 0 5-18 14-18' stroke='%23fda4af' stroke-width='2.4' fill='none' stroke-linecap='round'/></svg>" />
 
     <!-- Tailwind CSS para interface responsiva moderna -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Fonte Inter + Montserrat para legibilidade no banner e na UI -->
+    <!-- Fonte Inter + Montserrat (usada no Canvas2D) + JetBrains Mono para telemetria -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@600;700;800;900&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&family=Montserrat:wght@600;700;800;900&display=swap"
         rel="stylesheet" />
 
     <!-- Import Map para Three.js e OrbitControls via jsDelivr -->
@@ -28,15 +30,28 @@
 
     <style>
         :root {
+            color-scheme: dark;
             --crimson: #7a0000;
             --crimson-bright: #a60d14;
-            --glass-bg: rgba(18, 12, 16, 0.76);
-            --glass-border: rgba(255, 255, 255, 0.14);
+            --glass-bg: rgba(15, 9, 13, 0.82);
+            --glass-border: rgba(255, 210, 215, 0.16);
+            --focus-ring: #fda4af;
+            --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         * {
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
+        }
+
+        ::selection {
+            background: #a60d14;
+            color: #ffffff;
+        }
+
+        :focus-visible {
+            outline: 2px solid var(--focus-ring);
+            outline-offset: 2px;
         }
 
         html,
@@ -73,7 +88,7 @@
             backdrop-filter: blur(14px);
             -webkit-backdrop-filter: blur(14px);
             border: 1px solid var(--glass-border);
-            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+            box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
         }
 
         /* Slider customizado de enrolamento */
@@ -128,14 +143,97 @@
         }
 
         .nav-btn {
-            transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+            transition: background-color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), transform 0.16s var(--ease-out), box-shadow 0.2s var(--ease-out);
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+            .nav-btn:hover:not(.active) {
+                background: rgba(255, 255, 255, 0.12);
+                border-color: rgba(255, 210, 215, 0.26);
+                transform: translateY(-1px);
+            }
+        }
+
+        .nav-btn:active {
+            transform: scale(0.985);
         }
 
         .nav-btn.active {
             background: linear-gradient(135deg, #8b0000 0%, #b31217 100%);
-            border-color: rgba(255, 200, 200, 0.45);
+            border-color: rgba(255, 200, 200, 0.5);
             color: #ffffff;
-            box-shadow: 0 4px 14px rgba(139, 0, 0, 0.45);
+            box-shadow: 0 4px 14px rgba(139, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+        }
+
+        /* HUD Inferior do Banner adaptado para zero colisão com o .eco-dock fixo */
+        #banner-bottom-bar {
+            position: absolute;
+            bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(540px, calc(100vw - 560px));
+        }
+
+        #context-pill {
+            bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        @media (max-width: 1080px) {
+            #banner-bottom-bar {
+                left: calc(16px + env(safe-area-inset-left, 0px));
+                right: auto;
+                transform: none;
+                width: calc(100vw - 285px);
+                max-width: 540px;
+            }
+        }
+
+        @media (max-width: 640px) {
+            #banner-bottom-bar {
+                bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+                left: 10px;
+                right: 10px;
+                width: auto;
+                max-width: none;
+                transform: none;
+            }
+
+            #context-pill {
+                bottom: calc(144px + env(safe-area-inset-bottom, 0px));
+                max-width: calc(100vw - 20px);
+            }
+
+            #btn-toggle-roll,
+            #btn-reset-view,
+            #btn-toggle-menu,
+            #btn-replay-intro,
+            #btn-skip-intro,
+            .nav-btn {
+                min-height: 40px;
+            }
+        }
+
+        @media (pointer: coarse) {
+            #btn-toggle-roll,
+            #btn-reset-view,
+            #btn-toggle-menu,
+            #btn-replay-intro,
+            #btn-skip-intro,
+            .nav-btn {
+                min-height: 44px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
         }
 
         @keyframes pulseSoft {
@@ -188,7 +286,7 @@
         </div>
 
         <!-- Legenda Dinâmica do Pareamento de Bases -->
-        <div class="flex flex-col items-center mb-16 sm:mb-8">
+        <div class="flex flex-col items-center mb-[72px] sm:mb-10">
             <div id="intro-subtitle-box"
                 class="glass-panel rounded-2xl px-5 py-3 text-center transition-all duration-300">
                 <div id="intro-pair-badge" class="text-lg sm:text-2xl font-extrabold tracking-wider text-white">
@@ -224,9 +322,9 @@
                 </button>
 
                 <div class="glass-panel rounded-xl px-3.5 py-2 text-white hidden md:block">
-                    <div class="text-xs font-extrabold tracking-wide text-white leading-tight">BIOTECNOLOGIA VERMELHA •
+                    <div class="text-xs font-extrabold tracking-wide text-white leading-tight [text-wrap:balance]">BIOTECNOLOGIA VERMELHA •
                         UFPA</div>
-                    <div class="text-[11px] text-gray-300 leading-tight mt-0.5">Arraste para girar 360° • Scroll/Pinça
+                    <div class="text-[11px] text-rose-100/75 leading-tight mt-0.5">Arraste para girar 360° • Scroll/Pinça
                         para aproximar</div>
                 </div>
             </div>
@@ -271,12 +369,12 @@
             class="pointer-events-auto absolute top-16 sm:top-20 left-3 sm:left-4 w-[min(17.5rem,calc(100vw-1.5rem))] max-h-[calc(100dvh-11.5rem)] glass-panel rounded-2xl p-3 text-white flex flex-col transition-all duration-300 origin-top-left">
             <div class="flex items-center justify-between px-1 pb-2 mb-2 border-b border-white/10">
                 <div>
-                    <h2 class="text-xs font-bold uppercase tracking-wider text-rose-300">Focar Seção</h2>
-                    <p class="text-[11px] text-gray-300">Clique para aproximar com nitidez</p>
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-rose-300 [text-wrap:balance]">Focar Seção</h2>
+                    <p class="text-[11px] text-rose-100/75 [text-wrap:pretty]">Clique para aproximar com nitidez</p>
                 </div>
                 <button id="btn-close-drawer"
-                    class="p-1.5 rounded-lg hover:bg-white/10 text-gray-300 hover:text-white transition cursor-pointer"
-                    title="Recolher menu">
+                    class="p-1.5 rounded-lg hover:bg-white/10 text-rose-100/80 hover:text-white transition cursor-pointer"
+                    title="Recolher menu" aria-label="Recolher menu">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -290,7 +388,7 @@
 
         <!-- Dica Contextual (ex: atalho para o card de Aplicações quando em Diagnóstico Molecular) -->
         <div id="context-pill"
-            class="pointer-events-auto hidden absolute bottom-24 sm:bottom-20 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-2 text-white text-xs font-semibold flex items-center gap-2.5 border border-rose-400/40 shadow-lg">
+            class="pointer-events-auto hidden absolute glass-panel rounded-full px-4 py-2 text-white text-xs font-semibold flex items-center gap-2.5 border border-rose-400/40 shadow-lg">
             <span id="context-pill-text" class="text-gray-200">Continuação na coluna direita:</span>
             <button id="btn-jump-aplicacoes"
                 class="bg-red-800 hover:bg-red-700 text-white px-3 py-1 rounded-full transition flex items-center gap-1 cursor-pointer">
@@ -299,8 +397,8 @@
         </div>
 
         <!-- Barra Inferior: Enrolar / Desenrolar + Slider Contínuo -->
-        <div
-            class="pointer-events-auto absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] sm:bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-1.25rem)] sm:w-[calc(100%-1.5rem)] max-w-xl glass-panel rounded-2xl px-2.5 py-2 sm:px-4 sm:py-3 text-white flex items-center gap-2 sm:gap-3">
+        <div id="banner-bottom-bar"
+            class="pointer-events-auto glass-panel rounded-2xl px-2.5 py-2 sm:px-4 sm:py-3 text-white flex items-center gap-2 sm:gap-3">
             <button id="btn-toggle-roll"
                 class="shrink-0 bg-gradient-to-r from-[#7a0000] to-[#a60d14] hover:from-[#8f0000] hover:to-[#bd131b] text-white text-[11px] sm:text-sm font-bold px-2.5 py-2 sm:px-3.5 rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer">
                 <svg id="icon-roll" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2"
@@ -311,9 +409,9 @@
             </button>
 
             <div class="flex-1 flex flex-col gap-1 min-w-0">
-                <div class="flex items-center justify-between text-[11px] font-medium text-gray-200">
+                <div class="flex items-center justify-between text-[11px] font-medium text-rose-50/90">
                     <span>Abertura da Lona</span>
-                    <span id="roll-percent" class="font-bold text-rose-300 tabular-nums">100%</span>
+                    <span id="roll-percent" class="font-mono font-bold text-rose-300 tabular-nums">100%</span>
                 </div>
                 <input id="slider-roll" type="range" min="0" max="100" step="0.5" value="100"
                     class="roll-slider w-full cursor-pointer" />
@@ -376,15 +474,60 @@
         const SECTION_RECTS = {};
 
         const SECTIONS_MENU = [
-            { id: 'geral', label: 'Visão Geral', sub: 'Banner completo + tripé', icon: '🎯' },
-            { id: 'tema', label: 'Tema', sub: 'UFPA • Biotecnologia Vermelha', icon: '🏛️' },
-            { id: 'autores', label: 'Autores', sub: 'Equipe de extensão (6 autores)', icon: '👥' },
-            { id: 'introducao', label: 'Introdução', sub: 'Conceito e aplicações gerais', icon: '📖' },
-            { id: 'dna', label: 'DNA: A Molécula da Vida', sub: 'Estrutura + diagrama de 8 bases', icon: '🧬' },
-            { id: 'molecular', label: 'Diagnóstico Molecular', sub: 'Alterações genéticas e patógenos', icon: '🔬' },
-            { id: 'forense', label: 'Diagnóstico Forense', sub: '5 etapas + quadro de importância', icon: '🔎' },
-            { id: 'conclusao', label: 'Conclusão', sub: 'Impacto na saúde e sociedade', icon: '✅' },
-            { id: 'referencias', label: 'Referências', sub: 'Fontes científicas bibliográficas', icon: '📚' }
+            {
+                id: 'geral',
+                label: 'Visão Geral',
+                sub: 'Banner completo + tripé',
+                icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>'
+            },
+            {
+                id: 'tema',
+                label: 'Tema',
+                sub: 'UFPA • Biotecnologia Vermelha',
+                icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M4 18h16M6 18V9M10 18V9M14 18V9M18 18V9M12 3l9 5H3l9-5z"/></svg>'
+            },
+            {
+                id: 'autores',
+                label: 'Autores',
+                sub: 'Equipe de extensão (6 autores)',
+                icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
+            },
+            {
+                id: 'introducao',
+                label: 'Introdução',
+                sub: 'Conceito e aplicações gerais',
+                icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>'
+            },
+            {
+                id: 'dna',
+                label: 'DNA: A Molécula da Vida',
+                sub: 'Estrutura + diagrama de 8 bases',
+                icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 5c4 0 4 14 8 14s4-14 8-14"/><path d="M4 19c4 0 4-14 8-14s4 14 8 14"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="15" x2="17" y2="15"/></svg>'
+            },
+            {
+                id: 'molecular',
+                label: 'Diagnóstico Molecular',
+                sub: 'Alterações genéticas e patógenos',
+                icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8"/><path d="M3 22h18"/><path d="M14 22a7 7 0 1 0 0-14h-1"/><path d="M9 14h2"/><path d="M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Z"/><path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"/></svg>'
+            },
+            {
+                id: 'forense',
+                label: 'Diagnóstico Forense',
+                sub: '5 etapas + quadro de importância',
+                icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>'
+            },
+            {
+                id: 'conclusao',
+                label: 'Conclusão',
+                sub: 'Impacto na saúde e sociedade',
+                icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9 12 2 2 4-4"/></svg>'
+            },
+            {
+                id: 'referencias',
+                label: 'Referências',
+                sub: 'Fontes científicas bibliográficas',
+                icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>'
+            }
         ];
 
         // =========================================================================
@@ -395,7 +538,7 @@
         let hemiLight, keyLight, rimLight, introPointLight;
 
         // Grupos 3D principais
-        let tripodGroup, tripodLegs = [], tripodStruts = [], tripodMastSections = [], tripodTopHook, tripodCollar;
+        let tripodGroup, tripodLegs = [], tripodStruts = [], tripodMastRig = null, tripodTopHook, tripodCollar;
         let bannerSystemGroup, bannerFrontMesh, bannerBackMesh, topRodGroup, bottomRodGroup, hangingCordMesh;
         let bannerFrontGeo, bannerBackGeo, bannerBasePositions;
         let defaultBannerTexture, currentBannerTexture;
@@ -404,7 +547,7 @@
         let highlightGroup, highlightMat, highlightState = { active: false, elapsed: 0, duration: 3.4 };
 
         // Animação cinematográfica de introdução
-        let introGroup, introParticles, dnaPairObjects = [], backboneSegments = [];
+        let introGroup, introParticles, introEnergyCore, dnaPairObjects = [], backboneSegments = [];
         let introState = {
             active: true,
             time: 0,
@@ -1400,8 +1543,15 @@
         }
 
         // =========================================================================
-        // 6. MODELO 3D REALISTA DO TRIPÉ PORTA-BANNER
+        // 6. MODELO 3D REALISTA DO TRIPÉ PORTA-BANNER (Cinemática Vetorial Exata)
         // =========================================================================
+        const TRIPOD_LEG_LEN = 0.60;
+        const TRIPOD_COLLAR_R = 0.028;
+        const TRIPOD_HUB_Y = 0.16;
+        const TRIPOD_HUB_R = 0.022;
+        const TRIPOD_FOOT_H = 0.024;
+        const TRIPOD_UP = new THREE.Vector3(0, 1, 0);
+
         function buildTripodModel() {
             tripodGroup = new THREE.Group();
             scene.add(tripodGroup);
@@ -1425,17 +1575,21 @@
             });
 
             const rubberMat = new THREE.MeshStandardMaterial({
-                color: '#121316',
+                color: '#111215',
                 roughness: 0.92,
-                metalness: 0.05
+                metalness: 0.04
             });
 
-            // 3 seções telescópicas da haste vertical central
-            const sec1 = new THREE.Mesh(new THREE.CylinderGeometry(0.0155, 0.0155, 0.76, 24), darkMetalMat);
-            sec1.position.y = 0.50; // de 0.12 a 0.88
+            // 3 seções telescópicas da haste vertical central (geometrias unitárias em Y para extensão sem distorção)
+            const sec1 = new THREE.Mesh(new THREE.CylinderGeometry(0.0155, 0.0155, 1, 24), darkMetalMat);
             sec1.castShadow = true;
             tripodGroup.add(sec1);
-            tripodMastSections.push(sec1);
+
+            // Tampa inferior de acabamento da coluna central
+            const lowerCap = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.016, 0.022, 20), rubberMat);
+            lowerCap.position.y = 0.126;
+            lowerCap.castShadow = true;
+            tripodGroup.add(lowerCap);
 
             // Trava/manípulo entre seção 1 e 2
             const lock1 = new THREE.Group();
@@ -1444,15 +1598,11 @@
             knob1.rotation.z = Math.PI / 2;
             knob1.position.set(0.026, 0, 0);
             lock1.add(lock1Body, knob1);
-            lock1.position.y = 0.88;
             tripodGroup.add(lock1);
-            tripodMastSections.push(lock1);
 
-            const sec2 = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, 0.64, 24), chromeMetalMat);
-            sec2.position.y = 1.20; // de 0.88 a 1.52
+            const sec2 = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, 1, 24), chromeMetalMat);
             sec2.castShadow = true;
             tripodGroup.add(sec2);
-            tripodMastSections.push(sec2);
 
             // Trava/manípulo entre seção 2 e 3
             const lock2 = new THREE.Group();
@@ -1461,15 +1611,11 @@
             knob2.rotation.z = Math.PI / 2;
             knob2.position.set(0.023, 0, 0);
             lock2.add(lock2Body, knob2);
-            lock2.position.y = 1.52;
             tripodGroup.add(lock2);
-            tripodMastSections.push(lock2);
 
-            const sec3 = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.010, 0.52, 24), chromeMetalMat);
-            sec3.position.y = 1.78; // de 1.52 a 2.04
+            const sec3 = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.010, 1, 24), chromeMetalMat);
             sec3.castShadow = true;
             tripodGroup.add(sec3);
-            tripodMastSections.push(sec3);
 
             // Garra / Gancho superior onde se prende o cordão do banner
             tripodTopHook = new THREE.Group();
@@ -1500,106 +1646,179 @@
             collarKnob.rotation.x = Math.PI / 2;
             collarKnob.position.set(0, 0, -0.032);
             tripodCollar.add(collarRing, collarKnob);
-            tripodCollar.position.y = 0.44;
             tripodGroup.add(tripodCollar);
 
-            // Colar inferior das hastes estabilizadoras
-            const lowerHub = new THREE.Mesh(new THREE.CylinderGeometry(0.023, 0.023, 0.036, 20), matteBlackMat);
-            lowerHub.position.y = 0.15;
+            // Colar inferior fixo das hastes estabilizadoras
+            const lowerHub = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.038, 20), matteBlackMat);
+            lowerHub.position.y = TRIPOD_HUB_Y;
+            lowerHub.castShadow = true;
             tripodGroup.add(lowerHub);
-            tripodMastSections.push(lowerHub);
 
-            // 3 Pernas metálicas articuladas + pontas emborrachadas + barras estabilizadoras
-            const legLength = 0.59;
-            const legRadius = 0.010;
-            const strutLength = 0.25;
+            tripodMastRig = { sec1, lock1, sec2, lock2, sec3, lowerHub, lowerCap };
+
+            // 3 Pernas metálicas articuladas espaçadas exatamente a 120° (30°, 150°, 270°)
+            // + pés emborrachados planos em y = 0 + abraçadeiras + hastes estabilizadoras
+            tripodLegs = [];
+            tripodStruts = [];
 
             for (let i = 0; i < 3; i++) {
-                // Ângulos distribuídos a 120°, com uma perna apontando para trás (-Z) para estabilidade frontal
                 const az = (i * 2 * Math.PI) / 3 + Math.PI / 6;
 
-                const legPivot = new THREE.Group();
-                legPivot.position.set(0, 0.44, 0);
-                legPivot.rotation.y = az;
-
-                // Tubo da perna saindo para baixo ao longo de -Y local
+                // Tubo cilíndrico unitário da perna (orientado explicitamente via quaternion)
                 const legTube = new THREE.Mesh(
-                    new THREE.CylinderGeometry(legRadius, legRadius * 0.9, legLength, 16),
+                    new THREE.CylinderGeometry(0.010, 0.009, 1, 16),
                     darkMetalMat
                 );
-                legTube.position.y = -legLength / 2;
                 legTube.castShadow = true;
-                legPivot.add(legTube);
+                tripodGroup.add(legTube);
 
-                // Pé emborrachado antiderrapante
-                const foot = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.013, 0.016, 0.036, 16),
+                // Junta articulada no colar superior
+                const topHinge = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.015, 0.022, 0.024),
+                    matteBlackMat
+                );
+                tripodGroup.add(topHinge);
+
+                // Abraçadeira intermediária da perna onde conecta a haste estabilizadora
+                const legClamp = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.014, 0.014, 0.032, 16),
+                    matteBlackMat
+                );
+                legClamp.castShadow = true;
+                tripodGroup.add(legClamp);
+
+                // Pé emborrachado antiderrapante — filho direto de tripodGroup com rotação (0,0,0)
+                // para manter a base perfeitamente horizontal e assentada em y = 0.000
+                const footGroup = new THREE.Group();
+                const footCone = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.013, 0.020, TRIPOD_FOOT_H, 18),
                     rubberMat
                 );
-                foot.position.y = -legLength;
-                foot.castShadow = true;
-                legPivot.add(foot);
+                footCone.position.y = TRIPOD_FOOT_H * 0.5;
+                footCone.castShadow = true;
+                footCone.receiveShadow = true;
 
-                // Haste estabilizadora (ligação da base do mastro ao meio da perna)
-                const strutPivot = new THREE.Group();
-                strutPivot.position.set(0, 0.15, 0);
-                strutPivot.rotation.y = az;
+                const footSole = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.0205, 0.021, 0.004, 18),
+                    matteBlackMat
+                );
+                footSole.position.y = 0.002;
+                footSole.receiveShadow = true;
 
+                const ankleJoint = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.0115, 14, 12),
+                    chromeMetalMat
+                );
+                ankleJoint.position.y = TRIPOD_FOOT_H;
+
+                footGroup.add(footCone, footSole, ankleJoint);
+                tripodGroup.add(footGroup);
+
+                // Haste estabilizadora (geometria unitária orientada por quaternion entre o hub e a perna)
                 const strutBar = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.008, 0.006, strutLength),
+                    new THREE.BoxGeometry(0.0085, 1, 0.0065),
                     darkMetalMat
                 );
-                strutBar.position.z = strutLength / 2;
-                strutPivot.add(strutBar);
+                strutBar.castShadow = true;
+                tripodGroup.add(strutBar);
 
-                tripodGroup.add(legPivot);
-                tripodGroup.add(strutPivot);
-                tripodLegs.push({ pivot: legPivot, az });
-                tripodStruts.push({ pivot: strutPivot, bar: strutBar, az });
+                const hubPin = new THREE.Mesh(new THREE.SphereGeometry(0.007, 10, 10), chromeMetalMat);
+                const strutPin = new THREE.Mesh(new THREE.SphereGeometry(0.007, 10, 10), chromeMetalMat);
+                tripodGroup.add(hubPin, strutPin);
+
+                tripodLegs.push({ az, legTube, topHinge, legClamp, footGroup });
+                tripodStruts.push({ az, strutBar, hubPin, strutPin });
             }
 
             // Configura estado inicial recolhido (para ser animado na Fase 2 da Intro)
             setTripodDeployment(0);
         }
 
-        // Controla abertura suave das pernas e extensão do tripé (t de 0 a 1)
+        // Controla abertura simétrica das 3 pernas (120°) e extensão telescópica do tripé (t de 0 a 1)
         function setTripodDeployment(t) {
             const deploy = clamp(t, 0, 1);
-            const legSpreadAngle = lerp(0.04, 0.72, easeOutCubic(deploy)); // ~41° totalmente aberto
+            const eased = easeOutCubic(deploy);
+            const legSpreadAngle = lerp(0.05, 0.72, eased); // ~41° aberto simetricamente
 
-            // Calcula altura do colar para que os pés toquem exatamente y = 0 quando deploy = 1
-            const legLen = 0.59;
-            const footHeightOffset = 0.016;
-            const collarY = Math.cos(legSpreadAngle) * legLen + footHeightOffset;
+            // Altura do colar garante que os 3 pés toquem exatamente o solo (y = 0.000)
+            const collarY = TRIPOD_FOOT_H + Math.cos(legSpreadAngle) * TRIPOD_LEG_LEN;
             tripodCollar.position.y = collarY;
 
-            tripodLegs.forEach(({ pivot }) => {
-                pivot.position.y = collarY;
-                // Inclina a perna para fora ao longo de +Z local
-                pivot.rotation.x = -legSpreadAngle;
-            });
+            // Extensão telescópica da coluna central (sem esticar travas nem afundar abaixo do hub)
+            const sec1Height = lerp(0.56, 0.76, eased);
+            const sec1Top = 0.125 + sec1Height;
+            tripodMastRig.sec1.scale.set(1, sec1Height, 1);
+            tripodMastRig.sec1.position.y = 0.125 + sec1Height * 0.5;
+            tripodMastRig.lock1.position.y = sec1Top;
 
-            // Ajusta cada barra estabilizadora conectando (0, 0.15) até o ponto médio da perna
-            const midDist = legLen * 0.48;
-            const targetZ = Math.sin(legSpreadAngle) * midDist;
-            const targetY = collarY - Math.cos(legSpreadAngle) * midDist;
-            const dy = targetY - 0.15;
-            const dz = targetZ;
-            const dist = Math.max(0.02, Math.hypot(dy, dz));
-            const pitch = -Math.atan2(dy, dz);
+            const sec2Top = sec1Top + lerp(0.02, 0.64, eased);
+            const sec2Bottom = Math.max(0.14, sec2Top - 0.64);
+            const sec2Len = Math.max(0.02, sec2Top - sec2Bottom);
+            tripodMastRig.sec2.scale.set(1, sec2Len, 1);
+            tripodMastRig.sec2.position.y = sec2Bottom + sec2Len * 0.5;
+            tripodMastRig.lock2.position.y = sec2Top;
 
-            tripodStruts.forEach(({ pivot, bar }) => {
-                pivot.rotation.x = pitch;
-                bar.scale.z = dist / 0.25;
-                bar.position.z = dist / 2;
-            });
+            const topHookY = lerp(0.74, TRIPOD_TOP_Y, eased);
+            const sec3Bottom = Math.max(0.16, topHookY - 0.52);
+            const sec3Len = Math.max(0.02, topHookY - sec3Bottom);
+            tripodMastRig.sec3.scale.set(1, sec3Len, 1);
+            tripodMastRig.sec3.position.y = sec3Bottom + sec3Len * 0.5;
+            tripodTopHook.position.y = topHookY;
 
-            // Escala de extensão vertical do mastro central
-            const mastScale = lerp(0.15, 1.0, easeOutCubic(deploy));
-            tripodMastSections.forEach((m) => {
-                m.scale.set(1, mastScale, 1);
-            });
-            tripodTopHook.position.y = lerp(0.55, TRIPOD_TOP_Y, easeOutCubic(deploy));
+            // Posicionamento vetorial explícito de cada uma das 3 pernas e hastes estabilizadoras
+            const footRadialDist = TRIPOD_COLLAR_R + Math.sin(legSpreadAngle) * TRIPOD_LEG_LEN;
+            const pTop = new THREE.Vector3();
+            const pAnkle = new THREE.Vector3();
+            const pMid = new THREE.Vector3();
+            const pHub = new THREE.Vector3();
+            const dirLeg = new THREE.Vector3();
+            const dirStrut = new THREE.Vector3();
+
+            for (let i = 0; i < tripodLegs.length; i++) {
+                const leg = tripodLegs[i];
+                const strut = tripodStruts[i];
+                const cosAz = Math.cos(leg.az);
+                const sinAz = Math.sin(leg.az);
+
+                pTop.set(TRIPOD_COLLAR_R * cosAz, collarY, TRIPOD_COLLAR_R * sinAz);
+                pAnkle.set(footRadialDist * cosAz, TRIPOD_FOOT_H, footRadialDist * sinAz);
+
+                dirLeg.subVectors(pAnkle, pTop);
+                const actualLegLen = Math.max(0.01, dirLeg.length());
+                dirLeg.normalize();
+
+                // Tubo da perna alinhado de P_top até P_ankle
+                leg.legTube.position.copy(pTop).addScaledVector(pAnkle, 1).multiplyScalar(0.5);
+                leg.legTube.scale.set(1, actualLegLen, 1);
+                leg.legTube.quaternion.setFromUnitVectors(TRIPOD_UP, dirLeg);
+
+                // Junta superior orientada radialmente
+                leg.topHinge.position.copy(pTop);
+                leg.topHinge.rotation.set(0, -leg.az + Math.PI * 0.5, 0);
+
+                // Abraçadeira intermediária a 52% da perna
+                pMid.lerpVectors(pTop, pAnkle, 0.52);
+                leg.legClamp.position.copy(pMid);
+                leg.legClamp.quaternion.copy(leg.legTube.quaternion);
+
+                // Pé emborrachado sempre nivelado sobre o chão (y = 0)
+                leg.footGroup.position.set(pAnkle.x, 0, pAnkle.z);
+                leg.footGroup.rotation.set(0, 0, 0);
+
+                // Haste estabilizadora conectando lowerHub (y = 0.16) até P_mid da perna
+                pHub.set(TRIPOD_HUB_R * cosAz, TRIPOD_HUB_Y, TRIPOD_HUB_R * sinAz);
+                dirStrut.subVectors(pMid, pHub);
+                const strutLen = Math.max(0.01, dirStrut.length());
+                dirStrut.normalize();
+
+                strut.strutBar.position.copy(pHub).addScaledVector(pMid, 1).multiplyScalar(0.5);
+                strut.strutBar.scale.set(1, strutLen, 1);
+                strut.strutBar.quaternion.setFromUnitVectors(TRIPOD_UP, dirStrut);
+
+                strut.hubPin.position.copy(pHub);
+                strut.strutPin.position.copy(pMid);
+            }
+
             tripodGroup.visible = deploy > 0.005;
         }
 
@@ -1651,10 +1870,12 @@
             bannerFrontMesh = new THREE.Mesh(bannerFrontGeo, frontMat);
             bannerFrontMesh.castShadow = true;
             bannerFrontMesh.receiveShadow = true;
+            bannerFrontMesh.frustumCulled = false;
 
             bannerBackMesh = new THREE.Mesh(bannerBackGeo, backMat);
             bannerBackMesh.castShadow = true;
             bannerBackMesh.receiveShadow = true;
+            bannerBackMesh.frustumCulled = false;
 
             bannerSystemGroup.add(bannerFrontMesh, bannerBackMesh);
 
@@ -1684,7 +1905,12 @@
             // Moldura luminosa 3D para destacar a seção focada
             buildHighlightFrame();
 
-            // Atualiza malha inicial
+            // Calcula bounds reais da lona desenrolada antes de aplicar estado inicial enrolado
+            updateBannerDeformation(1.0, 0);
+            bannerFrontGeo.computeBoundingBox();
+            bannerFrontGeo.computeBoundingSphere();
+            bannerBackGeo.computeBoundingBox();
+            bannerBackGeo.computeBoundingSphere();
             updateBannerDeformation(0.0, 0);
         }
 
@@ -1860,26 +2086,76 @@
         // =========================================================================
         // 8. ANIMAÇÃO CINEMATOGRÁFICA DE INTRODUÇÃO (PAREAMENTO DE DNA -> TRIPÉ)
         // =========================================================================
+        function createIntroBaseRingGeometry(isPurine) {
+            const shape = new THREE.Shape();
+            if (isPurine) {
+                // Anel duplo Purina (Pentágono imidazol + Hexágono pirimidina) ao longo de +X
+                shape.moveTo(0.00, -0.014);
+                shape.lineTo(0.026, -0.022);
+                shape.lineTo(0.044, -0.013);
+                shape.lineTo(0.068, -0.022);
+                shape.lineTo(0.092, -0.011);
+                shape.lineTo(0.092, 0.011);
+                shape.lineTo(0.068, 0.022);
+                shape.lineTo(0.044, 0.013);
+                shape.lineTo(0.026, 0.022);
+                shape.lineTo(0.00, 0.014);
+                shape.closePath();
+            } else {
+                // Anel simples Pirimidina (Hexágono) ao longo de +X
+                shape.moveTo(0.00, -0.013);
+                shape.lineTo(0.026, -0.021);
+                shape.lineTo(0.054, -0.012);
+                shape.lineTo(0.054, 0.012);
+                shape.lineTo(0.026, 0.021);
+                shape.lineTo(0.00, 0.013);
+                shape.closePath();
+            }
+
+            const geo = new THREE.ExtrudeGeometry(shape, {
+                depth: 0.012,
+                bevelEnabled: true,
+                bevelThickness: 0.0028,
+                bevelSize: 0.0022,
+                bevelSegments: 2
+            });
+            geo.rotateX(Math.PI / 2);
+            geo.translate(0, 0.006, 0);
+            return geo;
+        }
+
         function buildIntroDNAObjects() {
             introGroup = new THREE.Group();
             scene.add(introGroup);
 
-            // Materiais distintos para as 4 bases nitrogenadas
+            const purineGeo = createIntroBaseRingGeometry(true);
+            const pyrimidineGeo = createIntroBaseRingGeometry(false);
+            const sugarGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.015, 5);
+            const phosGeo = new THREE.SphereGeometry(0.027, 20, 20);
+            const glycoGeo = new THREE.CylinderGeometry(0.0055, 0.0055, 0.030, 10);
+            const shockGeo = new THREE.TorusGeometry(0.095, 0.0042, 10, 36);
+
+            // Materiais físicos distintos para as 4 bases nitrogenadas e esqueleto metálico
             const BASE_MATS = {
-                A: new THREE.MeshStandardMaterial({ color: '#9e0b0f', emissive: '#590408', emissiveIntensity: 0.45, roughness: 0.25, metalness: 0.15 }),
-                T: new THREE.MeshStandardMaterial({ color: '#f5efe2', emissive: '#544a38', emissiveIntensity: 0.35, roughness: 0.28, metalness: 0.10 }),
-                C: new THREE.MeshStandardMaterial({ color: '#eb5a54', emissive: '#6e1915', emissiveIntensity: 0.40, roughness: 0.26, metalness: 0.15 }),
-                G: new THREE.MeshStandardMaterial({ color: '#eab64d', emissive: '#63430c', emissiveIntensity: 0.42, roughness: 0.24, metalness: 0.25 })
+                A: new THREE.MeshPhysicalMaterial({ color: '#b91c1c', emissive: '#64080c', emissiveIntensity: 0.55, roughness: 0.22, metalness: 0.2, clearcoat: 0.6 }),
+                T: new THREE.MeshPhysicalMaterial({ color: '#f8fafc', emissive: '#64748b', emissiveIntensity: 0.35, roughness: 0.24, metalness: 0.15, clearcoat: 0.55 }),
+                C: new THREE.MeshPhysicalMaterial({ color: '#fb7185', emissive: '#881337', emissiveIntensity: 0.45, roughness: 0.24, metalness: 0.18, clearcoat: 0.55 }),
+                G: new THREE.MeshPhysicalMaterial({ color: '#f59e0b', emissive: '#78350f', emissiveIntensity: 0.52, roughness: 0.22, metalness: 0.32, clearcoat: 0.65 })
             };
 
-            const backboneMatL = new THREE.MeshStandardMaterial({ color: '#c92a2a', emissive: '#520a0a', emissiveIntensity: 0.4, roughness: 0.25, metalness: 0.4 });
-            const backboneMatR = new THREE.MeshStandardMaterial({ color: '#e2e8f0', emissive: '#334155', emissiveIntensity: 0.35, roughness: 0.25, metalness: 0.5 });
-            const hBondMat = new THREE.MeshBasicMaterial({ color: '#7dd3fc', transparent: true, opacity: 0.9 });
+            const backboneMatL = new THREE.MeshStandardMaterial({ color: '#e11d48', emissive: '#580819', emissiveIntensity: 0.48, roughness: 0.20, metalness: 0.72 });
+            const backboneMatR = new THREE.MeshStandardMaterial({ color: '#e2e8f0', emissive: '#334155', emissiveIntensity: 0.36, roughness: 0.20, metalness: 0.78 });
+            const sugarMat = new THREE.MeshStandardMaterial({ color: '#38bdf8', emissive: '#0c4a6e', emissiveIntensity: 0.35, roughness: 0.28, metalness: 0.45 });
+            const hBondMat = new THREE.MeshBasicMaterial({ color: '#7dd3fc', transparent: true, opacity: 0.92, blending: THREE.AdditiveBlending });
 
-            const helixStartY = 0.58;
+            const helixStartY = 0.56;
             const helixStepY = 0.175;
-            const helixRadius = 0.17;
-            const twistPerStep = 0.52;
+            const helixRadius = 0.178;
+            const twistPerStep = 0.54;
+            const isPurineCode = (code) => code === 'A' || code === 'G';
+
+            dnaPairObjects = [];
+            backboneSegments = [];
 
             DNA_SEQUENCE.forEach((pair, idx) => {
                 const y = helixStartY + idx * helixStepY;
@@ -1889,45 +2165,69 @@
                 pairHolder.position.set(0, y, 0);
                 pairHolder.rotation.y = angle;
 
-                // Nucleotídeo da esquerda (fita 1)
+                // Nucleotídeo esquerdo (Fita 5'→3')
                 const leftUnit = new THREE.Group();
-                const blockL = new THREE.Mesh(
-                    new THREE.CapsuleGeometry(0.022, 0.115, 8, 16),
+                const phosL = new THREE.Mesh(phosGeo, backboneMatL.clone());
+                phosL.position.x = -helixRadius;
+                const sugarL = new THREE.Mesh(sugarGeo, sugarMat.clone());
+                sugarL.position.x = -0.135;
+                const glycoL = new THREE.Mesh(glycoGeo, backboneMatL);
+                glycoL.rotation.z = Math.PI / 2;
+                glycoL.position.x = -0.115;
+
+                const ringL = new THREE.Mesh(
+                    isPurineCode(pair.top) ? purineGeo : pyrimidineGeo,
                     BASE_MATS[pair.top].clone()
                 );
-                blockL.rotation.z = Math.PI / 2;
-                blockL.position.x = -0.088;
-                const phosL = new THREE.Mesh(new THREE.SphereGeometry(0.032, 18, 18), backboneMatL.clone());
-                phosL.position.x = -helixRadius;
-                leftUnit.add(blockL, phosL);
+                ringL.position.x = -0.105;
+                leftUnit.add(phosL, sugarL, glycoL, ringL);
 
-                // Nucleotídeo da direita (fita 2)
+                // Nucleotídeo direito (Fita 3'→5')
                 const rightUnit = new THREE.Group();
-                const blockR = new THREE.Mesh(
-                    new THREE.CapsuleGeometry(0.022, 0.115, 8, 16),
+                const phosR = new THREE.Mesh(phosGeo, backboneMatR.clone());
+                phosR.position.x = helixRadius;
+                const sugarR = new THREE.Mesh(sugarGeo, sugarMat.clone());
+                sugarR.position.x = 0.135;
+                const glycoR = new THREE.Mesh(glycoGeo, backboneMatR);
+                glycoR.rotation.z = Math.PI / 2;
+                glycoR.position.x = 0.115;
+
+                const ringR = new THREE.Mesh(
+                    isPurineCode(pair.bottom) ? purineGeo : pyrimidineGeo,
                     BASE_MATS[pair.bottom].clone()
                 );
-                blockR.rotation.z = Math.PI / 2;
-                blockR.position.x = 0.088;
-                const phosR = new THREE.Mesh(new THREE.SphereGeometry(0.032, 18, 18), backboneMatR.clone());
-                phosR.position.x = helixRadius;
-                rightUnit.add(blockR, phosR);
+                ringR.rotation.y = Math.PI;
+                ringR.position.x = 0.105;
+                rightUnit.add(phosR, sugarR, glycoR, ringR);
 
                 // Pontes de hidrogênio luminosas (3 para G≡C, 2 para A=T)
                 const bondsGroup = new THREE.Group();
-                const offsets = pair.bonds === 3 ? [-0.015, 0, 0.015] : [-0.010, 0.010];
-                offsets.forEach((oy) => {
+                const offsets = pair.bonds === 3 ? [-0.014, 0, 0.014] : [-0.0095, 0.0095];
+                const bondCenterX = isPurineCode(pair.top) ? 0.018 : -0.018;
+                offsets.forEach((oz) => {
                     const bond = new THREE.Mesh(
-                        new THREE.CylinderGeometry(0.004, 0.004, 0.068, 8),
+                        new THREE.CylinderGeometry(0.0038, 0.0038, 0.056, 8),
                         hBondMat.clone()
                     );
                     bond.rotation.z = Math.PI / 2;
-                    bond.position.y = oy;
+                    bond.position.set(bondCenterX, 0, oz);
                     bondsGroup.add(bond);
                 });
                 bondsGroup.scale.set(0.001, 0.001, 0.001);
 
-                pairHolder.add(leftUnit, rightUnit, bondsGroup);
+                // Anel de onda de choque luminosa ao formar o pareamento
+                const shockMat = new THREE.MeshBasicMaterial({
+                    color: pair.bonds === 3 ? '#38bdf8' : '#fde047',
+                    transparent: true,
+                    opacity: 0,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                });
+                const shockwaveRing = new THREE.Mesh(shockGeo, shockMat);
+                shockwaveRing.rotation.x = Math.PI / 2;
+                shockwaveRing.scale.setScalar(0.01);
+
+                pairHolder.add(leftUnit, rightUnit, bondsGroup, shockwaveRing);
                 introGroup.add(pairHolder);
 
                 dnaPairObjects.push({
@@ -1935,12 +2235,13 @@
                     leftUnit,
                     rightUnit,
                     bondsGroup,
+                    shockwaveRing,
                     baseY: y,
                     baseAngle: angle,
                     pair
                 });
 
-                // Segmentos das fitas fosfato-açúcar conectando este par ao anterior
+                // Fitas helicoidais contínuas ligando fosfato-açúcar ao par anterior
                 if (idx > 0) {
                     const prevY = helixStartY + (idx - 1) * helixStepY;
                     const prevAng = (idx - 1) * twistPerStep;
@@ -1948,11 +2249,11 @@
                     const makeRail = (sideSign, mat) => {
                         const p0 = new THREE.Vector3(Math.cos(prevAng) * helixRadius * sideSign, prevY, -Math.sin(prevAng) * helixRadius * sideSign);
                         const p1 = new THREE.Vector3(Math.cos(angle) * helixRadius * sideSign, y, -Math.sin(angle) * helixRadius * sideSign);
-                        const dir = new THREE.Vector3().subVectors(p1, p0);
-                        const len = dir.length();
-                        const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, len, 10), mat.clone());
-                        mesh.position.copy(p0).addScaledVector(dir, 0.5);
-                        mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+                        const mid = new THREE.Vector3().addVectors(p0, p1).multiplyScalar(0.5);
+                        mid.x *= 1.06;
+                        mid.z *= 1.06;
+                        const curve = new THREE.QuadraticBezierCurve3(p0, mid, p1);
+                        const mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.010, 10, false), mat.clone());
                         mesh.visible = false;
                         introGroup.add(mesh);
                         return { mesh, appearIndex: idx };
@@ -1963,21 +2264,36 @@
                 }
             });
 
+            // Coluna energética central usada na metamorfose DNA -> Haste Telescópica (Fase 2)
+            const energyGeo = new THREE.CylinderGeometry(0.022, 0.032, 2.04, 24, 1, true);
+            const energyMat = new THREE.MeshBasicMaterial({
+                color: '#fb7185',
+                transparent: true,
+                opacity: 0,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                side: THREE.DoubleSide
+            });
+            introEnergyCore = new THREE.Mesh(energyGeo, energyMat);
+            introEnergyCore.position.y = 1.02;
+            introEnergyCore.visible = false;
+            introGroup.add(introEnergyCore);
+
             // Partículas moleculares flutuantes ao redor da hélice
-            const pCount = 140;
+            const pCount = 160;
             const pPositions = new Float32Array(pCount * 3);
             for (let i = 0; i < pCount; i++) {
-                const r = 0.35 + Math.random() * 1.9;
+                const r = 0.34 + Math.random() * 1.95;
                 const theta = Math.random() * Math.PI * 2;
                 pPositions[i * 3] = Math.cos(theta) * r;
-                pPositions[i * 3 + 1] = 0.2 + Math.random() * 2.2;
+                pPositions[i * 3 + 1] = 0.16 + Math.random() * 2.25;
                 pPositions[i * 3 + 2] = Math.sin(theta) * r;
             }
             const pGeo = new THREE.BufferGeometry();
             pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
             const pMat = new THREE.PointsMaterial({
                 color: '#fda4af',
-                size: 0.022,
+                size: 0.024,
                 transparent: true,
                 opacity: 0.72,
                 blending: THREE.AdditiveBlending,
@@ -2034,19 +2350,21 @@
                 bannerSystemGroup.visible = false;
                 setTripodDeployment(0);
                 introGroup.visible = true;
+                introEnergyCore.visible = false;
 
-                phaseTitleEl.textContent = 'Fase 1 • Pareamento Sequencial de Nucleotídeos';
+                phaseTitleEl.textContent = 'Fase 1 • Pareamento Molecular (Purina ↔ Pirimidina)';
                 subtitleBox.style.opacity = '1';
 
-                const pairInterval = 0.48; // cada par entra a cada 0.48s
+                const pairInterval = 0.48;
                 const pairAnimDur = 0.56;
 
                 // Rotação suave da dupla hélice em formação
-                introGroup.rotation.y = t * 0.42;
+                introGroup.rotation.y = t * 0.44;
                 introParticles.rotation.y = -t * 0.18;
-                introParticles.material.opacity = 0.75;
+                introParticles.material.opacity = 0.78;
 
                 let activeIdx = 0;
+                let maxFlash = 0;
 
                 dnaPairObjects.forEach((obj, idx) => {
                     const localT = (t - idx * pairInterval) / pairAnimDur;
@@ -2066,68 +2384,93 @@
                     obj.holder.scale.setScalar(1);
                     obj.holder.position.y = obj.baseY;
 
-                    // Brilho nas pontes de hidrogênio no instante exato do encaixe
+                    // Onda de choque luminosa e encaixe das pontes de hidrogênio
                     const bondP = smoothstep(0.62, 0.96, localT);
-                    const flash = localT > 0.7 && localT < 1.25 ? Math.sin((localT - 0.7) * Math.PI / 0.55) : 0;
-                    obj.bondsGroup.scale.set(Math.max(0.001, bondP), Math.max(0.001, bondP + flash * 0.45), Math.max(0.001, bondP + flash * 0.45));
+                    const flash = localT > 0.68 && localT < 1.32 ? Math.sin((localT - 0.68) * Math.PI / 0.64) : 0;
+                    if (flash > maxFlash) maxFlash = flash;
+
+                    obj.bondsGroup.scale.set(
+                        Math.max(0.001, bondP),
+                        Math.max(0.001, bondP + flash * 0.55),
+                        Math.max(0.001, bondP + flash * 0.55)
+                    );
                     obj.bondsGroup.children.forEach((b) => {
-                        b.material.opacity = clamp(bondP * 0.9 + flash * 0.5, 0, 1);
+                        b.material.opacity = clamp(bondP * 0.92 + flash * 0.45, 0, 1);
                     });
+
+                    if (localT > 0.65 && localT < 1.55) {
+                        const waveP = clamp((localT - 0.65) / 0.9, 0, 1);
+                        obj.shockwaveRing.visible = true;
+                        obj.shockwaveRing.scale.setScalar(lerp(0.35, 1.95, easeOutCubic(waveP)));
+                        obj.shockwaveRing.material.opacity = (1 - waveP) * 0.72;
+                    } else {
+                        obj.shockwaveRing.visible = false;
+                        obj.shockwaveRing.material.opacity = 0;
+                    }
                 });
 
                 // Mostra as fitas fosfato-açúcar conforme os pares acoplam
                 backboneSegments.forEach((seg) => {
                     const segT = (t - seg.appearIndex * pairInterval) / 0.4;
-                    seg.mesh.visible = segT > 0.35;
+                    seg.mesh.visible = segT > 0.32;
                     seg.mesh.scale.setScalar(1);
                 });
 
-                // Atualiza legenda do par atual
+                // Atualiza legenda científica com identificação Purina / Pirimidina
                 if (activeIdx !== introState.lastShownPair) {
                     introState.lastShownPair = activeIdx;
                     const pData = DNA_SEQUENCE[activeIdx];
                     const sym = pData.bonds === 3 ? '≡' : '=';
-                    pairBadgeEl.innerHTML = `${pData.top} <span class="text-amber-300">${sym}</span> ${pData.bottom} <span class="text-xs font-semibold text-rose-300 ml-2">(${activeIdx + 1}/8)</span>`;
+                    pairBadgeEl.innerHTML = `${pData.top} <span class="text-amber-300">${sym}</span> ${pData.bottom} <span class="text-xs font-mono font-semibold text-rose-300 ml-2">(${activeIdx + 1}/8)</span>`;
                     pairDescEl.textContent = pData.desc;
                 }
 
-                // Câmera próxima acompanhando o crescimento vertical da dupla hélice
-                const targetY = lerp(0.62, 1.62, clamp(t / 4.2, 0, 1));
-                const camAngle = lerp(-0.28, 0.25, t / 4.5);
+                // Câmera orbital suave acompanhando cada par acoplado
+                const targetY = lerp(0.60, 1.62, easeInOutCubic(clamp(t / 4.2, 0, 1)));
+                const camAngle = lerp(-0.34, 0.30, t / 4.5);
+                const camRadius = lerp(0.90, 0.98, Math.sin((t / 4.5) * Math.PI));
                 camera.position.set(
-                    Math.sin(camAngle) * 0.92,
-                    targetY + 0.06,
-                    Math.cos(camAngle) * 0.92
+                    Math.sin(camAngle) * camRadius,
+                    targetY + 0.08,
+                    Math.cos(camAngle) * camRadius
                 );
                 controls.target.set(0, targetY, 0);
                 camera.lookAt(controls.target);
 
-                introPointLight.position.set(Math.sin(t * 2) * 0.4, targetY, 0.55);
+                introPointLight.intensity = 2.6 + maxFlash * 2.2;
+                introPointLight.position.set(Math.sin(t * 2.2) * 0.35, targetY, 0.55);
 
                 // -----------------------------------------------------------------------
-                // FASE 2 (4.5s a 7.2s): Afastamento + Transformação na Haste e Tripé
+                // FASE 2 (4.5s a 7.2s): Condensação da Hélice + Abertura Simétrica do Tripé
                 // -----------------------------------------------------------------------
             } else if (t < 7.2) {
                 const p2 = clamp((t - 4.5) / 2.7, 0, 1);
                 const p2Smooth = easeInOutCubic(p2);
 
-                phaseTitleEl.textContent = 'Fase 2 • Estruturação do Tripé de Exposição';
-                pairBadgeEl.innerHTML = 'DNA <span class="text-rose-400">→</span> EXPOSIÇÃO ACADÊMICA';
-                pairDescEl.textContent = 'A dupla hélice converge formando o suporte do banner UFPA';
+                phaseTitleEl.textContent = 'Fase 2 • Metamorfose Molecular → Tripé UFPA';
+                pairBadgeEl.innerHTML = 'DNA <span class="text-rose-400">→</span> ESTRUTURA DE EXPOSIÇÃO';
+                pairDescEl.textContent = 'A hélice condensa-se no eixo central enquanto as 3 pernas a 120° assentam no solo';
 
                 // Clareia gradualmente o estúdio
                 setStudioBrightness(smoothstep(0.05, 0.92, p2));
 
-                // Nucleotídeos brilham e convergem para o eixo central formando a haste metálica
-                const collapseP = smoothstep(0.0, 0.65, p2);
-                const fadeOutDNA = 1 - smoothstep(0.45, 0.80, p2);
+                // Nucleotídeos aceleram em giro, convergem radialmente e energizam a coluna central
+                const collapseP = smoothstep(0.0, 0.62, p2);
+                const fadeOutDNA = 1 - smoothstep(0.42, 0.78, p2);
 
                 introGroup.visible = fadeOutDNA > 0.01;
-                introGroup.rotation.y = 4.5 * 0.42 + p2Smooth * Math.PI * 1.4;
+                introGroup.rotation.y = 4.5 * 0.44 + Math.pow(p2, 1.45) * Math.PI * 2.4;
                 introParticles.material.opacity = fadeOutDNA * 0.65;
+
+                // Feixe energético axial carmesim/dourado na transição para o mastro telescópico
+                const energyPulse = Math.sin(clamp((p2 - 0.1) / 0.75, 0, 1) * Math.PI);
+                introEnergyCore.visible = energyPulse > 0.02;
+                introEnergyCore.material.opacity = energyPulse * 0.78;
+                introEnergyCore.scale.set(lerp(1.4, 0.55, p2), clamp(p2 * 1.4, 0.25, 1), lerp(1.4, 0.55, p2));
 
                 dnaPairObjects.forEach((obj) => {
                     obj.holder.visible = true;
+                    obj.shockwaveRing.visible = false;
                     const radialScale = lerp(1.0, 0.08, collapseP);
                     obj.holder.scale.set(radialScale, lerp(1.0, 1.35, collapseP), radialScale);
                     obj.leftUnit.position.set(0, 0, 0);
@@ -2140,9 +2483,10 @@
                     seg.mesh.scale.set(lerp(1, 0.1, collapseP), 1, lerp(1, 0.1, collapseP));
                 });
 
-                // Abertura progressiva do tripé (pernas + haste telescópica)
-                const tripodP = smoothstep(0.22, 0.96, p2);
+                // Abertura progressiva do tripé (3 pernas a 120° + mastro telescópico + pés em y=0)
+                const tripodP = smoothstep(0.18, 0.95, p2);
                 setTripodDeployment(tripodP);
+                contactShadowMesh.material.opacity = smoothstep(0.35, 0.95, p2) * 0.75;
 
                 // Banner enrolado surge discretamente no topo ao final da Fase 2
                 bannerSystemGroup.visible = p2 > 0.84;
@@ -2150,12 +2494,11 @@
                 updateBannerDeformation(0.0, t);
 
                 // Afastamento cinematográfico da câmera até o plano geral
-                const startPos = new THREE.Vector3(Math.sin(0.25) * 0.92, 1.68, Math.cos(0.25) * 0.92);
+                const startPos = new THREE.Vector3(Math.sin(0.30) * 0.90, 1.70, Math.cos(0.30) * 0.90);
                 const endPos = getOverviewCameraPose().pos;
                 const startTgt = new THREE.Vector3(0, 1.62, 0);
                 const endTgt = getOverviewCameraPose().target;
 
-                // Arco suave em órbita durante o zoom out
                 const orbitOffset = Math.sin(p2Smooth * Math.PI) * 0.72;
                 camera.position.lerpVectors(startPos, endPos, p2Smooth);
                 camera.position.x += orbitOffset;
@@ -2169,12 +2512,13 @@
                 const p3 = clamp((t - 7.2) / (introState.duration - 7.2), 0, 1);
                 setStudioBrightness(1.0);
                 introGroup.visible = false;
+                introEnergyCore.visible = false;
                 setTripodDeployment(1.0);
                 bannerSystemGroup.visible = true;
 
-                phaseTitleEl.textContent = 'Fase 3 • Abertura do Banner Científico';
+                phaseTitleEl.textContent = 'Fase 3 • Desenrolamento em Espiral de Arquimedes';
                 pairBadgeEl.innerHTML = 'BIOTECNOLOGIA VERMELHA';
-                pairDescEl.textContent = 'DNA e Diagnóstico • Universidade Federal do Pará';
+                pairDescEl.textContent = 'DNA e Diagnóstico • Universidade Federal do Pará (ICB / FABIOTEC)';
 
                 // Desenrola suavemente com leve amortecimento no final
                 unrollProgress = easeInOutCubic(p3);
@@ -2196,6 +2540,7 @@
         function finishIntro(immediate = false) {
             introState.active = false;
             introGroup.visible = false;
+            if (introEnergyCore) introEnergyCore.visible = false;
             setStudioBrightness(1.0);
             setTripodDeployment(1.0);
             bannerSystemGroup.visible = true;
@@ -2279,16 +2624,21 @@
             const targetX = (centerU - 0.5) * BANNER_W;
             const targetY = BANNER_TOP_Y - centerV * BANNER_H;
 
-            // Compensa largura do menu lateral em telas desktop quando aberto
-            const desktopOffset = (isDrawerOpen && window.innerWidth >= 768) ? 0.045 : 0;
+            // Compensa área ocupada pelo menu lateral esquerdo no desktop para centralizar no espaço livre
+            const vw = Math.max(1, window.innerWidth);
+            const drawerOccupiedPx = (isDrawerOpen && vw >= 768) ? 276 : 0;
+            const visibleWidthRatio = clamp((vw - drawerOccupiedPx) / vw, 0.52, 1.0);
 
             const distV = (worldH * padding / 2) / Math.tan(fovRad / 2);
-            const distH = (worldW * padding / 2) / (Math.tan(fovRad / 2) * aspect);
+            const distH = (worldW * padding / 2) / (Math.tan(fovRad / 2) * aspect * visibleWidthRatio);
             const dist = Math.max(distV, distH, 0.36);
 
+            const frustumHalfW = dist * Math.tan(fovRad / 2) * aspect;
+            const shiftX = drawerOccupiedPx > 0 ? (drawerOccupiedPx / vw) * frustumHalfW : 0;
+
             return {
-                pos: new THREE.Vector3(targetX - desktopOffset * dist * 0.28, targetY, BANNER_Z + dist),
-                target: new THREE.Vector3(targetX - desktopOffset * dist * 0.28, targetY, BANNER_Z)
+                pos: new THREE.Vector3(targetX - shiftX, targetY, BANNER_Z + dist),
+                target: new THREE.Vector3(targetX - shiftX, targetY, BANNER_Z)
             };
         }
 
@@ -2379,6 +2729,11 @@
                 const isMatch = btn.dataset.section === sectionId ||
                     (sectionId === 'aplicacoes' && btn.dataset.section === 'molecular');
                 btn.classList.toggle('active', isMatch);
+                if (isMatch) {
+                    btn.setAttribute('aria-current', 'true');
+                } else {
+                    btn.removeAttribute('aria-current');
+                }
             });
         }
 
@@ -2399,13 +2754,14 @@
             const container = document.getElementById('section-buttons');
             SECTIONS_MENU.forEach((sec) => {
                 const btn = document.createElement('button');
-                btn.className = 'nav-btn text-left w-full px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/15 flex items-center gap-2.5 cursor-pointer';
+                btn.type = 'button';
+                btn.className = 'nav-btn text-left w-full px-2.5 py-2 rounded-xl border border-white/10 bg-white/5 flex items-center gap-2.5 cursor-pointer';
                 btn.dataset.section = sec.id;
                 btn.innerHTML = `
-          <span class="text-base leading-none shrink-0">${sec.icon}</span>
+          <span class="w-7 h-7 rounded-lg bg-white/10 border border-white/10 flex items-center justify-center text-rose-200 shrink-0" aria-hidden="true">${sec.icon}</span>
           <div class="min-w-0">
-            <div class="text-xs font-bold truncate">${sec.label}</div>
-            <div class="text-[10.5px] text-gray-300 truncate">${sec.sub}</div>
+            <div class="text-xs font-bold text-white truncate">${sec.label}</div>
+            <div class="text-[10.5px] text-rose-100/75 truncate">${sec.sub}</div>
           </div>
         `;
                 btn.addEventListener('click', () => focusSection(sec.id));
