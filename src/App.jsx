@@ -1,0 +1,6397 @@
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import * as THREE from 'three';
+
+/* ============================================================================
+ * 1. MOTOR DE ÁUDIO PROCEDURAL (WEB AUDIO API - SEM DEPENDÊNCIAS EXTERNAS)
+ * ============================================================================ */
+class SoundEngine {
+  constructor() {
+    this.ctx = null;
+    this.enabled = true;
+  }
+
+  init() {
+    if (!this.enabled || typeof window === 'undefined') return null;
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        this.ctx = new AudioCtx();
+      }
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+    return this.ctx;
+  }
+
+  playTone(freq, duration = 0.12, type = 'sine', volume = 0.08, delay = 0) {
+    if (!this.enabled) return;
+    const ctx = this.init();
+    if (!ctx) return;
+
+    const startTime = ctx.currentTime + delay;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, startTime);
+
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.exponentialRampToValueAtTime(volume, startTime + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(startTime);
+    osc.stop(startTime + duration + 0.02);
+  }
+
+  playClick() {
+    this.playTone(720, 0.055, 'triangle', 0.05);
+  }
+
+  playSuccess() {
+    this.playTone(523.25, 0.14, 'sine', 0.07, 0);
+    this.playTone(659.25, 0.16, 'sine', 0.07, 0.07);
+    this.playTone(783.99, 0.22, 'triangle', 0.08, 0.14);
+  }
+
+  playError() {
+    this.playTone(195, 0.14, 'sawtooth', 0.06, 0);
+    this.playTone(145, 0.22, 'sawtooth', 0.06, 0.11);
+  }
+
+  playLabPulse(stepIdx = 0) {
+    const base = 360 + stepIdx * 75;
+    this.playTone(base, 0.1, 'sine', 0.06, 0);
+    this.playTone(base * 1.25, 0.15, 'triangle', 0.06, 0.08);
+  }
+
+  playVictory() {
+    const notes = [523.25, 659.25, 783.99, 1046.5];
+    notes.forEach((n, idx) => {
+      this.playTone(n, 0.28, 'triangle', 0.08, idx * 0.09);
+    });
+  }
+}
+
+const soundEngine = new SoundEngine();
+
+/* ============================================================================
+ * 2. ARQUITETURA MODULAR (6 MÓDULOS) E DADOS CIENTÍFICOS (UFPA / FABIOTEC)
+ * ============================================================================ */
+const POSTER_IMAGE_PATH = './DNA%20E%20DIAGN%C3%93STICO%20BIOTEC%2024_20261115_150346_0000.png';
+
+const MODULES_CONFIG = [
+  {
+    id: 1,
+    slug: 'dna-molecula',
+    code: 'MÓDULO 01',
+    shortLabel: '01. DNA: A Molécula',
+    navLabel: 'DNA: A Molécula da Vida',
+    title: 'Módulo 1 — DNA: A Molécula da Vida',
+    subtitle: 'Estrutura tridimensional da dupla hélice, esqueleto açúcar-fosfato, bases nitrogenadas (A, T, C, G e comparativo com U) e regras de pareamento complementar.',
+    accent: 'yellow',
+  },
+  {
+    id: 2,
+    slug: 'diagnostico-doencas',
+    code: 'MÓDULO 02',
+    shortLabel: '02. DNA e Diagnóstico',
+    navLabel: 'DNA e Diagnóstico de Doenças',
+    title: 'Módulo 2 — DNA e Diagnóstico de Doenças',
+    subtitle: 'Biotecnologia Vermelha aplicada à saúde humana: alterações genéticas, doenças hereditárias, RT-qPCR clínica, terapias gênicas (CRISPR) e medicina personalizada.',
+    accent: 'red',
+  },
+  {
+    id: 3,
+    slug: 'genetica-forense',
+    code: 'MÓDULO 03',
+    shortLabel: '03. Genética Forense',
+    navLabel: 'Genética Forense',
+    title: 'Módulo 3 — Genética Forense',
+    subtitle: 'O DNA como evidência científica: cadeia de custódia, identificação criminal, testes de paternidade por marcadores STR e localização de pessoas desaparecidas.',
+    accent: 'cyan',
+  },
+  {
+    id: 4,
+    slug: 'missao-laboratorio',
+    code: 'MÓDULO 04',
+    shortLabel: '04. Missão Laboratório',
+    navLabel: 'Missão Laboratório (Etapas)',
+    title: 'Módulo 4 — Missão Laboratório (Etapas)',
+    subtitle: 'Simulação prática passo a passo das 5 fases periciais e clínicas: Coleta com Swab, Extração Celular, Amplificação por PCR, Eletroforese em Gel e Comparação de Bandas.',
+    accent: 'yellow',
+  },
+  {
+    id: 5,
+    slug: 'jogos-desafios',
+    code: 'MÓDULO 05',
+    shortLabel: '05. Jogos Interativos',
+    navLabel: 'Jogos (Desafios Interativos)',
+    title: 'Módulo 5 — Jogos (Desafios Interativos)',
+    subtitle: 'Hub gamificado com 3 desafios práticos: Montagem da Fita Complementar, Jogo da Memória: Conexões do Caso e o Quiz Pericial de Verdadeiro ou Falso.',
+    accent: 'green',
+  },
+  {
+    id: 6,
+    slug: 'casos-solucionados',
+    code: 'MÓDULO 06',
+    shortLabel: '06. Casos Solucionados',
+    navLabel: 'Casos Solucionados (Aplicações Reais)',
+    title: 'Módulo 6 — Casos Solucionados (Aplicações Reais)',
+    subtitle: 'Dossiês confidenciais e prontuários reais solucionados pela Biotecnologia Vermelha na medicina diagnóstica e pela Genética Forense na justiça.',
+    accent: 'cyan',
+  },
+];
+
+const ECOSYSTEM_APPS = [
+  {
+    id: 'dna',
+    code: 'EXP 01',
+    file: 'dna.html',
+    href: './dna.html',
+    title: 'Dupla-Hélice B-DNA 3D',
+    shortLabel: 'B-DNA 3D',
+    tag: 'VISUALIZADOR 3D',
+    accentBorder: 'hover:border-cyan-400',
+    accentBar: 'bg-cyan-400',
+    accentText: 'text-cyan-400',
+    accentBadge: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
+    description: 'Molécula B-DNA em tela cheia com modos Montada e Explodida, contagem de peças em tempo real e ligações de hidrogênio.',
+  },
+  {
+    id: 'pcr',
+    code: 'EXP 02',
+    file: 'pcr.html',
+    href: './pcr.html',
+    title: 'BioForense 3D — Lab PCR',
+    shortLabel: 'BioForense 3D',
+    tag: 'LABORATÓRIO 3D',
+    accentBorder: 'hover:border-emerald-400',
+    accentBar: 'bg-emerald-400',
+    accentText: 'text-emerald-400',
+    accentBadge: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+    description: 'Bancada forense 3D com 5 estações interativas: Coleta com swab, Extração, Termociclador PCR, Eletroforese e Comparação STR.',
+  },
+  {
+    id: 'banner',
+    code: 'EXP 03',
+    file: 'banner.html',
+    href: './banner.html',
+    title: 'Banner 3D Interativo UFPA',
+    shortLabel: 'Banner 3D',
+    tag: 'EXPOSIÇÃO 3D',
+    accentBorder: 'hover:border-rose-400',
+    accentBar: 'bg-rose-500',
+    accentText: 'text-rose-400',
+    accentBadge: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+    description: 'Banner roll-up oficial da Extensão Biotecnologia Vermelha em 3D com introdução cinematográfica de DNA e zoom nas seções.',
+  },
+  {
+    id: 'folder',
+    code: 'EXP 04',
+    file: 'folder.html',
+    href: './folder.html',
+    title: 'Folder 3D Interativo',
+    shortLabel: 'Folder 3D',
+    tag: 'MATERIAL 3D',
+    accentBorder: 'hover:border-green-400',
+    accentBar: 'bg-green-400',
+    accentText: 'text-green-400',
+    accentBadge: 'bg-green-500/15 text-green-300 border-green-500/30',
+    description: 'Folheto tridimensional dobrável frente e verso com controle contínuo de abertura, giro 360° e personalização de artes.',
+  },
+  {
+    id: 'mistery',
+    code: 'EXP 05',
+    file: 'mistery.html',
+    href: './mistery.html',
+    title: 'Arquivo Confidencial',
+    shortLabel: 'Arquivo Confidencial',
+    tag: 'JOGO INVESTIGATIVO',
+    accentBorder: 'hover:border-amber-400',
+    accentBar: 'bg-amber-400',
+    accentText: 'text-amber-400',
+    accentBadge: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+    description: 'Jogo de investigação criminal com dossiês completos, suspeitos, evidências, caderno de notas, linha do tempo e quadro de acusação.',
+  },
+  {
+    id: 'natal',
+    code: 'EXP 06',
+    file: 'natal.html',
+    href: './natal.html',
+    title: 'Cena Natalina ASCII',
+    shortLabel: 'Natal ASCII',
+    tag: 'ARTE GENERATIVA',
+    accentBorder: 'hover:border-sky-400',
+    accentBar: 'bg-sky-400',
+    accentText: 'text-sky-400',
+    accentBadge: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+    description: 'Experiência visual em arte ASCII em tempo real com neve reativa, vila natalina 2D e modo 3D Volumétrico 2026.',
+  },
+];
+
+function openEcosystemHub() {
+  soundEngine.playClick();
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('biotec:open-ecosystem'));
+  }
+}
+
+const BASE_INFO = {
+  A: {
+    code: 'A',
+    name: 'Adenina',
+    pair: 'T',
+    pairName: 'Timina',
+    bonds: 2,
+    group: 'Purina (anel duplo)',
+    shape: 'pointed',
+    colorHex: '#2DD4BF',
+    bgClass: 'bg-zinc-950 border-zinc-800 text-zinc-100',
+    badgeClass: 'bg-yellow-400 text-black',
+    desc: 'Base púrica bicíclica (hexágono + pentágono fundidos) que estabelece 2 pontes de hidrogênio exclusivamente com a Timina (T) no DNA.',
+  },
+  T: {
+    code: 'T',
+    name: 'Timina',
+    pair: 'A',
+    pairName: 'Adenina',
+    bonds: 2,
+    group: 'Pirimidina (anel simples)',
+    shape: 'pointed',
+    colorHex: '#FACC15',
+    bgClass: 'bg-zinc-950 border-zinc-800 text-zinc-100',
+    badgeClass: 'bg-zinc-200 text-black',
+    desc: 'Base pirimídica exclusiva do DNA (possui grupamento metil H₃C no carbono 5; substituída pela Uracila no RNA), pareando com a Adenina (A) por 2 pontes de H.',
+  },
+  C: {
+    code: 'C',
+    name: 'Citosina',
+    pair: 'G',
+    pairName: 'Guanina',
+    bonds: 3,
+    group: 'Pirimidina (anel simples)',
+    shape: 'curved',
+    colorHex: '#FB7185',
+    bgClass: 'bg-zinc-950 border-zinc-800 text-zinc-100',
+    badgeClass: 'bg-zinc-300 text-black',
+    desc: 'Base pirimídica de anel hexagonal simples que forma 3 pontes de hidrogênio de alta estabilidade termodinâmica com a Guanina (G).',
+  },
+  G: {
+    code: 'G',
+    name: 'Guanina',
+    pair: 'C',
+    pairName: 'Citosina',
+    bonds: 3,
+    group: 'Purina (anel duplo)',
+    shape: 'curved',
+    colorHex: '#34D399',
+    bgClass: 'bg-zinc-950 border-zinc-800 text-zinc-100',
+    badgeClass: 'bg-yellow-500 text-black',
+    desc: 'Base púrica de anel duplo ligada à Citosina (C) por 3 pontes de hidrogênio, elevando a temperatura de fusão (Tm) e estabilidade da dupla hélice.',
+  },
+};
+
+const RNA_URACIL_REF = {
+  code: 'U',
+  name: 'Uracila',
+  pair: 'A',
+  pairName: 'Adenina (RNA)',
+  bonds: 2,
+  group: 'Pirimidina exclusiva do RNA',
+  colorHex: '#A78BFA',
+  desc: 'No RNA (fita simples), a Uracila (U) substitui a Timina (T) — sem o grupamento metil H₃C — pareando com a Adenina (A) por 2 pontes de hidrogênio durante a transcrição e tradução.',
+};
+
+const PAIRING_MISSIONS = [
+  {
+    id: 'ufpa-poster',
+    title: 'Sequência do Pôster UFPA',
+    tag: 'Padrão FABIOTEC',
+    color: 'red',
+    description: 'Reconstrua exatamente a fita dupla ilustrada no pôster oficial de Extensão Biotecnologia Vermelha.',
+    template: ['C', 'A', 'C', 'G', 'A', 'C', 'T', 'T'],
+  },
+  {
+    id: 'clinical-hbb',
+    title: 'Gene HBB (Diagnóstico Clínico)',
+    tag: 'Biotecnologia Vermelha',
+    color: 'red',
+    description: 'Trecho marcador associado à triagem molecular da cadeia beta-globina humana (Anemia Falciforme).',
+    template: ['C', 'T', 'G', 'A', 'G', 'G', 'A', 'C'],
+  },
+  {
+    id: 'forensic-str',
+    title: 'Locus STR (Marcador CODIS)',
+    tag: 'Genética Forense',
+    color: 'cyan',
+    description: 'Região repetitiva curta usada para comparação de perfis genéticos individuais em investigações.',
+    template: ['A', 'G', 'A', 'T', 'C', 'T', 'G', 'A'],
+  },
+];
+
+/* Cards Ilustrados do Módulo 1 (DNA: A Molécula da Vida) */
+const MODULE_1_CARDS = [
+  {
+    id: 'dna-localizacao',
+    step: 'PASSO 01',
+    badge: 'ARQUITETURA CELULAR',
+    diagramType: 'dna-cell-nucleus',
+    title: 'Onde Está o DNA e Como Ele Guarda a Vida?',
+    subtitle: 'Do núcleo celular aos cromossomos condensados',
+    summary: 'O ácido desoxirribonucleico (DNA) é o manual de instruções de todos os seres vivos, armazenado no núcleo das células eucarióticas e nas mitocôndrias.',
+    details: [
+      'Cada célula somática humana abriga cerca de 2 metros de DNA compactados em 23 pares de cromossomos.',
+      'Genes são trechos específicos do DNA que codificam proteínas funcionais e RNAs reguladores.',
+      'Mais de 99,9% da sequência de DNA é idêntica entre todos os humanos; os 0,1% restantes tornam cada indivíduo único.',
+    ],
+    takeaway: 'Comece observando: Célula → Núcleo → Cromossomo → Dupla Hélice de DNA.',
+  },
+  {
+    id: 'dna-esqueleto',
+    step: 'PASSO 02',
+    badge: 'ESTRUTURA QUÍMICA',
+    diagramType: 'sugar-phosphate',
+    title: 'O Corrimão da Escada: Açúcar-Fosfato Antiparalelo',
+    subtitle: 'Direcionalidade 5’→3’ e carga elétrica negativa',
+    summary: 'As duas fitas da hélice correm em sentidos opostos (antiparalelas: uma 5’→3’ e a outra 3’→5’), sustentadas por ligações covalentes fosfodiéster.',
+    details: [
+      'Cada nucleotídeo possui 3 partes: um grupo Fosfato (PO₄³⁻), um açúcar Desoxirribose (5 carbonos) e uma Base Nitrogenada.',
+      'Os grupos fosfato externos conferem carga elétrica negativa ao DNA (fundamental para a eletroforese no laboratório).',
+      'Enquanto o corrimão externo é rígido e estável, os degraus internos guardam o código genético.',
+    ],
+    takeaway: 'O esqueleto açúcar-fosfato protege as bases no interior hidrofóbico da hélice.',
+  },
+  {
+    id: 'dna-bases',
+    step: 'PASSO 03',
+    badge: 'QUÍMICA DOS ANÉIS',
+    diagramType: 'purines-pyrimidines',
+    title: 'As 4 Letras do Código: Purinas vs. Pirimidinas',
+    subtitle: 'Geometria molecular de anel duplo e anel simples',
+    summary: 'O alfabeto do DNA utiliza quatro bases nitrogenadas divididas em duas famílias químicas com tamanhos complementares exatos.',
+    details: [
+      'Purinas (Adenina [A] e Guanina [G]): moléculas maiores formadas por 2 anéis fundidos (um hexágono + um pentágono).',
+      'Pirimidinas (Timina [T] e Citosina [C]): moléculas menores formadas por 1 anel hexagonal simples.',
+      'No RNA (fita simples), a Timina (T) dá lugar à Uracila (U), que não possui o radical metil (H₃C).',
+    ],
+    takeaway: 'Uma Purina (2 anéis) sempre se encaixa com uma Pirimidina (1 anel) para manter o diâmetro constante de 2 nm.',
+  },
+  {
+    id: 'dna-chargaff',
+    step: 'PASSO 04',
+    badge: 'REGRA DE CHARGAFF',
+    diagramType: 'hydrogen-bonds',
+    title: 'Pareamento Específico & Pontes de Hidrogênio',
+    subtitle: 'Por que A só liga com T (2H) e C só liga com G (3H)?',
+    summary: 'As duas fitas mantêm-se unidas por pontes de hidrogênio precisas entre pares complementares, permitindo abrir e copiar a fita sem perder informação.',
+    details: [
+      'Adenina pareia com Timina (A = T) através de 2 pontes de hidrogênio.',
+      'Citosina pareia com Guanina (C ≡ G) através de 3 pontes de hidrogênio (ligação 50% mais forte e resistente ao calor).',
+      'Conhecendo a sequência de uma fita molde (ex: 3’-CACGACTT-5’), deduzimos imediatamente a complementar (5’-GTGCTGAA-3’).',
+    ],
+    takeaway: 'Próximo passo: Role abaixo para testar cada base no Inspetor de Chargaff ou avance ao Módulo 2!',
+  },
+];
+
+/* Cards Ilustrados do Módulo 2 (DNA e Diagnóstico de Doenças - Biotecnologia Vermelha) */
+const RED_BIOTECH_CARDS = [
+  {
+    id: 'mutacoes-hereditarias',
+    step: 'PASSO 01',
+    badge: 'PATOLOGIA MOLECULAR',
+    diagramType: 'gene-mutation',
+    title: 'Alterações Genéticas & Doenças Hereditárias',
+    subtitle: 'Quando uma única letra alterada muda a proteína',
+    summary: 'Pequenas variações ou mutações na sequência de bases do DNA podem alterar a estrutura de proteínas essenciais e causar doenças hereditárias.',
+    details: [
+      'Mutação de ponto (SNP): na Anemia Falciforme, a troca de uma única base (A → T no gene HBB) substitui o ácido glutâmico por valina na hemoglobina.',
+      'Triagem neonatal molecular identifica precocemente Fibrose Cística, Fenilcetonúria e Atrofia Muscular Espinhal (AME).',
+      'O mapeamento genético familiar permite aconselhamento reprodutivo e prevenção antes das complicações clínicas.',
+    ],
+    takeaway: 'A Biotecnologia Vermelha lê o DNA para encontrar a causa-raiz da doença na escala molecular.',
+  },
+  {
+    id: 'diag-molecular',
+    step: 'PASSO 02',
+    badge: 'PRECISÃO 99.9%',
+    diagramType: 'rt-qpcr-curve',
+    title: 'Diagnóstico Molecular Precoce & PCR Clínica',
+    subtitle: 'Detecção de patógenos e biomarcadores antes dos sintomas',
+    summary: 'A PCR em Tempo Real (RT-qPCR) e o sequenciamento genômico detectam quantidades mínimas de DNA/RNA de vírus, bactérias ou células tumorais.',
+    details: [
+      'Supera a "janela imunológica": detecta o material genético do patógeno no 1º dia de infecção, sem esperar a produção de anticorpos.',
+      'Biópsia líquida e painéis oncológicos (BRCA1, BRCA2, EGFR) identificam mutações tumorais em amostras de sangue.',
+      'Sondas fluorescentes (TaqMan) brilham a cada ciclo de duplicação, quantificando a carga genética em tempo real.',
+    ],
+    takeaway: 'Diagnosticar cedo significa iniciar o tratamento certo quando a chance de cura é máxima.',
+  },
+  {
+    id: 'terapia-genica',
+    step: 'PASSO 03',
+    badge: 'TERAPIA AVANÇADA',
+    diagramType: 'crispr-edit',
+    title: 'Terapias Gênicas & Edição Molecular (CRISPR)',
+    subtitle: 'Corrigindo genes defeituosos diretamente na célula',
+    summary: 'Em vez de apenas tratar sintomas, a terapia gênica utiliza vetores virais seguros ou tesouras moleculares (CRISPR-Cas9) para restaurar o gene funcional.',
+    details: [
+      'Sistema CRISPR-Cas9: um RNA-guia leva a enzima Cas9 até a coordenada exata da mutação para cortar e reparar o DNA.',
+      'Vetores de adenovírus associados (AAV) entregam cópias sadias do gene em neurônios motores ou células da retina.',
+      'Imunoterapia CAR-T: linfócitos T do paciente são reprogramados geneticamente em laboratório para destruir tumores.',
+    ],
+    takeaway: 'A biotecnologia transforma o próprio código genético em medicamento vivo.',
+  },
+  {
+    id: 'medicina-personalizada',
+    step: 'PASSO 04',
+    badge: 'FARMACOGENÔMICA',
+    diagramType: 'pharmacogenomics',
+    title: 'Medicina Personalizada & Vacinas de Nova Geração',
+    subtitle: 'A dose certa do fármaco certo para o seu genoma',
+    summary: 'A farmacogenômica analisa variantes nos genes de enzimas hepáticas para ajustar medicamentos ao metabolismo de cada paciente, evitando toxicidade.',
+    details: [
+      'Polimorfismos em genes como CYP450, DPYD e TPMT determinam se um paciente metaboliza quimioterápicos de forma lenta ou ultrarrápida.',
+      'Vacinas de mRNA e DNA recombinante ensinam o sistema imune a reconhecer antígenos sem utilizar o patógeno inteiro.',
+      'Produção biotecnológica de insulina humana recombinante, hormônio do crescimento e anticorpos monoclonais.',
+    ],
+    takeaway: 'Fim do tratamento único padronizado: cada paciente recebe terapia desenhada para o seu DNA.',
+  },
+];
+
+/* Cards Ilustrados do Módulo 3 (Genética Forense) */
+const FORENSIC_CARDS = [
+  {
+    id: 'resolucao-crimes',
+    step: 'PASSO 01',
+    badge: 'EVIDÊNCIA CIENTÍFICA',
+    diagramType: 'crime-scene-trace',
+    title: 'O DNA na Cena do Crime & Cadeia de Custódia',
+    subtitle: 'De vestígios invisíveis à prova pericial irrefutável',
+    summary: 'Qualquer célula nucleada deixada em um local de crime carrega o perfil genético completo do indivíduo, exigindo coleta estéril e cadeia de custódia.',
+    details: [
+      'Fontes principais: manchas de sangue, saliva em copos/bitucas, sêmen, bulbo capilar (raiz do pelo) e células epiteliais de toque.',
+      'Graças à amplificação por PCR, menos de 1 nanograma de DNA (poucas dezenas de células) basta para gerar um perfil completo.',
+      'Poder duplo da perícia: incriminar o verdadeiro autor com precisão matemática ou inocentar suspeitos acusados injustamente.',
+    ],
+    takeaway: 'Sem cadeia de custódia lacrada e livre de contaminação, nenhuma evidência genética tem validade jurídica.',
+  },
+  {
+    id: 'marcadores-str',
+    step: 'PASSO 02',
+    badge: 'PADRÃO CODIS',
+    diagramType: 'str-repeats',
+    title: 'Marcadores STR (Short Tandem Repeats)',
+    subtitle: 'Como a polícia científica cria a "impressão digital" do DNA',
+    summary: 'A perícia forense não sequencia o genoma inteiro: ela analisa entre 16 e 24 regiões hipervariáveis chamadas STRs (repetições curtas em sequência).',
+    details: [
+      'Em um locus STR, blocos de 4 bases como [AGAT] se repetem lado a lado (ex: um indivíduo tem 7 repetições; outro tem 12).',
+      'Analisando 20+ loci independentes (padrão internacional CODIS), a chance de dois indivíduos não-gêmeos coincidirem é menor que 1 em 10 bilhões.',
+      'Perfis questionados são cruzados com o Banco Nacional de Perfis Genéticos (BNPG) para identificar reincidências.',
+    ],
+    takeaway: 'O número de repetições STR em cada cromossomo forma o código numérico único de cada pessoa.',
+  },
+  {
+    id: 'paternidade-vinculo',
+    step: 'PASSO 03',
+    badge: 'VÍNCULO >99.99%',
+    diagramType: 'paternity-str',
+    title: 'Testes de Paternidade & Herança Mendeliana',
+    subtitle: 'Metade das bandas vem da mãe, metade vem do pai biológico',
+    summary: 'Em cada marcador STR autossômico, todo ser humano possui dois alelos: um herdado obrigatoriamente da mãe biológica e outro do pai biológico.',
+    details: [
+      'Primeiro identificam-se nas bandas do filho quais alelos vieram da mãe.',
+      'O alelo restante de cada locus (alelo paterno obrigatório) deve estar presente no perfil genético do verdadeiro pai biológico.',
+      'A ausência de compatibilidade em 3 ou mais loci exclui a paternidade com 100% de certeza; a presença confirma vínculo com >99,9999%.',
+    ],
+    takeaway: 'Compare as bandas no Simulador Forense abaixo para ver na prática uma exclusão vs. inclusão paterna!',
+  },
+  {
+    id: 'identificacao-vitimas',
+    step: 'PASSO 04',
+    badge: 'DIREITOS HUMANOS',
+    diagramType: 'mtdna-remains',
+    title: 'Pessoas Desaparecidas, Desastres & DNA Mitocondrial',
+    subtitle: 'Quando o DNA resiste ao tempo e devolve a identidade',
+    summary: 'Em desastres aéreos, incêndios ou ossadas antigas onde impressões digitais não existem mais, a genética forense reconstrói vínculos familiares.',
+    details: [
+      'DNA Mitocondrial (mtDNA): possui centenas de cópias por célula e estrutura circular resistente à degradação extrema.',
+      'Como o mtDNA é transmitido integralmente pela linhagem materna, permite identificar restos mortais comparando com avós, tias ou irmãos maternos.',
+      'Marcadores do Cromossomo Y (Y-STR) rastreiam a linhagem paterna direta em investigações familiares e históricas.',
+    ],
+    takeaway: 'A genética forense une rigor científico e impacto humanitário para devolver nome e história às famílias.',
+  },
+];
+
+const MEMORY_PAIRS_DATA = [
+  {
+    pairId: 'at',
+    category: 'Pareamento Molecular',
+    color: 'red',
+    explanation: 'No DNA, a purina Adenina (A) sempre se pareia com a pirimidina Timina (T) por meio de 2 pontes de hidrogênio.',
+    a: { label: 'Adenina (A)', tag: 'Base Púrica', icon: 'A' },
+    b: { label: 'Timina (T)', tag: '2 Pontes de H', icon: 'T' },
+  },
+  {
+    pairId: 'cg',
+    category: 'Pareamento Molecular',
+    color: 'cyan',
+    explanation: 'A Citosina (C) estabelece pareamento complementar com a Guanina (G) formando 3 pontes de hidrogênio de alta estabilidade.',
+    a: { label: 'Citosina (C)', tag: 'Base Pirimídica', icon: 'C' },
+    b: { label: 'Guanina (G)', tag: '3 Pontes de H', icon: 'G' },
+  },
+  {
+    pairId: 'crime-coleta',
+    category: 'Genética Forense',
+    color: 'cyan',
+    explanation: 'No local do crime, a coleta rigorosa com swab estéril preserva vestígios biológicos (sangue, saliva, pele) sem contaminação.',
+    a: { label: 'Local do Crime', tag: 'Vestígio Biológico', icon: 'scene' },
+    b: { label: 'Coleta de DNA', tag: 'Swab & Preservação', icon: 'swab' },
+  },
+  {
+    pairId: 'doenca-diag',
+    category: 'Biotecnologia Vermelha',
+    color: 'red',
+    explanation: 'O diagnóstico molecular por Biotecnologia Vermelha detecta mutações associadas a doenças genéticas antes da progressão clínica.',
+    a: { label: 'Doença Genética', tag: 'Mutação / Herança', icon: 'gene' },
+    b: { label: 'Diagnóstico por Biotecnologia', tag: 'Medicina de Precisão', icon: 'biotech' },
+  },
+  {
+    pairId: 'pcr-amp',
+    category: 'Técnica Laboratorial',
+    color: 'green',
+    explanation: 'O Termociclador executa ciclos de temperatura na PCR para amplificar milhões de cópias de um fragmento específico de DNA.',
+    a: { label: 'Termociclador (PCR)', tag: '95°C / 58°C / 72°C', icon: 'pcr' },
+    b: { label: 'Amplificação de DNA', tag: 'Milhões de Cópias', icon: 'amp' },
+  },
+  {
+    pairId: 'gel-bandas',
+    category: 'Análise Molecular',
+    color: 'cyan',
+    explanation: 'A eletroforese em gel separa fragmentos de DNA carregados negativamente por tamanho, revelando um padrão único de bandas.',
+    a: { label: 'Eletroforese em Gel', tag: 'Campo Elétrico (-/+)', icon: 'gel' },
+    b: { label: 'Padrão de Bandas', tag: 'Perfil Genético', icon: 'bands' },
+  },
+  {
+    pairId: 'terapia-correcao',
+    category: 'Biotecnologia Vermelha',
+    color: 'red',
+    explanation: 'A terapia gênica utiliza vetores ou edição CRISPR para corrigir ou substituir genes defeituosos diretamente nas células.',
+    a: { label: 'Terapia Gênica', tag: 'Vetores / CRISPR', icon: 'therapy' },
+    b: { label: 'Correção de Gene', tag: 'Restauração Funcional', icon: 'repair' },
+  },
+  {
+    pairId: 'paternidade-str',
+    category: 'Genética Forense',
+    color: 'cyan',
+    explanation: 'Testes de paternidade analisam marcadores STR herdados do pai e da mãe para comprovar vínculo biológico com precisão científica.',
+    a: { label: 'Teste de Paternidade', tag: 'Vínculo Familiar', icon: 'family' },
+    b: { label: 'Marcadores STR', tag: 'Herança Mendeliana', icon: 'str' },
+  },
+];
+
+/* Dados do NOVO Jogo 3: Quiz Pericial de Verdadeiro ou Falso */
+const TRUE_FALSE_QUIZ_DATA = [
+  {
+    id: 'q1',
+    category: 'Módulo 1 // Estrutura do DNA',
+    statement: 'Na dupla hélice do DNA, a base Adenina (A) sempre se pareia com a Citosina (C) através de 3 pontes de hidrogênio.',
+    isTrue: false,
+    explanation: 'FALSO! Pela Regra de Chargaff, a Adenina (A) pareia exclusivamente com a Timina (T) por 2 pontes de hidrogênio. Quem forma 3 pontes de hidrogênio é o par Citosina (C) ≡ Guanina (G).',
+  },
+  {
+    id: 'q2',
+    category: 'Módulo 2 // Biotecnologia Vermelha',
+    statement: 'A técnica de PCR em Tempo Real (RT-qPCR) permite detectar o material genético de um vírus no organismo antes mesmo de o paciente produzir anticorpos.',
+    isTrue: true,
+    explanation: 'VERDADEIRO! A PCR amplifica diretamente o ácido nucleico viral com altíssima sensibilidade, superando a janela imunológica dos testes sorológicos tradicionais.',
+  },
+  {
+    id: 'q3',
+    category: 'Módulo 4 // Extração de DNA',
+    statement: 'Durante a etapa de Extração no laboratório, o detergente (tampão de lise) e a enzima Proteinase K servem para romper as membranas celulares e digerir proteínas contaminantes.',
+    isTrue: true,
+    explanation: 'VERDADEIRO! A bicamada lipídica da célula e do núcleo é dissolvida pelo detergente, enquanto a Proteinase K degrada histonas e enzimas, deixando o DNA puro no sobrenadante aquoso.',
+  },
+  {
+    id: 'q4',
+    category: 'Módulo 4 // Eletroforese em Gel',
+    statement: 'Na eletroforese em gel, o DNA migra em direção ao polo negativo (-) porque os grupos fosfato possuem carga elétrica positiva.',
+    isTrue: false,
+    explanation: 'FALSO! Os grupos fosfato (PO₄³⁻) conferem carga elétrica NEGATIVA ao esqueleto do DNA. Por isso, quando aplicamos corrente elétrica, o DNA é atraído para o polo POSITIVO (+).',
+  },
+  {
+    id: 'q5',
+    category: 'Módulo 3 // Genética Forense',
+    statement: 'Em um teste de paternidade por marcadores STR, o filho herda 50% dos seus alelos da mãe biológica e 50% do pai biológico.',
+    isTrue: true,
+    explanation: 'VERDADEIRO! Pela herança mendeliana em loci autossômicos, cada par de cromossomos homólogos contém um alelo materno e um alelo paterno obrigatório.',
+  },
+  {
+    id: 'q6',
+    category: 'Módulo 4 // Termociclador (PCR)',
+    statement: 'Na fase de Desnaturação da PCR (a cerca de 95°C), o calor elevado serve para romper as pontes de hidrogênio e separar as duas fitas do DNA.',
+    isTrue: true,
+    explanation: 'VERDADEIRO! A 95°C as pontes de hidrogênio se rompem, expondo as fitas simples para que os Primers se liguem a 58°C (Anelamento) e a Taq Polimerase sintetize novas cópias a 72°C (Extensão).',
+  },
+  {
+    id: 'q7',
+    category: 'Módulo 1 // DNA vs. RNA',
+    statement: 'A base nitrogenada Uracila (U) é exclusiva do DNA de fita dupla, enquanto a Timina (T) aparece apenas no RNA mensageiro.',
+    isTrue: false,
+    explanation: 'FALSO! É exatamente o inverso: a Timina (T) é exclusiva do DNA (possui radical metil que aumenta a estabilidade genética), enquanto a Uracila (U) é exclusiva do RNA.',
+  },
+  {
+    id: 'q8',
+    category: 'Módulo 2 // Terapias Gênicas & Farmacogenômica',
+    statement: 'A farmacogenômica e o sistema CRISPR-Cas9 são ferramentas da Biotecnologia Vermelha usadas para personalizar doses de medicamentos e editar genes defeituosos.',
+    isTrue: true,
+    explanation: 'VERDADEIRO! A Biotecnologia Vermelha aplica o conhecimento genômico tanto para ajustar quimioterapias ao metabolismo do paciente quanto para corrigir mutações diretamente no DNA.',
+  },
+];
+
+const SOLVED_CASES = [
+  {
+    id: 'CASE-01',
+    code: 'DOSSIÊ FOR-2026-01',
+    domain: 'Genética Forense',
+    theme: 'cyan',
+    title: 'O Caso do Fio de Cabelo: Como a extração e a PCR inocentaram um suspeito',
+    summary: 'Um único folículo piloso encontrado em uma jaqueta na cena do delito parecia incriminar um funcionário local, até a análise de marcadores STR.',
+    sample: 'Folículo piloso com bulbo celular preservado (DNA nuclear viável) coletado sob cadeia de custódia.',
+    technique: 'Extração por lise enzimática (Proteinase K), quantificação e amplificação por PCR multiplex de 21 loci STR autossômicos.',
+    outcome: 'O padrão de bandas eletroforéticas divergiu em 14 dos 21 marcadores em relação ao suspeito detido, excluindo-o categoricamente e apontando posteriormente o real autor no banco nacional.',
+    impact: 'Evitou uma condenação injusta por meio da prova científica irrefutável do DNA.',
+    metrics: { loci: '21 STRs', match: 'EXCLUSÃO 100%', time: '6h40m' },
+  },
+  {
+    id: 'CASE-02',
+    code: 'PRONTUÁRIO BIO-2026-02',
+    domain: 'Biotecnologia Vermelha',
+    theme: 'red',
+    title: 'Diagnóstico Precoce: Como o sequenciamento evitou o avanço de uma síndrome genética rara',
+    summary: 'Recém-nascido com histórico familiar inconclusivo apresentava sintomas metabólicos inespecíficos que não respondiam a tratamentos empíricos.',
+    sample: 'Coleta minimamente invasiva de swab bucal e 2 mL de sangue periférico em EDTA.',
+    technique: 'Extração automatizada, amplificação por PCR dos éxons-alvo e sequenciamento molecular de painel clínico neonatal.',
+    outcome: 'Identificada mutação pontual recessiva no gene metabólico responsável por enzima essencial, permitindo intervenção nutricional e terapia específica antes de sequelas neurológicas.',
+    impact: 'Desenvolvimento infantil preservado graças à medicina preventiva de precisão.',
+    metrics: { coverage: '99.8% Painel', match: 'VARIANTE DETECTADA', time: '48h' },
+  },
+  {
+    id: 'CASE-03',
+    code: 'DOSSIÊ FOR-2026-03',
+    domain: 'Genética Forense',
+    theme: 'cyan',
+    title: 'O Vestígio Invisível: Saliva em copo descartado revela autor de invasão a laboratório',
+    summary: 'Sem impressões digitais aproveitáveis ou câmeras funcionando, o único indício deixado para trás era um copo plástico descartável.',
+    sample: 'Células epiteliais bucais presentes na borda do copo coletadas via técnica de duplo swab (úmido + seco).',
+    technique: 'Extração diferencial de baixo volume (Low-Copy DNA), PCR de alta sensibilidade e eletroforese capilar.',
+    outcome: 'O eletroferograma gerou perfil genético completo com razão de verossimilhança superior a 10 bilhões para 1, fechando o inquérito.',
+    impact: 'Demonstrou como traços microscópicos de saliva contêm informação genética completa.',
+    metrics: { dnaMass: '0.45 ng', match: 'MATCH 100%', time: '5h15m' },
+  },
+  {
+    id: 'CASE-04',
+    code: 'PRONTUÁRIO BIO-2026-04',
+    domain: 'Biotecnologia Vermelha',
+    theme: 'red',
+    title: 'Medicina Personalizada: Farmacogenômica evita toxicidade severa em terapia oncológica',
+    summary: 'Antes de iniciar protocolo quimioterápico padrão, a equipe de Biotecnologia Vermelha realizou genotipagem prévia de enzimas metabolizadoras.',
+    sample: 'DNA genômico extraído de leucócitos sanguíneos.',
+    technique: 'Genotipagem por qPCR em tempo real (sondas TaqMan) para alelos variantes do gene DPYD e TPMT.',
+    outcome: 'Detectada variante de metabolização lenta; a dose do fármaco foi ajustada de forma personalizada, mantendo eficácia antitumoral e zerando risco de toxicidade fatal.',
+    impact: 'Exemplo real de como a genética molecular transforma protocolos médicos padronizados em cuidado individualizado.',
+    metrics: { markers: 'DPYD / TPMT', match: 'DOSE AJUSTADA', time: '3h30m' },
+  },
+  {
+    id: 'CASE-05',
+    code: 'DOSSIÊ FOR-2026-05',
+    domain: 'Genética Forense',
+    theme: 'cyan',
+    title: 'Laços de Sangue: Identificação de vítima e comprovação de vínculo genético por STRs',
+    summary: 'Em caso de desaparecimento de longa data, ossadas precisaram ser confrontadas com amostras de referência de supostos familiares.',
+    sample: 'Fragmento ósseo cortical descontaminado + swabs bucais da mãe e irmão biológicos.',
+    technique: 'Desmineralização óssea, extração de DNA mitocondrial (regiões HV1/HV2) e marcadores STR autossômicos e cromossomo Y.',
+    outcome: 'Compartilhamento integral de haplótipo mitocondrial materno e compatibilidade alélica em todos os STRs nucleares, confirmando identidade com >99,999% de certeza.',
+    impact: 'Garantiu encerramento jurídico e humanitário com rigor científico absoluto.',
+    metrics: { certeza: '99.9994%', match: 'VÍNCULO CONFIRMADO', time: '72h' },
+  },
+];
+
+/* ============================================================================
+ * 3. COMPONENTES VISUAIS AUXILIARES & ILUSTRAÇÕES SVG DAS CAIXINHAS
+ * ============================================================================ */
+const SCRAMBLE_GLYPHS = '0123456789ABCDEF/#<>_-';
+
+function ScrambleText({ text, className = '', duration = 220 }) {
+  const [display, setDisplay] = useState(text);
+  const prevTextRef = useRef(text);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      setDisplay(text);
+      return;
+    }
+    const prefersReduced =
+      window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced || prevTextRef.current === text) {
+      prevTextRef.current = text;
+      setDisplay(text);
+      return;
+    }
+    prevTextRef.current = text;
+
+    let frameId = null;
+    const start = performance.now();
+    const chars = String(text).split('');
+
+    const tick = (now) => {
+      const progress = Math.min(1, (now - start) / duration);
+      const resolvedCount = Math.floor(progress * chars.length);
+
+      const nextText = chars
+        .map((ch, idx) => {
+          if (idx < resolvedCount || /[\s.,:;!?()\[\]{}\/\-_↔→✓★%°]/.test(ch)) {
+            return ch;
+          }
+          const glyphIdx = (idx + Math.floor(now / 28)) % SCRAMBLE_GLYPHS.length;
+          return SCRAMBLE_GLYPHS[glyphIdx];
+        })
+        .join('');
+
+      setDisplay(nextText);
+      if (progress < 1) {
+        frameId = requestAnimationFrame(tick);
+      } else {
+        setDisplay(text);
+      }
+    };
+
+    frameId = requestAnimationFrame(tick);
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId);
+    };
+  }, [text, duration]);
+
+  return (
+    <span className={className} aria-label={text}>
+      {display}
+    </span>
+  );
+}
+
+function NucleotideShapeIcon({ base, size = 28, active = false }) {
+  const info = base === 'U' ? RNA_URACIL_REF : BASE_INFO[base];
+  if (!info) return null;
+  const isPurine = base === 'A' || base === 'G';
+  const strokeColor = active ? '#FACC15' : info.colorHex;
+  const showFunctionalLabels = size >= 34;
+
+  return (
+    <svg width={size} height={size} viewBox="0 0 46 42" aria-hidden="true" className="shrink-0">
+      {isPurine ? (
+        <g>
+          <polygon
+            points="17,10 28,10 33,17 33,26 28,33 17,33 12,26 12,17"
+            fill={strokeColor}
+            fillOpacity={active ? '0.22' : '0.09'}
+            stroke={strokeColor}
+            strokeWidth="1.5"
+          />
+          <polygon
+            points="12,17 5,21 5,26 12,29"
+            fill={strokeColor}
+            fillOpacity={active ? '0.18' : '0.07'}
+            stroke={strokeColor}
+            strokeWidth="1.4"
+          />
+          {base === 'A' ? (
+            <>
+              <line x1="22.5" y1="6" x2="22.5" y2="10" stroke={strokeColor} strokeWidth="1.3" />
+              {showFunctionalLabels && (
+                <text x="22.5" y="5" textAnchor="middle" fill={strokeColor} fontSize="4.6" fontFamily="JetBrains Mono, monospace">
+                  H2N
+                </text>
+              )}
+              <line x1="28" y1="33" x2="28" y2="37" stroke={strokeColor} strokeWidth="1.3" />
+            </>
+          ) : (
+            <>
+              <line x1="21.5" y1="5.5" x2="21.5" y2="10" stroke={strokeColor} strokeWidth="1.2" />
+              <line x1="23.5" y1="5.5" x2="23.5" y2="10" stroke={strokeColor} strokeWidth="1.2" />
+              <line x1="33" y1="26" x2="38" y2="29" stroke={strokeColor} strokeWidth="1.3" />
+              <line x1="22.5" y1="33" x2="22.5" y2="37.5" stroke={strokeColor} strokeWidth="1.3" />
+              {showFunctionalLabels && (
+                <>
+                  <text x="22.5" y="4.5" textAnchor="middle" fill={strokeColor} fontSize="4.6" fontFamily="JetBrains Mono, monospace">
+                    O
+                  </text>
+                  <text x="41" y="31" textAnchor="middle" fill={strokeColor} fontSize="4.4" fontFamily="JetBrains Mono, monospace">
+                    NH2
+                  </text>
+                </>
+              )}
+            </>
+          )}
+        </g>
+      ) : (
+        <g>
+          <polygon
+            points="23,9 33,15 33,27 23,33 13,27 13,15"
+            fill={strokeColor}
+            fillOpacity={active ? '0.22' : '0.09'}
+            stroke={strokeColor}
+            strokeWidth="1.5"
+          />
+          {base === 'C' && (
+            <>
+              <line x1="23" y1="5" x2="23" y2="9" stroke={strokeColor} strokeWidth="1.3" />
+              <line x1="33" y1="26" x2="38" y2="28.5" stroke={strokeColor} strokeWidth="1.2" />
+              <line x1="32" y1="28" x2="37" y2="30.5" stroke={strokeColor} strokeWidth="1.2" />
+              {showFunctionalLabels && (
+                <>
+                  <text x="23" y="4.2" textAnchor="middle" fill={strokeColor} fontSize="4.6" fontFamily="JetBrains Mono, monospace">
+                    NH2
+                  </text>
+                  <text x="40.5" y="31" textAnchor="middle" fill={strokeColor} fontSize="4.6" fontFamily="JetBrains Mono, monospace">
+                    O
+                  </text>
+                </>
+              )}
+            </>
+          )}
+          {base === 'T' && (
+            <>
+              <line x1="22" y1="5" x2="22" y2="9" stroke={strokeColor} strokeWidth="1.2" />
+              <line x1="24" y1="5" x2="24" y2="9" stroke={strokeColor} strokeWidth="1.2" />
+              <line x1="7.5" y1="15" x2="13" y2="15" stroke={strokeColor} strokeWidth="1.3" />
+              <line x1="33" y1="27" x2="38" y2="30" stroke={strokeColor} strokeWidth="1.2" />
+              {showFunctionalLabels && (
+                <>
+                  <text x="23" y="4.2" textAnchor="middle" fill={strokeColor} fontSize="4.6" fontFamily="JetBrains Mono, monospace">
+                    O
+                  </text>
+                  <text x="4.5" y="16.5" textAnchor="middle" fill={strokeColor} fontSize="4.2" fontFamily="JetBrains Mono, monospace">
+                    H3C
+                  </text>
+                  <text x="40.5" y="32" textAnchor="middle" fill={strokeColor} fontSize="4.6" fontFamily="JetBrains Mono, monospace">
+                    O
+                  </text>
+                </>
+              )}
+            </>
+          )}
+          {base === 'U' && (
+            <>
+              <line x1="22" y1="5" x2="22" y2="9" stroke={strokeColor} strokeWidth="1.2" />
+              <line x1="24" y1="5" x2="24" y2="9" stroke={strokeColor} strokeWidth="1.2" />
+              <line x1="33" y1="27" x2="38" y2="30" stroke={strokeColor} strokeWidth="1.2" />
+              <line x1="23" y1="33" x2="23" y2="37.5" stroke={strokeColor} strokeWidth="1.3" />
+              {showFunctionalLabels && (
+                <>
+                  <text x="23" y="4.2" textAnchor="middle" fill={strokeColor} fontSize="4.6" fontFamily="JetBrains Mono, monospace">
+                    O
+                  </text>
+                  <text x="40.5" y="32" textAnchor="middle" fill={strokeColor} fontSize="4.6" fontFamily="JetBrains Mono, monospace">
+                    O
+                  </text>
+                </>
+              )}
+            </>
+          )}
+        </g>
+      )}
+      <text
+        x={isPurine ? '22.5' : '23'}
+        y="25"
+        textAnchor="middle"
+        fill={active ? '#FACC15' : '#F4F4F5'}
+        fontSize="12"
+        fontWeight="700"
+        fontFamily="JetBrains Mono, monospace"
+      >
+        {base}
+      </text>
+    </svg>
+  );
+}
+
+function SectionHeader({ eyebrow, title, accent = 'cyan', subtitle, badgeRight }) {
+  const indicatorColor =
+    accent === 'red' ? 'bg-rose-500' : accent === 'cyan' ? 'bg-cyan-400' : 'bg-yellow-400';
+
+  return (
+    <div className="mb-8 pb-6 border-b border-zinc-800">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <span className="inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.18em] text-yellow-400">
+          <span className={`w-2 h-2 ${indicatorColor} terminal-cursor`}></span>
+          {eyebrow}
+        </span>
+        <span className="text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-500 tabular-nums">
+          {badgeRight || 'EXTENSÃO BIOTECNOLOGIA VERMELHA // UFPA-FABIOTEC'}
+        </span>
+      </div>
+      <div className="max-w-4xl">
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold tracking-[-0.02em] leading-[1.12] text-zinc-100 mb-3">
+          {title}
+        </h2>
+        {subtitle && (
+          <p className="text-zinc-400 text-sm sm:text-base leading-relaxed font-sans max-w-[72ch]">
+            {subtitle}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* Ilustrações Vetoriais Dedicadas para o Topo das Caixinhas (Módulos 1, 2 e 3) */
+function CardDiagramSVG({ type }) {
+  switch (type) {
+    case 'dna-cell-nucleus':
+      return (
+        <svg viewBox="0 0 320 110" className="w-full h-28" aria-hidden="true">
+          {/* Célula -> Núcleo -> Cromossomo -> Fita de DNA */}
+          <ellipse cx="52" cy="55" rx="38" ry="34" fill="#18181B" stroke="#22D3EE" strokeWidth="1.5" strokeDasharray="4 2" />
+          <circle cx="52" cy="55" r="16" fill="#09090B" stroke="#FACC15" strokeWidth="1.6" />
+          <text x="52" y="99" textAnchor="middle" fill="#A1A1AA" fontSize="8" fontFamily="JetBrains Mono">1. CÉLULA &amp; NÚCLEO</text>
+          <path d="M94,55 L118,55" stroke="#52525B" strokeWidth="1.5" />
+          <polygon points="118,52 124,55 118,58" fill="#FACC15" />
+          {/* Cromossomo X */}
+          <g transform="translate(154,52)">
+            <path d="M-10,-22 C-4,-6 -4,6 -10,22" stroke="#F43F5E" strokeWidth="6" strokeLinecap="round" fill="none" />
+            <path d="M10,-22 C4,-6 4,6 10,22" stroke="#F43F5E" strokeWidth="6" strokeLinecap="round" fill="none" />
+            <circle cx="0" cy="0" r="3.5" fill="#FACC15" />
+          </g>
+          <text x="154" y="99" textAnchor="middle" fill="#A1A1AA" fontSize="8" fontFamily="JetBrains Mono">2. CROMOSSOMO</text>
+          <path d="M180,55 L204,55" stroke="#52525B" strokeWidth="1.5" />
+          <polygon points="204,52 210,55 204,58" fill="#FACC15" />
+          {/* Dupla Hélice */}
+          <path d="M218,38 Q236,20 254,38 T290,38" fill="none" stroke="#FACC15" strokeWidth="2.2" />
+          <path d="M218,68 Q236,86 254,68 T290,68" fill="none" stroke="#22D3EE" strokeWidth="2.2" />
+          {[226, 240, 254, 268, 282].map((x, i) => (
+            <line key={i} x1={x} y1="36" x2={x} y2="70" stroke="#F4F4F5" strokeWidth="1.2" strokeOpacity="0.65" />
+          ))}
+          <text x="256" y="99" textAnchor="middle" fill="#FACC15" fontSize="8" fontFamily="JetBrains Mono">3. DUPLA HÉLICE DNA</text>
+        </svg>
+      );
+    case 'sugar-phosphate':
+      return (
+        <svg viewBox="0 0 320 110" className="w-full h-28" aria-hidden="true">
+          <rect x="14" y="16" width="292" height="22" fill="#18181B" stroke="#FACC15" strokeWidth="1.2" />
+          <text x="24" y="30" fill="#FACC15" fontSize="9" fontWeight="bold" fontFamily="JetBrains Mono">5&apos; → [FOSFATO PO₄³⁻] — [DESOXIRRIBOSE] → 3&apos;</text>
+          {[56, 118, 180, 242].map((x, i) => (
+            <g key={i}>
+              <circle cx={x} cy="27" r="5" fill="#FACC15" />
+              <polygon points={`${x + 22},20 ${x + 31},26 ${x + 28},34 ${x + 16},34 ${x + 13},26`} fill="#09090B" stroke="#22D3EE" strokeWidth="1.3" />
+              <line x1={x + 22} y1="35" x2={x + 22} y2="72" stroke="#FACC15" strokeWidth="1.5" strokeDasharray="3 2" />
+            </g>
+          ))}
+          <rect x="14" y="72" width="292" height="22" fill="#18181B" stroke="#22D3EE" strokeWidth="1.2" />
+          <text x="24" y="86" fill="#22D3EE" fontSize="9" fontWeight="bold" fontFamily="JetBrains Mono">3&apos; ← [DESOXIRRIBOSE] — [FOSFATO PO₄³⁻] ← 5&apos; (ANTIPARALELA)</text>
+        </svg>
+      );
+    case 'purines-pyrimidines':
+      return (
+        <svg viewBox="0 0 320 110" className="w-full h-28" aria-hidden="true">
+          {/* Purinas 2 Anéis */}
+          <rect x="12" y="12" width="142" height="86" fill="#09090B" stroke="#2DD4BF" strokeWidth="1.2" />
+          <polygon points="48,34 66,34 75,46 75,62 66,74 48,74 39,62 39,46" fill="#2DD4BF" fillOpacity="0.18" stroke="#2DD4BF" strokeWidth="1.6" />
+          <polygon points="39,46 25,52 25,60 39,65" fill="#2DD4BF" fillOpacity="0.14" stroke="#2DD4BF" strokeWidth="1.5" />
+          <text x="57" y="58" textAnchor="middle" fill="#F4F4F5" fontSize="11" fontWeight="bold" fontFamily="JetBrains Mono">A / G</text>
+          <text x="114" y="46" textAnchor="middle" fill="#2DD4BF" fontSize="8.5" fontWeight="bold" fontFamily="JetBrains Mono">PURINAS</text>
+          <text x="114" y="59" textAnchor="middle" fill="#A1A1AA" fontSize="7.5" fontFamily="JetBrains Mono">2 Anéis Fundidos</text>
+          <text x="114" y="71" textAnchor="middle" fill="#FACC15" fontSize="7.5" fontFamily="JetBrains Mono">Adenina &amp; Guanina</text>
+          {/* Pirimidinas 1 Anel */}
+          <rect x="166" y="12" width="142" height="86" fill="#09090B" stroke="#FB7185" strokeWidth="1.2" />
+          <polygon points="202,32 220,42 220,64 202,74 184,64 184,42" fill="#FB7185" fillOpacity="0.18" stroke="#FB7185" strokeWidth="1.6" />
+          <text x="202" y="57" textAnchor="middle" fill="#F4F4F5" fontSize="10" fontWeight="bold" fontFamily="JetBrains Mono">T/C/U</text>
+          <text x="264" y="46" textAnchor="middle" fill="#FB7185" fontSize="8.5" fontWeight="bold" fontFamily="JetBrains Mono">PIRIMIDINAS</text>
+          <text x="264" y="59" textAnchor="middle" fill="#A1A1AA" fontSize="7.5" fontFamily="JetBrains Mono">1 Anel Hexagonal</text>
+          <text x="264" y="71" textAnchor="middle" fill="#FACC15" fontSize="7.5" fontFamily="JetBrains Mono">T, C (DNA) / U (RNA)</text>
+        </svg>
+      );
+    case 'hydrogen-bonds':
+      return (
+        <svg viewBox="0 0 320 110" className="w-full h-28" aria-hidden="true">
+          {/* Par A = T (2 Pontes) */}
+          <rect x="14" y="16" width="136" height="78" fill="#09090B" stroke="#27272A" />
+          <circle cx="42" cy="55" r="16" fill="#2DD4BF" fillOpacity="0.2" stroke="#2DD4BF" strokeWidth="1.6" />
+          <text x="42" y="59" textAnchor="middle" fill="#F4F4F5" fontSize="12" fontWeight="bold" fontFamily="JetBrains Mono">A</text>
+          <line x1="62" y1="49" x2="98" y2="49" stroke="#FACC15" strokeWidth="2" strokeDasharray="4 3" />
+          <line x1="62" y1="61" x2="98" y2="61" stroke="#FACC15" strokeWidth="2" strokeDasharray="4 3" />
+          <circle cx="118" cy="55" r="16" fill="#FACC15" fillOpacity="0.2" stroke="#FACC15" strokeWidth="1.6" />
+          <text x="118" y="59" textAnchor="middle" fill="#F4F4F5" fontSize="12" fontWeight="bold" fontFamily="JetBrains Mono">T</text>
+          <text x="80" y="30" textAnchor="middle" fill="#FACC15" fontSize="8" fontWeight="bold" fontFamily="JetBrains Mono">2 PONTES DE H (A=T)</text>
+
+          {/* Par C ≡ G (3 Pontes) */}
+          <rect x="170" y="16" width="136" height="78" fill="#09090B" stroke="#27272A" />
+          <circle cx="198" cy="55" r="16" fill="#FB7185" fillOpacity="0.2" stroke="#FB7185" strokeWidth="1.6" />
+          <text x="198" y="59" textAnchor="middle" fill="#F4F4F5" fontSize="12" fontWeight="bold" fontFamily="JetBrains Mono">C</text>
+          <line x1="218" y1="45" x2="254" y2="45" stroke="#34D399" strokeWidth="2" strokeDasharray="4 3" />
+          <line x1="218" y1="55" x2="254" y2="55" stroke="#34D399" strokeWidth="2" strokeDasharray="4 3" />
+          <line x1="218" y1="65" x2="254" y2="65" stroke="#34D399" strokeWidth="2" strokeDasharray="4 3" />
+          <circle cx="274" cy="55" r="16" fill="#34D399" fillOpacity="0.2" stroke="#34D399" strokeWidth="1.6" />
+          <text x="274" y="59" textAnchor="middle" fill="#F4F4F5" fontSize="12" fontWeight="bold" fontFamily="JetBrains Mono">G</text>
+          <text x="236" y="30" textAnchor="middle" fill="#34D399" fontSize="8" fontWeight="bold" fontFamily="JetBrains Mono">3 PONTES DE H (C≡G)</text>
+        </svg>
+      );
+    case 'gene-mutation':
+      return (
+        <svg viewBox="0 0 320 110" className="w-full h-28" aria-hidden="true">
+          <text x="18" y="24" fill="#34D399" fontSize="8.5" fontWeight="bold" fontFamily="JetBrains Mono">ALELO SAUDÁVEL (HBB): C - T - G - [G - A - G] - G - A</text>
+          <rect x="14" y="30" width="292" height="20" fill="#09090B" stroke="#34D399" strokeWidth="1.2" />
+          {['C', 'T', 'G', 'G', 'A', 'G', 'G', 'A'].map((b, i) => (
+            <text key={i} x={34 + i * 35} y="44" textAnchor="middle" fill={i === 4 ? '#34D399' : '#D4D4D8'} fontSize="11" fontWeight="bold" fontFamily="JetBrains Mono">{b}</text>
+          ))}
+          <text x="18" y="68" fill="#F43F5E" fontSize="8.5" fontWeight="bold" fontFamily="JetBrains Mono">MUTAÇÃO PONTUAL (SNP): C - T - G - [G - T - G] - G - A</text>
+          <rect x="14" y="74" width="292" height="22" fill="#09090B" stroke="#F43F5E" strokeWidth="1.4" />
+          {['C', 'T', 'G', 'G', 'T', 'G', 'G', 'A'].map((b, i) => (
+            <g key={i}>
+              {i === 4 && <rect x={20 + i * 35} y="75" width="28" height="20" fill="#F43F5E" fillOpacity="0.3" stroke="#FACC15" />}
+              <text x={34 + i * 35} y="89" textAnchor="middle" fill={i === 4 ? '#FACC15' : '#D4D4D8'} fontSize="11" fontWeight="bold" fontFamily="JetBrains Mono">{b}</text>
+            </g>
+          ))}
+        </svg>
+      );
+    case 'rt-qpcr-curve':
+      return (
+        <svg viewBox="0 0 320 110" className="w-full h-28" aria-hidden="true">
+          <line x1="34" y1="14" x2="34" y2="92" stroke="#52525B" strokeWidth="1.2" />
+          <line x1="34" y1="92" x2="302" y2="92" stroke="#52525B" strokeWidth="1.2" />
+          {/* Linha de Threshold Ct */}
+          <line x1="34" y1="64" x2="302" y2="64" stroke="#FACC15" strokeWidth="1" strokeDasharray="4 3" />
+          <text x="298" y="60" textAnchor="end" fill="#FACC15" fontSize="7.5" fontFamily="JetBrains Mono">Limiar Ct (Ciclo 18)</text>
+          {/* Curva Sigmóide Positiva */}
+          <path d="M36,89 L115,88 Q145,87 162,64 T225,22 L296,20" fill="none" stroke="#F43F5E" strokeWidth="2.5" />
+          {/* Controle Negativo */}
+          <path d="M36,90 L296,89" fill="none" stroke="#22D3EE" strokeWidth="1.5" strokeDasharray="3 3" />
+          <circle cx="162" cy="64" r="4" fill="#FACC15" />
+          <text x="42" y="26" fill="#F43F5E" fontSize="8.5" fontWeight="bold" fontFamily="JetBrains Mono">AMOSTRA POSITIVA (FLUORESCÊNCIA ↑)</text>
+          <text x="42" y="38" fill="#A1A1AA" fontSize="7.5" fontFamily="JetBrains Mono">RT-qPCR // Detecção em Tempo Real</text>
+        </svg>
+      );
+    case 'crispr-edit':
+      return (
+        <svg viewBox="0 0 320 110" className="w-full h-28" aria-hidden="true">
+          {/* Halo da Enzima Cas9 */}
+          <ellipse cx="160" cy="54" rx="68" ry="38" fill="#F43F5E" fillOpacity="0.12" stroke="#F43F5E" strokeWidth="1.4" strokeDasharray="4 2" />
+          <line x1="18" y1="42" x2="118" y2="42" stroke="#22D3EE" strokeWidth="2.5" />
+          <line x1="202" y1="42" x2="302" y2="42" stroke="#22D3EE" strokeWidth="2.5" />
+          <line x1="18" y1="68" x2="302" y2="68" stroke="#22D3EE" strokeWidth="2.5" />
+          {/* Guia de RNA + Novo Gene */}
+          <rect x="122" y="35" width="76" height="14" fill="#FACC15" fillOpacity="0.25" stroke="#FACC15" strokeWidth="1.5" />
+          <text x="160" y="45" textAnchor="middle" fill="#FACC15" fontSize="8" fontWeight="bold" fontFamily="JetBrains Mono">GENE REPARADO</text>
+          <text x="160" y="25" textAnchor="middle" fill="#F43F5E" fontSize="8" fontWeight="bold" fontFamily="JetBrains Mono">COMPLEXO CRISPR-Cas9 + gRNA</text>
+          <text x="160" y="102" textAnchor="middle" fill="#A1A1AA" fontSize="7.5" fontFamily="JetBrains Mono">Clivagem precisa e substituição da sequência mutada</text>
+        </svg>
+      );
+    case 'pharmacogenomics':
+      return (
+        <svg viewBox="0 0 320 110" className="w-full h-28" aria-hidden="true">
+          <rect x="14" y="20" width="84" height="70" fill="#09090B" stroke="#FACC15" strokeWidth="1.3" />
+          <text x="56" y="44" textAnchor="middle" fill="#FACC15" fontSize="8.5" fontWeight="bold" fontFamily="JetBrains Mono">PERFIL DNA</text>
+          <text x="56" y="58" textAnchor="middle" fill="#F4F4F5" fontSize="8" fontFamily="JetBrains Mono">CYP450 / DPYD</text>
+          <text x="56" y="72" textAnchor="middle" fill="#34D399" fontSize="7.5" fontFamily="JetBrains Mono">Genotipado</text>
+          <line x1="98" y1="55" x2="128" y2="34" stroke="#34D399" strokeWidth="1.5" />
+          <line x1="98" y1="55" x2="128" y2="76" stroke="#F43F5E" strokeWidth="1.5" />
+          <rect x="128" y="16" width="176" height="34" fill="#09090B" stroke="#34D399" strokeWidth="1.2" />
+          <text x="216" y="31" textAnchor="middle" fill="#34D399" fontSize="8" fontWeight="bold" fontFamily="JetBrains Mono">METABOLIZADOR NORMAL → DOSE 100%</text>
+          <text x="216" y="43" textAnchor="middle" fill="#A1A1AA" fontSize="7.5" fontFamily="JetBrains Mono">Alta eficácia sem efeitos tóxicos</text>
+          <rect x="128" y="58" width="176" height="34" fill="#09090B" stroke="#F43F5E" strokeWidth="1.2" />
+          <text x="216" y="73" textAnchor="middle" fill="#FACC15" fontSize="8" fontWeight="bold" fontFamily="JetBrains Mono">METABOLIZADOR LENTO → DOSE AJUSTADA</text>
+          <text x="216" y="85" textAnchor="middle" fill="#A1A1AA" fontSize="7.5" fontFamily="JetBrains Mono">Prevenção de toxicidade severa</text>
+        </svg>
+      );
+    case 'crime-scene-trace':
+      return (
+        <svg viewBox="0 0 320 110" className="w-full h-28" aria-hidden="true">
+          {/* Marcador de Evidência Policial Amarelo + Lupa/Retículo */}
+          <polygon points="30,84 52,24 74,84" fill="#FACC15" stroke="#000" strokeWidth="1.5" />
+          <text x="52" y="72" textAnchor="middle" fill="#000" fontSize="16" fontWeight="bold" fontFamily="JetBrains Mono">01</text>
+          <circle cx="152" cy="55" r="32" fill="#09090B" stroke="#22D3EE" strokeWidth="1.5" strokeDasharray="4 2" />
+          <circle cx="152" cy="55" r="14" fill="#F43F5E" fillOpacity="0.35" stroke="#F43F5E" strokeWidth="1.5" />
+          <text x="152" y="99" textAnchor="middle" fill="#22D3EE" fontSize="8" fontFamily="JetBrains Mono">VESTÍGIO BIOLÓGICO</text>
+          <rect x="218" y="24" width="86" height="62" fill="#09090B" stroke="#FACC15" strokeWidth="1.3" />
+          <text x="261" y="45" textAnchor="middle" fill="#FACC15" fontSize="8" fontWeight="bold" fontFamily="JetBrains Mono">LACRE #CSI</text>
+          <text x="261" y="59" textAnchor="middle" fill="#F4F4F5" fontSize="7.5" fontFamily="JetBrains Mono">Cadeia Custódia</text>
+          <text x="261" y="73" textAnchor="middle" fill="#34D399" fontSize="7.5" fontFamily="JetBrains Mono">100% Rastreável</text>
+        </svg>
+      );
+    case 'str-repeats':
+      return (
+        <svg viewBox="0 0 320 110" className="w-full h-28" aria-hidden="true">
+          <text x="14" y="22" fill="#22D3EE" fontSize="8" fontWeight="bold" fontFamily="JetBrains Mono">INDIVÍDUO A — LOCUS STR D3S1358 (4 REPETIÇÕES [AGAT]):</text>
+          {[0, 1, 2, 3].map((i) => (
+            <g key={i} transform={`translate(${18 + i * 52}, 28)`}>
+              <rect width="46" height="18" fill="#22D3EE" fillOpacity="0.2" stroke="#22D3EE" strokeWidth="1.3" />
+              <text x="23" y="12" textAnchor="middle" fill="#F4F4F5" fontSize="8.5" fontWeight="bold" fontFamily="JetBrains Mono">AGAT</text>
+            </g>
+          ))}
+          <text x="14" y="66" fill="#FACC15" fontSize="8" fontWeight="bold" fontFamily="JetBrains Mono">INDIVÍDUO B — MESMO LOCUS STR (6 REPETIÇÕES [AGAT]):</text>
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <g key={i} transform={`translate(${18 + i * 48}, 72)`}>
+              <rect width="43" height="18" fill="#FACC15" fillOpacity="0.22" stroke="#FACC15" strokeWidth="1.3" />
+              <text x="21.5" y="12" textAnchor="middle" fill="#FACC15" fontSize="8.5" fontWeight="bold" fontFamily="JetBrains Mono">AGAT</text>
+            </g>
+          ))}
+        </svg>
+      );
+    case 'paternity-str':
+      return (
+        <svg viewBox="0 0 320 110" className="w-full h-28" aria-hidden="true">
+          {[
+            { label: 'MÃE', x: 28, b1: 36, b2: 76, c1: '#FB7185', c2: '#71717A' },
+            { label: 'FILHO(A)', x: 124, b1: 36, b2: 58, c1: '#FB7185', c2: '#FACC15' },
+            { label: 'PAI BIOLÓGICO', x: 220, b1: 58, b2: 84, c1: '#FACC15', c2: '#71717A' },
+          ].map((col, i) => (
+            <g key={i}>
+              <text x={col.x + 36} y="16" textAnchor="middle" fill="#D4D4D8" fontSize="8" fontWeight="bold" fontFamily="JetBrains Mono">{col.label}</text>
+              <rect x={col.x} y="22" width="72" height="76" fill="#09090B" stroke="#27272A" />
+              <rect x={col.x + 10} y={col.b1} width="52" height="5" fill={col.c1} />
+              <rect x={col.x + 10} y={col.b2} width="52" height="5" fill={col.c2} />
+            </g>
+          ))}
+          {/* Linhas de Herança Alélica */}
+          <line x1="90" y1="38.5" x2="134" y2="38.5" stroke="#FB7185" strokeWidth="1.5" strokeDasharray="3 2" />
+          <line x1="186" y1="60.5" x2="230" y2="60.5" stroke="#FACC15" strokeWidth="1.5" strokeDasharray="3 2" />
+        </svg>
+      );
+    case 'mtdna-remains':
+    default:
+      return (
+        <svg viewBox="0 0 320 110" className="w-full h-28" aria-hidden="true">
+          <circle cx="88" cy="55" r="32" fill="none" stroke="#FACC15" strokeWidth="2.5" />
+          <circle cx="88" cy="55" r="24" fill="none" stroke="#22D3EE" strokeWidth="1.5" strokeDasharray="4 3" />
+          <text x="88" y="53" textAnchor="middle" fill="#FACC15" fontSize="8.5" fontWeight="bold" fontFamily="JetBrains Mono">mtDNA</text>
+          <text x="88" y="64" textAnchor="middle" fill="#A1A1AA" fontSize="7" fontFamily="JetBrains Mono">Circular</text>
+          <rect x="148" y="22" width="154" height="66" fill="#09090B" stroke="#27272A" />
+          <text x="158" y="40" fill="#22D3EE" fontSize="8.5" fontWeight="bold" fontFamily="JetBrains Mono">ALTA RESISTÊNCIA PERICIAL</text>
+          <text x="158" y="55" fill="#D4D4D8" fontSize="8" fontFamily="JetBrains Mono">• Centenas de cópias/célula</text>
+          <text x="158" y="69" fill="#D4D4D8" fontSize="8" fontFamily="JetBrains Mono">• Linhagem materna direta</text>
+          <text x="158" y="81" fill="#FACC15" fontSize="8" fontFamily="JetBrains Mono">• Identificação em desastres</text>
+        </svg>
+      );
+  }
+}
+
+/* ============================================================================
+ * 4. DNA 3D VIEWER (DUPLA HÉLICE, FITA SIMPLES & ANIMAÇÃO DE NUCLEOTÍDEOS)
+ * ============================================================================ */
+function CSS3DHelixFallback({ focusMode, paused }) {
+  const rungs = ['C-G', 'A-T', 'C-G', 'G-C', 'A-T', 'C-G', 'T-A', 'T-A', 'A-T', 'G-C', 'A-T', 'T-A', 'C-G', 'T-A'];
+  return (
+    <div className="w-full h-full flex items-center justify-center helix-scene-3d overflow-hidden py-4">
+      <div className={`helix-rotor-3d relative w-52 sm:w-64 h-[320px] flex flex-col justify-between items-center ${paused ? 'paused' : ''}`}>
+        {rungs.map((pair, idx) => {
+          const [leftBase, rightBase] = pair.split('-');
+          const angle = idx * 25.7;
+          const isSimpleStrand = focusMode === 'biotech';
+          const isNucleotidesMode = focusMode === 'nucleotides';
+          const bondCount = leftBase === 'C' || leftBase === 'G' ? 3 : 2;
+
+          return (
+            <div
+              key={idx}
+              className="w-full flex items-center justify-between relative"
+              style={{
+                transform: `rotateY(${angle}deg)`,
+                transformStyle: 'preserve-3d',
+              }}
+            >
+              <span
+                className={`w-5 h-5 flex items-center justify-center text-[10px] font-mono font-bold border border-yellow-400 bg-zinc-950 text-yellow-400 ${
+                  isNucleotidesMode && !paused ? 'animate-nuc-left' : ''
+                }`}
+                style={{ animationDelay: `${idx * 120}ms` }}
+              >
+                {leftBase}
+              </span>
+              <div
+                className={`flex-1 h-px mx-1.5 relative transition-opacity duration-300 ${
+                  isSimpleStrand
+                    ? 'bg-transparent opacity-15'
+                    : isNucleotidesMode && !paused
+                    ? 'bg-yellow-400/80 animate-hbond-pulse'
+                    : 'bg-yellow-400/50'
+                }`}
+                style={{ animationDelay: `${idx * 120}ms` }}
+              >
+                {!isSimpleStrand && (
+                  <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 px-1 bg-black text-[8px] font-mono text-yellow-400">
+                    {bondCount}H
+                  </span>
+                )}
+              </div>
+              <span
+                className={`w-5 h-5 flex items-center justify-center text-[10px] font-mono font-bold border transition-opacity duration-200 ${
+                  isSimpleStrand
+                    ? 'opacity-10 border-zinc-800 bg-black text-zinc-600'
+                    : 'border-cyan-400 bg-zinc-950 text-zinc-100'
+                } ${isNucleotidesMode && !paused ? 'animate-nuc-right' : ''}`}
+                style={{ animationDelay: `${idx * 120}ms` }}
+              >
+                {rightBase}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DNA3DViewer() {
+  const mountRef = useRef(null);
+  const [renderEngine, setRenderEngine] = useState(() =>
+    typeof window !== 'undefined' && window.THREE ? 'webgl' : 'css3d'
+  );
+  const [focusMode, setFocusMode] = useState('dual');
+  const [speedMult, setSpeedMult] = useState(1);
+  const [webglError, setWebglError] = useState(false);
+
+  const speedRef = useRef(1);
+  const focusRef = useRef('dual');
+  const dragRef = useRef({
+    active: false,
+    lastX: 0,
+    lastY: 0,
+    rotX: 0.1,
+    rotY: 0,
+    velX: 0,
+    velY: 0,
+  });
+  const parallaxRef = useRef({ targetX: 0, targetY: 0, curX: 0, curY: 0 });
+  const scrollInertiaRef = useRef({ lastY: 0, velocity: 0 });
+
+  useEffect(() => {
+    speedRef.current = speedMult;
+  }, [speedMult]);
+
+  useEffect(() => {
+    focusRef.current = focusMode;
+  }, [focusMode]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    scrollInertiaRef.current.lastY = window.scrollY || 0;
+
+    const onScroll = () => {
+      const currentY = window.scrollY || 0;
+      const delta = currentY - scrollInertiaRef.current.lastY;
+      scrollInertiaRef.current.lastY = currentY;
+      scrollInertiaRef.current.velocity = Math.max(
+        -0.08,
+        Math.min(0.08, scrollInertiaRef.current.velocity + delta * 0.00025)
+      );
+    };
+
+    const onWindowPointerMove = (e) => {
+      const nx = (e.clientX / Math.max(1, window.innerWidth)) * 2 - 1;
+      const ny = (e.clientY / Math.max(1, window.innerHeight)) * 2 - 1;
+      parallaxRef.current.targetX = nx;
+      parallaxRef.current.targetY = ny;
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('pointermove', onWindowPointerMove, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('pointermove', onWindowPointerMove);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (renderEngine !== 'webgl') return;
+    const container = mountRef.current;
+    if (!container || typeof window.THREE === 'undefined') {
+      setRenderEngine('css3d');
+      return;
+    }
+
+    const THREE = window.THREE;
+    let renderer;
+    let animId;
+    const disposables = [];
+
+    try {
+      const width = container.clientWidth || 440;
+      const height = container.clientHeight || 420;
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100);
+      camera.position.set(0, 0, 12.8);
+
+      renderer = new THREE.WebGLRenderer({
+        alpha: true,
+        antialias: true,
+        powerPreference: 'high-performance',
+      });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      container.innerHTML = '';
+      container.appendChild(renderer.domElement);
+
+      const ambientLight = new THREE.AmbientLight(0x27272a, 0.95);
+      scene.add(ambientLight);
+
+      const rimLightLeft = new THREE.DirectionalLight(0xfacc15, 2.1);
+      rimLightLeft.position.set(-6, 3, -4);
+      scene.add(rimLightLeft);
+
+      const rimLightRight = new THREE.DirectionalLight(0x22d3ee, 1.5);
+      rimLightRight.position.set(6, -2, -3);
+      scene.add(rimLightRight);
+
+      const keyLightFront = new THREE.PointLight(0xf4f4f5, 0.95, 28);
+      keyLightFront.position.set(2, 4, 9);
+      scene.add(keyLightFront);
+
+      const dnaGroup = new THREE.Group();
+      scene.add(dnaGroup);
+
+      const heightSpan = 9.2;
+      const radius = 1.65;
+      const totalTurns = 1.65;
+      const spineSamples = 64;
+
+      const ptsStrand1 = [];
+      const ptsStrand2 = [];
+      for (let s = 0; s <= spineSamples; s++) {
+        const t = s / spineSamples;
+        const y = (t - 0.5) * heightSpan;
+        const theta = t * Math.PI * 2 * totalTurns;
+        ptsStrand1.push(new THREE.Vector3(Math.cos(theta) * radius, y, Math.sin(theta) * radius));
+        ptsStrand2.push(new THREE.Vector3(Math.cos(theta + Math.PI) * radius, y, Math.sin(theta + Math.PI) * radius));
+      }
+
+      const curve1 = new THREE.CatmullRomCurve3(ptsStrand1);
+      const curve2 = new THREE.CatmullRomCurve3(ptsStrand2);
+
+      const tubeGeo1 = new THREE.TubeGeometry(curve1, 96, 0.085, 8, false);
+      const tubeGeo2 = new THREE.TubeGeometry(curve2, 96, 0.085, 8, false);
+      const wireGeo1 = new THREE.WireframeGeometry(tubeGeo1);
+      const wireGeo2 = new THREE.WireframeGeometry(tubeGeo2);
+      disposables.push(tubeGeo1, tubeGeo2, wireGeo1, wireGeo2);
+
+      const strand1CoreMat = new THREE.MeshStandardMaterial({
+        color: 0x18181b,
+        emissive: 0xfacc15,
+        emissiveIntensity: 0.42,
+        roughness: 0.25,
+        metalness: 0.8,
+        transparent: true,
+        opacity: 0.85,
+      });
+      const strand2CoreMat = new THREE.MeshStandardMaterial({
+        color: 0x18181b,
+        emissive: 0x22d3ee,
+        emissiveIntensity: 0.35,
+        roughness: 0.25,
+        metalness: 0.8,
+        transparent: true,
+        opacity: 0.85,
+      });
+      const strand1WireMat = new THREE.LineBasicMaterial({
+        color: 0xfacc15,
+        transparent: true,
+        opacity: 0.65,
+        blending: THREE.AdditiveBlending,
+      });
+      const strand2WireMat = new THREE.LineBasicMaterial({
+        color: 0x22d3ee,
+        transparent: true,
+        opacity: 0.48,
+        blending: THREE.AdditiveBlending,
+      });
+      disposables.push(strand1CoreMat, strand2CoreMat, strand1WireMat, strand2WireMat);
+
+      const strand1Mesh = new THREE.Mesh(tubeGeo1, strand1CoreMat);
+      const strand1Wire = new THREE.LineSegments(wireGeo1, strand1WireMat);
+      const strand2Mesh = new THREE.Mesh(tubeGeo2, strand2CoreMat);
+      const strand2Wire = new THREE.LineSegments(wireGeo2, strand2WireMat);
+      dnaGroup.add(strand1Mesh, strand1Wire, strand2Mesh, strand2Wire);
+
+      const makeMolecularRingGeometry = (isPurine) => {
+        const shape = new THREE.Shape();
+        const hexR = 0.21;
+        const hexPts = [];
+        for (let k = 0; k < 6; k++) {
+          const a = ((k + 0.5) / 6) * Math.PI * 2;
+          hexPts.push([Math.cos(a) * hexR, Math.sin(a) * hexR]);
+        }
+
+        if (isPurine) {
+          shape.moveTo(hexPts[0][0], hexPts[0][1]);
+          shape.lineTo(hexPts[1][0], hexPts[1][1]);
+          shape.lineTo(hexPts[2][0], hexPts[2][1]);
+          shape.lineTo(hexPts[2][0] - 0.14, hexPts[2][1] + 0.04);
+          shape.lineTo(hexPts[2][0] - 0.23, 0);
+          shape.lineTo(hexPts[3][0] - 0.14, hexPts[3][1] - 0.04);
+          shape.lineTo(hexPts[3][0], hexPts[3][1]);
+          shape.lineTo(hexPts[4][0], hexPts[4][1]);
+          shape.lineTo(hexPts[5][0], hexPts[5][1]);
+          shape.closePath();
+        } else {
+          hexPts.forEach(([px, py], k) => {
+            if (k === 0) shape.moveTo(px, py);
+            else shape.lineTo(px, py);
+          });
+          shape.closePath();
+        }
+
+        const extrudeGeo = new THREE.ExtrudeGeometry(shape, {
+          depth: 0.038,
+          bevelEnabled: false,
+        });
+        extrudeGeo.center();
+        const edgeGeo = new THREE.EdgesGeometry(extrudeGeo);
+        disposables.push(extrudeGeo, edgeGeo);
+        return { extrudeGeo, edgeGeo };
+      };
+
+      const purineGeos = makeMolecularRingGeometry(true);
+      const pyrimidineGeos = makeMolecularRingGeometry(false);
+      const stemGeo = new THREE.CylinderGeometry(0.022, 0.022, 1, 6);
+      const hBondGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.56, 6);
+      const phosphateGeo = new THREE.OctahedronGeometry(0.12, 1);
+      disposables.push(stemGeo, hBondGeo, phosphateGeo);
+
+      const baseVisuals = {
+        A: { isPurine: true, wire: 0x2dd4bf, emissive: 0x0d9488 },
+        G: { isPurine: true, wire: 0x34d399, emissive: 0x059669 },
+        C: { isPurine: false, wire: 0xfb7185, emissive: 0xbe123c },
+        T: { isPurine: false, wire: 0xfacc15, emissive: 0xca8a04 },
+      };
+      const compMap = { A: 'T', T: 'A', C: 'G', G: 'C' };
+      const seq = ['C', 'A', 'C', 'G', 'A', 'C', 'T', 'T', 'A', 'G', 'A', 'T', 'C', 'T', 'G', 'A'];
+
+      const rungUnits = [];
+
+      seq.forEach((bLeft, i) => {
+        const t = i / (seq.length - 1);
+        const y = (t - 0.5) * heightSpan * 0.92;
+        const theta = t * Math.PI * 2 * totalTurns;
+
+        const p1 = new THREE.Vector3(Math.cos(theta) * radius, y, Math.sin(theta) * radius);
+        const p2 = new THREE.Vector3(Math.cos(theta + Math.PI) * radius, y, Math.sin(theta + Math.PI) * radius);
+        const dir = new THREE.Vector3().subVectors(p2, p1).normalize();
+        const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+
+        const bRight = compMap[bLeft];
+        const vL = baseVisuals[bLeft];
+        const vR = baseVisuals[bRight];
+
+        const stemMatL = new THREE.MeshStandardMaterial({
+          color: 0x09090b,
+          emissive: vL.emissive,
+          emissiveIntensity: 0.55,
+          transparent: true,
+          opacity: 0.9,
+        });
+        const stemMatR = new THREE.MeshStandardMaterial({
+          color: 0x09090b,
+          emissive: vR.emissive,
+          emissiveIntensity: 0.55,
+          transparent: true,
+          opacity: 0.9,
+        });
+        disposables.push(stemMatL, stemMatR);
+
+        const stemLen = radius * 0.5;
+
+        // Grupo Nucleotídeo Esquerdo (Fosfato + Haste Desoxirribose + Anel Base Nitrogenada)
+        const nucUnitL = new THREE.Group();
+        dnaGroup.add(nucUnitL);
+
+        const stemL = new THREE.Mesh(stemGeo, stemMatL);
+        stemL.position.copy(p1).addScaledVector(dir, stemLen * 0.5);
+        stemL.scale.set(1, stemLen, 1);
+        stemL.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+        nucUnitL.add(stemL);
+
+        const phosL = new THREE.Mesh(phosphateGeo, stemMatL);
+        phosL.position.copy(p1);
+        nucUnitL.add(phosL);
+
+        // Grupo Nucleotídeo Direito
+        const nucUnitR = new THREE.Group();
+        dnaGroup.add(nucUnitR);
+
+        const stemR = new THREE.Mesh(stemGeo, stemMatR);
+        stemR.position.copy(p2).addScaledVector(dir, -stemLen * 0.5);
+        stemR.scale.set(1, stemLen, 1);
+        stemR.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+        nucUnitR.add(stemR);
+
+        const phosR = new THREE.Mesh(phosphateGeo, stemMatR);
+        phosR.position.copy(p2);
+        nucUnitR.add(phosR);
+
+        const geoL = vL.isPurine ? purineGeos : pyrimidineGeos;
+        const geoR = vR.isPurine ? purineGeos : pyrimidineGeos;
+
+        const fillMatL = new THREE.MeshBasicMaterial({
+          color: vL.emissive,
+          transparent: true,
+          opacity: 0.26,
+          blending: THREE.AdditiveBlending,
+        });
+        const wireMatL = new THREE.LineBasicMaterial({
+          color: vL.wire,
+          transparent: true,
+          opacity: 0.95,
+          blending: THREE.AdditiveBlending,
+        });
+        const fillMatR = new THREE.MeshBasicMaterial({
+          color: vR.emissive,
+          transparent: true,
+          opacity: 0.26,
+          blending: THREE.AdditiveBlending,
+        });
+        const wireMatR = new THREE.LineBasicMaterial({
+          color: vR.wire,
+          transparent: true,
+          opacity: 0.95,
+          blending: THREE.AdditiveBlending,
+        });
+        disposables.push(fillMatL, wireMatL, fillMatR, wireMatR);
+
+        const ringGroupL = new THREE.Group();
+        ringGroupL.add(new THREE.Mesh(geoL.extrudeGeo, fillMatL), new THREE.LineSegments(geoL.edgeGeo, wireMatL));
+        ringGroupL.position.copy(mid).addScaledVector(dir, -0.54);
+        ringGroupL.rotation.y = -theta;
+        nucUnitL.add(ringGroupL);
+
+        const ringGroupR = new THREE.Group();
+        ringGroupR.add(new THREE.Mesh(geoR.extrudeGeo, fillMatR), new THREE.LineSegments(geoR.edgeGeo, wireMatR));
+        ringGroupR.position.copy(mid).addScaledVector(dir, 0.54);
+        ringGroupR.rotation.y = -theta + Math.PI;
+        nucUnitR.add(ringGroupR);
+
+        // Pontes de Hidrogênio Individuais por Par (2 para A=T, 3 para C≡G)
+        const bondCount = bLeft === 'G' || bLeft === 'C' ? 3 : 2;
+        const rungBonds = [];
+        const rungBondMat = new THREE.MeshBasicMaterial({
+          color: bondCount === 3 ? 0x34d399 : 0xfacc15,
+          transparent: true,
+          opacity: 0.78,
+          blending: THREE.AdditiveBlending,
+        });
+        disposables.push(rungBondMat);
+
+        for (let b = 0; b < bondCount; b++) {
+          const offset = (b - (bondCount - 1) / 2) * 0.085;
+          const bond = new THREE.Mesh(hBondGeo, rungBondMat);
+          bond.position.copy(mid);
+          bond.position.y += offset;
+          bond.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+          dnaGroup.add(bond);
+          rungBonds.push(bond);
+        }
+
+        rungUnits.push({
+          idx: i,
+          dir: dir.clone(),
+          nucUnitL,
+          nucUnitR,
+          phosL,
+          phosR,
+          ringGroupL,
+          ringGroupR,
+          stemMatR,
+          fillMatR,
+          wireMatR,
+          rungBonds,
+          rungBondMat,
+        });
+      });
+
+      const scanRingGeo = new THREE.RingGeometry(2.02, 2.08, 64);
+      const scanRingMat = new THREE.MeshBasicMaterial({
+        color: 0xfacc15,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.48,
+        blending: THREE.AdditiveBlending,
+      });
+      disposables.push(scanRingGeo, scanRingMat);
+      const scanRing = new THREE.Mesh(scanRingGeo, scanRingMat);
+      scanRing.rotation.x = Math.PI / 2;
+      scene.add(scanRing);
+
+      const particleCount = 54;
+      const particleGeo = new THREE.BufferGeometry();
+      const positions = new Float32Array(particleCount * 3);
+      for (let i = 0; i < particleCount; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 9.0;
+        positions[i * 3 + 1] = (Math.random() - 0.5) * 10.5;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 6.0;
+      }
+      particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const particleMat = new THREE.PointsMaterial({
+        color: 0xfacc15,
+        size: 0.055,
+        transparent: true,
+        opacity: 0.45,
+        blending: THREE.AdditiveBlending,
+      });
+      disposables.push(particleGeo, particleMat);
+      const particles = new THREE.Points(particleGeo, particleMat);
+      scene.add(particles);
+
+      const handleResize = () => {
+        if (!container || !renderer) return;
+        const w = container.clientWidth || 440;
+        const h = container.clientHeight || 420;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      };
+      window.addEventListener('resize', handleResize);
+
+      const clock = new THREE.Clock();
+      const animate = () => {
+        animId = requestAnimationFrame(animate);
+        const dt = Math.min(clock.getDelta(), 0.05);
+        const elapsed = clock.getElapsedTime();
+
+        const scrollImpulse = scrollInertiaRef.current.velocity;
+        scrollInertiaRef.current.velocity *= 0.91;
+
+        if (!dragRef.current.active) {
+          dragRef.current.rotY += dt * 0.48 * speedRef.current + scrollImpulse + dragRef.current.velY;
+          dragRef.current.rotX = Math.max(-0.55, Math.min(0.55, dragRef.current.rotX + dragRef.current.velX));
+          dragRef.current.velX *= 0.9;
+          dragRef.current.velY *= 0.92;
+        }
+
+        parallaxRef.current.curX += (parallaxRef.current.targetX - parallaxRef.current.curX) * 0.06;
+        parallaxRef.current.curY += (parallaxRef.current.targetY - parallaxRef.current.curY) * 0.06;
+
+        dnaGroup.rotation.y = dragRef.current.rotY + parallaxRef.current.curX * 0.14;
+        dnaGroup.rotation.x = dragRef.current.rotX - parallaxRef.current.curY * 0.09;
+        dnaGroup.rotation.z = parallaxRef.current.curX * -0.05;
+        dnaGroup.position.y = Math.sin(elapsed * 0.9) * 0.12 - scrollImpulse * 2.4;
+
+        camera.position.x = parallaxRef.current.curX * 0.35;
+        camera.position.y = -parallaxRef.current.curY * 0.25;
+        camera.lookAt(0, 0, 0);
+
+        scanRing.position.y = Math.sin(elapsed * 0.85) * 4.1;
+        scanRingMat.opacity = speedRef.current === 0 ? 0.22 : 0.42 + Math.sin(elapsed * 2.4) * 0.12;
+
+        particles.rotation.y -= dt * 0.08 * (speedRef.current || 0.25);
+
+        // Modos de Visualização 3D:
+        // 1) 'dual' -> Dupla Hélice completa (DNA A=T, C≡G)
+        // 2) 'biotech' -> Fita Simples (RNA / Fita Molde Única)
+        // 3) 'nucleotides' -> Nucleotídeos Livres se unindo (Hibridização) e se separando (Desnaturação) ciclicamente
+        if (focusRef.current === 'biotech') {
+          strand1CoreMat.emissiveIntensity = 0.88;
+          strand1CoreMat.opacity = 0.9;
+          strand1WireMat.opacity = 0.92;
+          strand2Mesh.visible = false;
+          strand2Wire.visible = false;
+
+          rungUnits.forEach(({ nucUnitL, nucUnitR, phosL, rungBonds }) => {
+            nucUnitL.position.set(0, 0, 0);
+            nucUnitL.rotation.set(0, 0, 0);
+            phosL.scale.setScalar(0.8);
+            nucUnitR.visible = false;
+            rungBonds.forEach((b) => {
+              b.visible = false;
+            });
+          });
+        } else if (focusRef.current === 'nucleotides') {
+          // Corrimão contínuo suavizado para destacar cada nucleotídeo individual se unindo e separando
+          strand1CoreMat.opacity = 0.16;
+          strand1WireMat.opacity = 0.2;
+          strand2Mesh.visible = true;
+          strand2Wire.visible = true;
+          strand2CoreMat.opacity = 0.16;
+          strand2WireMat.opacity = 0.2;
+
+          const waveTime = elapsed * (speedRef.current === 0 ? 0 : 2.1);
+
+          rungUnits.forEach(({ idx, dir, nucUnitL, nucUnitR, phosL, phosR, rungBonds, rungBondMat }) => {
+            nucUnitR.visible = true;
+            // Onda senoidal com platôs de união (sep ~ 0) e separação (sep ~ 1)
+            const rawSin = Math.sin(waveTime - idx * 0.38);
+            const clamped = Math.max(0, Math.min(1, (rawSin + 0.35) / 1.1));
+            const sep = clamped * clamped * (3 - 2 * clamped); // smoothstep(0..1)
+            const spreadDist = sep * 1.38;
+            const verticalFloat = Math.sin(waveTime * 1.4 + idx) * 0.08 * sep;
+
+            nucUnitL.position.set(-dir.x * spreadDist, verticalFloat, -dir.z * spreadDist);
+            nucUnitR.position.set(dir.x * spreadDist, -verticalFloat, dir.z * spreadDist);
+            nucUnitL.rotation.z = sep * 0.28;
+            nucUnitR.rotation.z = -sep * 0.28;
+
+            phosL.scale.setScalar(1.35);
+            phosR.scale.setScalar(1.35);
+
+            const bondVis = Math.max(0, 1 - sep * 2.1);
+            rungBondMat.opacity = bondVis * (0.65 + 0.35 * Math.sin(elapsed * 8 + idx));
+            rungBonds.forEach((b) => {
+              b.visible = bondVis > 0.04;
+              b.scale.set(1, Math.max(0.1, bondVis), 1);
+            });
+          });
+        } else {
+          // Dupla Hélice Padrão
+          strand1CoreMat.emissiveIntensity = 0.55;
+          strand1CoreMat.opacity = 0.85;
+          strand1WireMat.opacity = 0.72;
+          strand2Mesh.visible = true;
+          strand2Wire.visible = true;
+          strand2CoreMat.opacity = 0.85;
+          strand2CoreMat.emissive.setHex(0x22d3ee);
+          strand2CoreMat.emissiveIntensity = 0.38;
+          strand2WireMat.color.setHex(0x22d3ee);
+          strand2WireMat.opacity = 0.52;
+
+          rungUnits.forEach(({ nucUnitL, nucUnitR, phosL, phosR, rungBonds, rungBondMat }) => {
+            nucUnitL.position.set(0, 0, 0);
+            nucUnitR.position.set(0, 0, 0);
+            nucUnitL.rotation.set(0, 0, 0);
+            nucUnitR.rotation.set(0, 0, 0);
+            nucUnitR.visible = true;
+            phosL.scale.setScalar(0.85);
+            phosR.scale.setScalar(0.85);
+            rungBondMat.opacity = 0.78;
+            rungBonds.forEach((b) => {
+              b.visible = true;
+              b.scale.set(1, 1, 1);
+            });
+          });
+        }
+
+        renderer.render(scene, camera);
+      };
+      animate();
+
+      return () => {
+        cancelAnimationFrame(animId);
+        window.removeEventListener('resize', handleResize);
+        disposables.forEach((d) => d && d.dispose && d.dispose());
+        if (renderer && renderer.dispose) renderer.dispose();
+      };
+    } catch (err) {
+      setWebglError(true);
+      setRenderEngine('css3d');
+    }
+  }, [renderEngine]);
+
+  const onPointerDown = (e) => {
+    dragRef.current.active = true;
+    dragRef.current.lastX = e.clientX;
+    dragRef.current.lastY = e.clientY;
+    dragRef.current.velX = 0;
+    dragRef.current.velY = 0;
+  };
+
+  const onPointerMove = (e) => {
+    if (!dragRef.current.active) return;
+    const dx = e.clientX - dragRef.current.lastX;
+    const dy = e.clientY - dragRef.current.lastY;
+    const stepY = dx * 0.011;
+    const stepX = dy * 0.007;
+    dragRef.current.rotY += stepY;
+    dragRef.current.rotX = Math.max(-0.55, Math.min(0.55, dragRef.current.rotX + stepX));
+    dragRef.current.velY = stepY * 0.45;
+    dragRef.current.velX = stepX * 0.45;
+    dragRef.current.lastX = e.clientX;
+    dragRef.current.lastY = e.clientY;
+  };
+
+  const onPointerUp = () => {
+    dragRef.current.active = false;
+  };
+
+  const hudModeLabel =
+    focusMode === 'biotech'
+      ? 'FITA SIMPLES // MOLDE EXPOSTO (RNA / SONDA)'
+      : focusMode === 'nucleotides'
+      ? 'DINÂMICA DE NUCLEOTÍDEOS // UNIÃO (A=T, C≡G) ⇄ SEPARAÇÃO'
+      : 'DNA // DUPLA HÉLICE ANTIPARALELA · A, T, C, G';
+
+  return (
+    <div
+      data-testid="dna-3d-viewer"
+      className="relative bg-zinc-950 border border-zinc-800 p-4 sm:p-5 overflow-hidden"
+    >
+      <span className="pointer-events-none absolute top-0 left-0 w-2.5 h-2.5 border-t border-l border-yellow-400" aria-hidden="true"></span>
+      <span className="pointer-events-none absolute top-0 right-0 w-2.5 h-2.5 border-t border-r border-yellow-400" aria-hidden="true"></span>
+      <span className="pointer-events-none absolute bottom-0 left-0 w-2.5 h-2.5 border-b border-l border-zinc-600" aria-hidden="true"></span>
+      <span className="pointer-events-none absolute bottom-0 right-0 w-2.5 h-2.5 border-b border-r border-zinc-600" aria-hidden="true"></span>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-zinc-400 border-b border-zinc-800 pb-3 mb-3">
+        <span className="flex items-center gap-2 text-zinc-200 tracking-[0.12em]">
+          <span className="w-1.5 h-1.5 bg-yellow-400 terminal-cursor"></span>
+          SCANNER 3D // B-DNA HOLOGRÁFICO
+        </span>
+        <button
+          type="button"
+          data-testid="dna-engine-toggle"
+          onClick={() => {
+            soundEngine.playClick();
+            if (!webglError) {
+              setRenderEngine((prev) => (prev === 'webgl' ? 'css3d' : 'webgl'));
+            }
+          }}
+          className="px-2.5 py-1 bg-black hover:border-yellow-400 hover:text-yellow-400 border border-zinc-800 text-[10px] text-zinc-400 font-mono uppercase tracking-[0.1em] transition-[border-color,color] duration-200"
+          title="Alternar motor de renderização 3D"
+        >
+          {renderEngine === 'webgl' ? 'WEBGL.R128' : 'CSS3D.FALLBACK'}
+        </button>
+      </div>
+
+      <div
+        data-testid="dna-canvas-viewport"
+        data-focus-mode={focusMode}
+        className="relative w-full h-[340px] sm:h-[410px] bg-black border border-zinc-800/90 cursor-grab active:cursor-grabbing select-none touch-none overflow-hidden"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
+        role="region"
+        aria-label="Visualização interativa da dupla hélice de DNA em 3D. Arraste para rotacionar."
+      >
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(circle at 50% 48%, rgba(250, 204, 21, 0.085) 0%, rgba(34, 211, 238, 0.03) 42%, transparent 72%)',
+          }}
+        ></div>
+        <div className="scanline-overlay absolute inset-0"></div>
+
+        <div className="absolute top-2.5 left-3 right-3 flex flex-wrap items-center justify-between gap-1 text-[10px] font-mono text-zinc-400 pointer-events-none z-20 tabular-nums">
+          <span data-testid="dna-hud-mode-label" className="text-yellow-400 font-semibold">
+            {hudModeLabel}
+          </span>
+          <span>3.4 nm // 10.5 BP/TURN</span>
+        </div>
+
+        {renderEngine === 'webgl' ? (
+          <div ref={mountRef} className="w-full h-full relative z-10"></div>
+        ) : (
+          <CSS3DHelixFallback focusMode={focusMode} paused={speedMult === 0} />
+        )}
+
+        <div className="absolute bottom-2.5 left-3 right-3 flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono text-zinc-400 pointer-events-none z-20">
+          <span>
+            {focusMode === 'nucleotides'
+              ? 'NUCLEOTÍDEOS LIVRES SE UNINDO (PONTES DE H) E SEPARANDO'
+              : 'PURINAS [A, G: 2 ANÉIS] · PIRIMIDINAS [T, C, U: 1 ANEL]'}
+          </span>
+          <span className="text-yellow-400/90">[ARRASTE PARA GIRAR]</span>
+        </div>
+      </div>
+
+      {/* Controls: DUPLA HÉLICE / FITA SIMPLES / NUCLEOTÍDEOS */}
+      <div className="mt-3 pt-3 border-t border-zinc-800 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {[
+            { id: 'dual', label: 'DUPLA HÉLICE', testId: 'dna-focus-dual' },
+            { id: 'biotech', label: 'FITA SIMPLES', testId: 'dna-focus-biotech' },
+            { id: 'nucleotides', label: 'NUCLEOTÍDEOS', testId: 'dna-focus-nucleotides' },
+          ].map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              data-testid={m.testId}
+              onClick={() => {
+                soundEngine.playClick();
+                setFocusMode(m.id);
+              }}
+              className={`px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-[0.1em] border transition-[background-color,border-color,color] duration-200 ${
+                focusMode === m.id
+                  ? 'border-yellow-400 text-black bg-yellow-400 font-bold'
+                  : 'border-zinc-800 bg-black text-zinc-400 hover:border-zinc-600 hover:text-zinc-100'
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-1">
+          {[
+            { val: 0, label: 'PAUSA', testId: 'dna-speed-0' },
+            { val: 1, label: '1X', testId: 'dna-speed-1' },
+            { val: 2.2, label: '2X', testId: 'dna-speed-2' },
+          ].map((spd) => (
+            <button
+              key={spd.label}
+              type="button"
+              data-testid={spd.testId}
+              onClick={() => {
+                soundEngine.playClick();
+                setSpeedMult(spd.val);
+              }}
+              className={`px-2 py-1.5 text-[10px] font-mono tabular-nums border transition-[background-color,border-color,color] duration-200 ${
+                speedMult === spd.val
+                  ? 'bg-yellow-400 border-yellow-400 text-black font-bold'
+                  : 'border-zinc-800 bg-black text-zinc-400 hover:border-zinc-600 hover:text-zinc-100'
+              }`}
+            >
+              {spd.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================================
+ * 5. COMPONENTE DE CAIXINHAS ILUSTRADAS NUMERADAS (MÓDULOS 1, 2 E 3)
+ * ============================================================================ */
+function IllustratedTopicCard({ card, accent = 'yellow' }) {
+  const borderAccent =
+    accent === 'red'
+      ? 'hover:border-rose-500/80'
+      : accent === 'cyan'
+      ? 'hover:border-cyan-400/80'
+      : 'hover:border-yellow-400/80';
+  const stepBadgeClass =
+    accent === 'red'
+      ? 'bg-rose-500 text-black'
+      : accent === 'cyan'
+      ? 'bg-cyan-400 text-black'
+      : 'bg-yellow-400 text-black';
+  const bulletColor =
+    accent === 'red' ? 'bg-rose-500' : accent === 'cyan' ? 'bg-cyan-400' : 'bg-yellow-400';
+
+  return (
+    <article
+      data-testid={`dossier-card-${card.id}`}
+      className={`bg-zinc-950 border border-zinc-800 ${borderAccent} transition-[border-color,transform] duration-200 flex flex-col justify-between overflow-hidden group`}
+    >
+      <div>
+        {/* Barra Superior de Ordem de Leitura ("O que vem primeiro") */}
+        <div className="px-4 py-2.5 bg-black border-b border-zinc-800 flex items-center justify-between gap-2">
+          <span className={`px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-[0.14em] ${stepBadgeClass}`}>
+            {card.step}
+          </span>
+          <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-400">
+            {card.badge}
+          </span>
+        </div>
+
+        {/* Ilustração Vetorial Dedicada no Topo da Caixinha */}
+        <div className="bg-black/90 border-b border-zinc-800/90 p-3 relative overflow-hidden">
+          <div className="scanline-overlay absolute inset-0"></div>
+          <CardDiagramSVG type={card.diagramType} />
+        </div>
+
+        {/* Conteúdo Escaneável */}
+        <div className="p-5 sm:p-6">
+          <h3 className="font-display font-bold text-lg sm:text-xl text-zinc-100 leading-snug mb-1">
+            {card.title}
+          </h3>
+          <p className="text-xs font-mono text-yellow-400/90 uppercase tracking-[0.08em] mb-3">
+            {card.subtitle}
+          </p>
+          <p className="text-sm font-sans text-zinc-300 leading-relaxed mb-4">
+            {card.summary}
+          </p>
+
+          <ul className="space-y-2 border-t border-zinc-800/80 pt-3.5">
+            {card.details.map((d, i) => (
+              <li key={i} className="flex items-start gap-2.5 text-xs sm:text-sm font-sans text-zinc-400 leading-relaxed">
+                <span className={`mt-2 w-1.5 h-1.5 ${bulletColor} shrink-0`}></span>
+                <span>{d}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* Rodapé Guia de Leitura ("Para onde ir") */}
+      {card.takeaway && (
+        <div className="px-5 py-3 bg-black border-t border-zinc-800 text-[11px] font-mono text-zinc-300 flex items-center gap-2">
+          <span className="text-yellow-400 font-bold shrink-0">→ SÍNTESE:</span>
+          <span>{card.takeaway}</span>
+        </div>
+      )}
+    </article>
+  );
+}
+
+function ChargaffBaseInspector() {
+  const [selectedBase, setSelectedBase] = useState('A');
+  const base = selectedBase === 'U' ? RNA_URACIL_REF : BASE_INFO[selectedBase];
+  const partner = BASE_INFO[base.pair];
+
+  return (
+    <div
+      data-testid="chargaff-inspector"
+      className="mt-10 bg-zinc-950 p-6 sm:p-8 border border-zinc-800"
+    >
+      <div className="grid md:grid-cols-12 gap-8 items-center">
+        <div className="md:col-span-5">
+          <span className="text-[11px] font-mono text-yellow-400 uppercase tracking-[0.16em]">
+            TERMINAL BIOQUÍMICO INTERATIVO // REGRA DE CHARGAFF
+          </span>
+          <h3 className="text-xl sm:text-2xl font-display font-bold tracking-[-0.015em] text-zinc-100 mt-1.5 mb-2">
+            Inspecione as Bases (A, T, C, G e U)
+          </h3>
+          <p className="text-sm font-sans text-zinc-400 mb-5 leading-relaxed">
+            Clique em qualquer base nitrogenada para visualizar sua estrutura em anéis, seu par complementar e o número de pontes de hidrogênio:
+          </p>
+          <div className="grid grid-cols-5 gap-2">
+            {['A', 'T', 'C', 'G', 'U'].map((b) => {
+              const item = b === 'U' ? RNA_URACIL_REF : BASE_INFO[b];
+              return (
+                <button
+                  key={b}
+                  type="button"
+                  data-testid={`inspect-base-${b.toLowerCase()}`}
+                  onClick={() => {
+                    soundEngine.playClick();
+                    setSelectedBase(b);
+                  }}
+                  className={`py-3 px-1.5 font-mono border transition-[background-color,border-color,color] duration-200 flex flex-col items-center gap-1 ${
+                    selectedBase === b
+                      ? 'bg-yellow-400 border-yellow-400 text-black font-bold'
+                      : 'bg-black border-zinc-800 text-zinc-300 hover:border-zinc-600 hover:text-zinc-100'
+                  }`}
+                >
+                  <span className="text-base font-bold">{b}</span>
+                  <span className="text-[9px] font-mono uppercase tracking-[0.04em]">{item.name}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-3 text-[10px] font-mono text-zinc-400 flex flex-wrap gap-x-4 gap-y-1">
+            <span>DNA: A=T (2H) · C≡G (3H)</span>
+            <span className="text-cyan-400">RNA: A=U (2H) · Fita Simples</span>
+          </div>
+        </div>
+
+        <div className="md:col-span-7 bg-black border border-zinc-800 p-5 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-5 border-b border-zinc-800">
+            <div className="flex items-center gap-3">
+              <NucleotideShapeIcon base={base.code} size={46} active />
+              <div>
+                <div className="font-display font-semibold text-yellow-400 text-lg">
+                  {base.name} ({base.code})
+                </div>
+                <div className="text-[11px] font-mono text-zinc-400 uppercase tracking-[0.1em]">
+                  {base.group}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center">
+              <span className="text-[10px] font-mono text-yellow-400 uppercase tracking-[0.12em] mb-1.5 tabular-nums font-bold">
+                {base.bonds} Pontes de H
+              </span>
+              <svg
+                key={selectedBase}
+                width="96"
+                height="24"
+                viewBox="0 0 96 24"
+                aria-hidden="true"
+                className="overflow-visible"
+              >
+                {Array.from({ length: base.bonds }).map((_, idx) => {
+                  const y = base.bonds === 2 ? 7 + idx * 10 : 4 + idx * 8;
+                  return (
+                    <line
+                      key={idx}
+                      x1="4"
+                      y1={y}
+                      x2="92"
+                      y2={y}
+                      stroke="#FACC15"
+                      strokeWidth="1.8"
+                      strokeDasharray="6 4"
+                      className="svg-draw-line"
+                      style={{ '--dash-len': 96, animationDelay: `${idx * 65}ms` }}
+                    />
+                  );
+                })}
+              </svg>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <div className="font-display font-semibold text-zinc-100 text-lg">
+                  {partner.name} ({partner.code})
+                </div>
+                <div className="text-[11px] font-mono text-zinc-400 uppercase tracking-[0.1em]">
+                  {partner.group}
+                </div>
+              </div>
+              <NucleotideShapeIcon base={partner.code} size={46} />
+            </div>
+          </div>
+
+          <p className="text-sm font-sans text-zinc-300 mt-4 leading-relaxed">
+            <span className="font-mono text-yellow-400 mr-2">&gt;_</span>
+            <ScrambleText text={base.desc} />
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================================
+ * 6. MÓDULO 1 — DNA: A MOLÉCULA DA VIDA
+ * ============================================================================ */
+function Module1DNAView({ onSelectModule }) {
+  return (
+    <section
+      id="hero"
+      data-testid="module-1-dna"
+      className="py-8 sm:py-12 px-4 sm:px-6 max-w-7xl mx-auto animate-tactical-in"
+    >
+      {/* Hero Principal + Visualizador 3D */}
+      <div className="grid lg:grid-cols-12 gap-8 lg:gap-10 items-center mb-12 pb-12 border-b border-zinc-800">
+        <div className="lg:col-span-6 space-y-5">
+          <div className="inline-flex items-center gap-2.5 px-3 py-1.5 bg-zinc-950 border border-yellow-400/70 text-yellow-400 text-[11px] font-mono uppercase tracking-[0.14em]">
+            <span className="w-2 h-2 bg-yellow-400 terminal-cursor"></span>
+            <span>PROJETO UFPA • ICB • FABIOTEC // MÓDULO 01 DE 06</span>
+          </div>
+
+          <div>
+            <div className="text-xs font-mono uppercase tracking-[0.16em] text-rose-400 font-semibold mb-2">
+              EXTENSÃO BIOTECNOLOGIA VERMELHA
+            </div>
+            <h1 className="text-3xl sm:text-5xl font-display font-bold tracking-[-0.03em] leading-[1.06] text-zinc-100">
+              DNA: <span className="text-yellow-400">A Molécula da Vida</span> e o Código da Hereditariedade
+            </h1>
+          </div>
+
+          <p className="text-sm sm:text-base font-sans text-zinc-300 leading-relaxed max-w-[62ch]">
+            Bem-vindo à plataforma interativa da <strong className="text-white font-semibold">Extensão Biotecnologia Vermelha</strong>. Neste primeiro módulo, explore a estrutura tridimensional da dupla hélice, veja como os <strong className="text-yellow-400 font-medium">nucleotídeos livres se unem e se separam</strong> e compreenda a base química que conecta a medicina diagnóstica à perícia forense.
+          </p>
+
+          {/* Roteiro de Navegação Rápida */}
+          <div className="flex flex-wrap gap-3 pt-1">
+            <button
+              type="button"
+              data-testid="cta-goto-diagnostico"
+              onClick={() => onSelectModule(2)}
+              className="px-5 py-3 bg-yellow-400 hover:bg-yellow-300 text-black font-mono uppercase font-bold text-xs tracking-[0.1em] border border-yellow-400 transition-[background-color,transform] duration-200 active:scale-[0.98]"
+            >
+              AVANÇAR: DNA &amp; DIAGNÓSTICO →
+            </button>
+            <button
+              type="button"
+              data-testid="cta-goto-laboratorio"
+              onClick={() => onSelectModule(4)}
+              className="px-5 py-3 bg-zinc-950 hover:border-yellow-400 hover:text-yellow-400 border border-zinc-800 text-zinc-200 font-mono uppercase font-semibold text-xs tracking-[0.1em] transition-[border-color,color] duration-200"
+            >
+              IR PARA MISSÃO LABORATÓRIO
+            </button>
+            <button
+              type="button"
+              data-testid="cta-open-ecosystem"
+              onClick={openEcosystemHub}
+              className="px-5 py-3 bg-zinc-950 hover:border-cyan-400 hover:text-cyan-300 border border-cyan-500/40 text-cyan-300 font-mono uppercase font-semibold text-xs tracking-[0.1em] transition-[border-color,color] duration-200"
+            >
+              ◈ ECOSSISTEMA 3D (6 APPS)
+            </button>
+          </div>
+
+          {/* Telemetria Rápida */}
+          <div className="grid grid-cols-3 border border-zinc-800 divide-x divide-zinc-800 bg-zinc-950/90 tabular-nums">
+            <div className="p-2.5 sm:p-3.5 min-w-0">
+              <div className="text-sm sm:text-2xl font-display font-bold text-yellow-400">4 BASES</div>
+              <div className="text-[9px] sm:text-[10px] font-mono uppercase tracking-[0.06em] sm:tracking-[0.1em] text-zinc-400 mt-0.5">
+                A, T, C, G (+ U)
+              </div>
+            </div>
+            <div className="p-2.5 sm:p-3.5 min-w-0">
+              <div className="text-sm sm:text-2xl font-display font-bold text-zinc-100">2H &amp; 3H</div>
+              <div className="text-[9px] sm:text-[10px] font-mono uppercase tracking-[0.06em] sm:tracking-[0.1em] text-zinc-400 mt-0.5">
+                Pontes A=T e C≡G
+              </div>
+            </div>
+            <div className="p-2.5 sm:p-3.5 min-w-0">
+              <div className="text-sm sm:text-2xl font-display font-bold text-cyan-400">7 APPS</div>
+              <div className="text-[9px] sm:text-[10px] font-mono uppercase tracking-[0.06em] sm:tracking-[0.1em] text-zinc-400 mt-0.5">
+                Portal + 6 Extras
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Visualizador 3D do DNA */}
+        <div className="lg:col-span-6 space-y-2.5">
+          <DNA3DViewer />
+          <div className="grid sm:grid-cols-2 gap-2">
+            <a
+              href="./dna.html"
+              className="px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 hover:border-cyan-400 transition-colors flex items-center justify-between gap-2 group"
+            >
+              <div className="min-w-0">
+                <div className="text-[10px] font-mono uppercase tracking-[0.12em] text-cyan-400">ECOSSISTEMA // TELA CHEIA</div>
+                <div className="text-xs font-display font-semibold text-zinc-100 group-hover:text-cyan-300 truncate">Abrir B-DNA 3D Avançado</div>
+              </div>
+              <span className="font-mono text-xs text-cyan-400 shrink-0">↗</span>
+            </a>
+            <a
+              href="./banner.html"
+              className="px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 hover:border-rose-400 transition-colors flex items-center justify-between gap-2 group"
+            >
+              <div className="min-w-0">
+                <div className="text-[10px] font-mono uppercase tracking-[0.12em] text-rose-400">ECOSSISTEMA // PÔSTER 3D</div>
+                <div className="text-xs font-display font-semibold text-zinc-100 group-hover:text-rose-300 truncate">Explorar Banner 3D UFPA</div>
+              </div>
+              <span className="font-mono text-xs text-rose-400 shrink-0">↗</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Guia de Leitura Visual das Caixinhas */}
+      <div className="mb-6 p-4 bg-zinc-950 border border-zinc-800 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="px-2.5 py-1 bg-yellow-400 text-black font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+            ROTEIRO DE LEITURA
+          </span>
+          <span className="text-xs sm:text-sm font-sans text-zinc-300">
+            Siga os cards ilustrados na ordem numérica (<strong className="text-yellow-400">PASSO 01 → PASSO 04</strong>) para compreender a arquitetura molecular do DNA.
+          </span>
+        </div>
+        <span className="text-[11px] font-mono text-zinc-500 uppercase">4 CAIXINHAS ILUSTRADAS</span>
+      </div>
+
+      {/* Grade de 4 Caixinhas Ilustradas do Módulo 1 */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {MODULE_1_CARDS.map((card) => (
+          <IllustratedTopicCard key={card.id} card={card} accent="yellow" />
+        ))}
+      </div>
+
+      {/* Terminal Bioquímico Interativo (Chargaff) */}
+      <ChargaffBaseInspector />
+    </section>
+  );
+}
+
+/* ============================================================================
+ * 7. MÓDULO 2 — DNA E DIAGNÓSTICO DE DOENÇAS (BIOTECNOLOGIA VERMELHA)
+ * ============================================================================ */
+const CLINICAL_BIOMARKERS = [
+  {
+    id: 'hbb',
+    gene: 'Gene HBB (Cromossomo 11)',
+    disease: 'Anemia Falciforme',
+    method: 'PCR + Sequenciamento / RFLP',
+    normalSeq: "5' - C T G A G G A C - 3' (Ácido Glutâmico)",
+    mutantSeq: "5' - C T G T G G A C - 3' (Valina - Mutação HbS)",
+    clinicalAction: 'Triagem neonatal precoce, profilaxia infecciosa e elegibilidade para edição gênica ex vivo.',
+  },
+  {
+    id: 'brca1',
+    gene: 'Genes BRCA1 / BRCA2',
+    disease: 'Predisposição Hereditária ao Câncer de Mama e Ovário',
+    method: 'Painel NGS (Sequenciamento de Nova Geração)',
+    normalSeq: "5' - A G A T C T G A - 3' (Reparo Homólogo Íntegro)",
+    mutantSeq: "5' - A G A T - - G A - 3' (Deleção Frameshift Patogênica)",
+    clinicalAction: 'Vigilância oncológica intensiva e indicação de terapias-alvo com inibidores de PARP.',
+  },
+  {
+    id: 'dpyd',
+    gene: 'Gene DPYD (Enzima DPD)',
+    disease: 'Farmacogenômica Oncológica (Fluoropirimidinas)',
+    method: 'Genotipagem por RT-qPCR (Sondas TaqMan)',
+    normalSeq: "5' - C A C G A C T T - 3' (Metabolizador Normal)",
+    mutantSeq: "5' - C A C A A C T T - 3' (Metabolizador Lento - Risco Tóxico)",
+    clinicalAction: 'Ajuste individualizado da dose quimioterápica, prevenindo toxicidade grave ou fatal.',
+  },
+];
+
+function Module2DiagnosticoView() {
+  const [selectedMarker, setSelectedMarker] = useState(0);
+  const marker = CLINICAL_BIOMARKERS[selectedMarker];
+
+  return (
+    <section
+      id="teoria-diagnostico"
+      data-testid="module-2-diagnostico"
+      className="py-8 sm:py-12 px-4 sm:px-6 max-w-7xl mx-auto animate-tactical-in"
+    >
+      <SectionHeader
+        eyebrow="Módulo 02 // Biotecnologia Vermelha & Saúde Humana"
+        title="DNA e Diagnóstico de Doenças"
+        accent="red"
+        subtitle="A Biotecnologia Vermelha aplica a biologia molecular na medicina: identifica mutações hereditárias, detecta vírus e bactérias por RT-qPCR, edita genes defeituosos e personaliza tratamentos."
+      />
+
+      {/* Guia de Ordem de Leitura */}
+      <div className="mb-6 p-4 bg-zinc-950 border border-rose-500/40 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="px-2.5 py-1 bg-rose-500 text-black font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+            TRILHA BIOTECNOLOGIA VERMELHA
+          </span>
+          <span className="text-xs sm:text-sm font-sans text-zinc-300">
+            Percorra os <strong className="text-rose-400">4 passos ilustrados</strong>: da origem das mutações genéticas até o diagnóstico por PCR e as terapias gênicas.
+          </span>
+        </div>
+        <span className="text-[11px] font-mono text-rose-400 uppercase">PASSO 01 → PASSO 04</span>
+      </div>
+
+      {/* 4 Caixinhas Ilustradas Numeradas de Biotecnologia Vermelha */}
+      <div className="grid md:grid-cols-2 gap-6 mb-10">
+        {RED_BIOTECH_CARDS.map((card) => (
+          <IllustratedTopicCard key={card.id} card={card} accent="red" />
+        ))}
+      </div>
+
+      {/* Painel Clínico Interativo: Comparador de Alelo Saudável vs. Mutação Patogênica */}
+      <div className="bg-zinc-950 border border-zinc-800 p-6 sm:p-8">
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-5 mb-6 border-b border-zinc-800">
+          <div>
+            <span className="text-[11px] font-mono text-rose-400 uppercase tracking-[0.16em]">
+              SIMULADOR CLÍNICO // DIAGNÓSTICO DE PRECISÃO
+            </span>
+            <h3 className="text-xl sm:text-2xl font-display font-bold text-zinc-100 mt-1">
+              Comparador de Biomarcadores Genéticos
+            </h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {CLINICAL_BIOMARKERS.map((bm, idx) => (
+              <button
+                key={bm.id}
+                type="button"
+                data-testid={`biomarker-tab-${bm.id}`}
+                onClick={() => {
+                  soundEngine.playClick();
+                  setSelectedMarker(idx);
+                }}
+                className={`px-3.5 py-2 text-[11px] font-mono uppercase tracking-[0.1em] border transition-colors ${
+                  selectedMarker === idx
+                    ? 'bg-rose-500 border-rose-500 text-black font-bold'
+                    : 'bg-black border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-100'
+                }`}
+              >
+                {bm.disease.split(' ')[0]} ({bm.id.toUpperCase()})
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-12 gap-6 items-center">
+          <div className="lg:col-span-5 space-y-3">
+            <div className="text-xs font-mono text-zinc-400 uppercase">{marker.gene}</div>
+            <div className="text-lg font-display font-bold text-zinc-100">{marker.disease}</div>
+            <div className="text-xs font-mono text-yellow-400">TÉCNICA: {marker.method}</div>
+            <p className="text-sm font-sans text-zinc-300 leading-relaxed pt-1">
+              <strong className="text-rose-400 font-mono text-xs uppercase block mb-1">Conduta Médica Guiada pelo DNA:</strong>
+              {marker.clinicalAction}
+            </p>
+          </div>
+          <div className="lg:col-span-7 space-y-3 font-mono text-xs">
+            <div className="p-4 bg-black border border-emerald-500/50">
+              <span className="text-[10px] text-emerald-400 uppercase tracking-[0.14em] block mb-1 font-bold">
+                ✓ SEQUÊNCIA DE REFERÊNCIA (ALELO SAUDÁVEL)
+              </span>
+              <span className="text-zinc-100 text-sm">{marker.normalSeq}</span>
+            </div>
+            <div className="p-4 bg-black border border-rose-500/70">
+              <span className="text-[10px] text-rose-400 uppercase tracking-[0.14em] block mb-1 font-bold">
+                ⚠ VARIANTE DETECTADA NO PACIENTE (ALELO MUTADO)
+              </span>
+              <span className="text-yellow-400 text-sm font-bold">{marker.mutantSeq}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ============================================================================
+ * 8. MÓDULO 3 — GENÉTICA FORENSE (PERÍCIA & IDENTIFICAÇÃO HUMANA)
+ * ============================================================================ */
+const PATERNITY_SCENARIOS = [
+  {
+    id: 'suspect-1',
+    name: 'Suposto Pai #01 (Excluído)',
+    verdict: 'EXCLUSÃO DE PATERNIDADE (0% Vínculo)',
+    isMatch: false,
+    explanation: 'O Suposto Pai #01 não possui os alelos paternos obrigatórios nos loci D3S1358 (alelo 16) e FGA (alelo 24). Pela lei da herança mendeliana, está cientificamente excluído.',
+    loci: [
+      { locus: 'D3S1358', mother: '14 / 15', child: '14 / 16', father: '12 / 13', match: false },
+      { locus: 'vWA', mother: '17 / 18', child: '17 / 19', father: '15 / 19', match: true },
+      { locus: 'FGA', mother: '21 / 22', child: '22 / 24', father: '20 / 21', match: false },
+    ],
+  },
+  {
+    id: 'suspect-2',
+    name: 'Suposto Pai #02 (Confirmado)',
+    verdict: 'VÍNCULO BIOLÓGICO CONFIRMADO (>99,9999%)',
+    isMatch: true,
+    explanation: 'Em todos os loci STR analisados, o Suposto Pai #02 compartilha exatamente o alelo paterno obrigatório herdado pelo filho (16 no D3S1358, 19 no vWA e 24 no FGA).',
+    loci: [
+      { locus: 'D3S1358', mother: '14 / 15', child: '14 / 16', father: '16 / 18', match: true },
+      { locus: 'vWA', mother: '17 / 18', child: '17 / 19', father: '14 / 19', match: true },
+      { locus: 'FGA', mother: '21 / 22', child: '22 / 24', father: '23 / 24', match: true },
+    ],
+  },
+];
+
+function Module3ForenseView() {
+  const [scenarioIdx, setScenarioIdx] = useState(1);
+  const scenario = PATERNITY_SCENARIOS[scenarioIdx];
+
+  return (
+    <section
+      id="teoria-forense"
+      data-testid="module-3-forense"
+      className="py-8 sm:py-12 px-4 sm:px-6 max-w-7xl mx-auto animate-tactical-in"
+    >
+      <SectionHeader
+        eyebrow="Módulo 03 // Perícia Criminal & Identificação"
+        title="Genética Forense: O DNA como Testemunha Científica"
+        accent="cyan"
+        subtitle="Veja como vestígios biológicos microscópicos são transformados em provas técnicas para solucionar crimes, realizar testes de paternidade por marcadores STR e identificar pessoas desaparecidas."
+      />
+
+      {/* Guia de Ordem de Leitura */}
+      <div className="mb-6 p-4 bg-zinc-950 border border-cyan-400/40 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="px-2.5 py-1 bg-cyan-400 text-black font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+            TRILHA PERÍCIA FORENSE
+          </span>
+          <span className="text-xs sm:text-sm font-sans text-zinc-300">
+            Siga os <strong className="text-cyan-400">4 passos ilustrados</strong>: da coleta na cena do crime até os marcadores STR, testes de paternidade e DNA mitocondrial.
+          </span>
+        </div>
+        <span className="text-[11px] font-mono text-cyan-400 uppercase">PASSO 01 → PASSO 04</span>
+      </div>
+
+      {/* 4 Caixinhas Ilustradas Numeradas de Genética Forense */}
+      <div className="grid md:grid-cols-2 gap-6 mb-10">
+        {FORENSIC_CARDS.map((card) => (
+          <IllustratedTopicCard key={card.id} card={card} accent="cyan" />
+        ))}
+      </div>
+
+      {/* Simulador Interativo de Teste de Paternidade & Herança STR */}
+      <div className="bg-zinc-950 border border-zinc-800 p-6 sm:p-8">
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-5 mb-6 border-b border-zinc-800">
+          <div>
+            <span className="text-[11px] font-mono text-cyan-400 uppercase tracking-[0.16em]">
+              LABORATÓRIO DE VÍNCULO GENÉTICO // MARCADORES STR
+            </span>
+            <h3 className="text-xl sm:text-2xl font-display font-bold text-zinc-100 mt-1">
+              Simulador de Teste de Paternidade (Herança Alélica)
+            </h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {PATERNITY_SCENARIOS.map((sc, idx) => (
+              <button
+                key={sc.id}
+                type="button"
+                data-testid={`paternity-tab-${sc.id}`}
+                onClick={() => {
+                  soundEngine.playClick();
+                  setScenarioIdx(idx);
+                }}
+                className={`px-3.5 py-2 text-[11px] font-mono uppercase tracking-[0.1em] border transition-colors ${
+                  scenarioIdx === idx
+                    ? 'bg-cyan-400 border-cyan-400 text-black font-bold'
+                    : 'bg-black border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-100'
+                }`}
+              >
+                {sc.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-3 gap-4 mb-5">
+          {scenario.loci.map((row) => (
+            <div key={row.locus} className="bg-black border border-zinc-800 p-4 font-mono">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-2 mb-3">
+                <span className="text-xs text-cyan-400 font-bold">LOCUS {row.locus}</span>
+                <span
+                  className={`text-[10px] px-2 py-0.5 font-bold ${
+                    row.match ? 'bg-yellow-400 text-black' : 'bg-rose-500/20 border border-rose-500 text-rose-400'
+                  }`}
+                >
+                  {row.match ? 'COMPATÍVEL' : 'DIVERGENTE'}
+                </span>
+              </div>
+              <div className="space-y-1.5 text-xs">
+                <div className="flex justify-between text-zinc-400">
+                  <span>Mãe Biológica:</span>
+                  <span className="text-zinc-200">{row.mother}</span>
+                </div>
+                <div className="flex justify-between text-zinc-300 font-semibold">
+                  <span>Filho(a):</span>
+                  <span className="text-yellow-400">{row.child}</span>
+                </div>
+                <div className="flex justify-between text-zinc-400">
+                  <span>Suposto Pai:</span>
+                  <span className={row.match ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                    {row.father}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div
+          className={`p-4 border text-xs sm:text-sm font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+            scenario.isMatch
+              ? 'bg-yellow-400/10 border-yellow-400 text-zinc-100'
+              : 'bg-rose-500/10 border-rose-500/70 text-zinc-200'
+          }`}
+        >
+          <div>
+            <strong className={scenario.isMatch ? 'text-yellow-400 mr-2' : 'text-rose-400 mr-2'}>
+              [{scenario.verdict}]
+            </strong>
+            <span className="font-sans">{scenario.explanation}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ============================================================================
+ * 9. MÓDULO 4 — MISSÃO LABORATÓRIO: O PASSO A PASSO (5 FASES)
+ * ============================================================================ */
+const PIPELINE_STEPS = [
+  {
+    id: 'coleta',
+    number: '01',
+    title: 'Coleta',
+    subtitle: 'Captura da Amostra Biológica',
+    summary:
+      'Um swab estéril de algodão toca e esfrega diretamente o vestígio biológico (saliva, sangue ou epitélio) para absorver células nucleadas e acondicioná-las no microtubo #CSI-042.',
+    actionLabel: 'Coletar Amostra com Swab',
+    equipment: 'Swab Estéril & Microtubo DNA-Free #CSI-042',
+    scienceNote:
+      'Cada célula nucleada humana contém cerca de 6 picogramas de DNA. O contato físico estéril do swab absorve as células epiteliais sem contaminação cruzada.',
+  },
+  {
+    id: 'extracao',
+    number: '02',
+    title: 'Extração',
+    subtitle: 'Lise Celular e Purificação',
+    summary:
+      'O tampão de lise (detergente) dissolve a bicamada lipídica das membranas plasmática e nuclear, enquanto a Proteinase K digere proteínas e histonas, isolando o DNA puro no sobrenadante aquoso.',
+    actionLabel: 'Romper Células & Isolar DNA',
+    equipment: 'Tampão de Lise (Detergente) + Proteinase K + Centrífuga',
+    scienceNote:
+      'Após a centrifugação, detritos celulares, lipídios e proteínas desnaturadas precipitam no fundo do tubo (Pellet), enquanto as fitas de DNA Puro Isolado flutuam livres no sobrenadante aquoso.',
+  },
+  {
+    id: 'pcr',
+    number: '03',
+    title: 'PCR',
+    subtitle: 'Amplificação no Termociclador',
+    summary:
+      'A Reação em Cadeia da Polimerase alterna ciclicamente 3 temperaturas (95°C Desnaturação → 58°C Anelamento → 72°C Extensão) para multiplicar exponencialmente o trecho-alvo de DNA.',
+    actionLabel: 'Iniciar Ciclos do Termociclador',
+    equipment: 'Termociclador + Taq Polimerase + Primers + dNTPs',
+    scienceNote:
+      'A progressão é exponencial (2ⁿ): a 95°C as fitas se separam; a 58°C os primers demarcam o alvo; e a 72°C a Taq Polimerase sintetiza as novas fitas complementares até atingir mais de 1 bilhão de cópias.',
+  },
+  {
+    id: 'analise',
+    number: '04',
+    title: 'Análise',
+    subtitle: 'Eletroforese em Gel',
+    summary:
+      'Os fragmentos amplificados migram em matriz de gel de agarose sob campo elétrico do polo negativo (-) ao positivo (+), separando-se por peso molecular.',
+    actionLabel: 'Aplicar Corrente & Revelar Bandas',
+    equipment: 'Cuba de Eletroforese + Transiluminador UV',
+    scienceNote:
+      'Como o grupo fosfato confere carga negativa ao DNA, ele migra rumo ao polo positivo (+). Fragmentos menores correm mais rápido pelo gel.',
+  },
+  {
+    id: 'comparacao',
+    number: '05',
+    title: 'Comparação',
+    subtitle: 'Match com Banco de Dados',
+    summary:
+      'O padrão de bandas da Amostra Coletada é confrontado matematicamente lado a lado com perfis de suspeitos (Forense) ou de mutações clínicas (Biotecnologia Vermelha).',
+    actionLabel: 'Escanear Banco de Dados',
+    equipment: 'Software CODIS / Genômica Clínica',
+    scienceNote:
+      'O alinhamento horizontal de 100% entre todas as bandas da amostra coletada e o perfil de referência confirma o Match pericial ou diagnóstico.',
+  },
+];
+
+function LaboratoryPipelineStepper({ onCompletePipeline }) {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [contextMode, setContextMode] = useState('forense');
+  const [executedSteps, setExecutedSteps] = useState({});
+  const [simRunning, setSimRunning] = useState(false);
+  const [pcrCycle, setPcrCycle] = useState(0);
+  const [pcrThermalPhase, setPcrThermalPhase] = useState(0); // 0: 95°C, 1: 58°C, 2: 72°C
+  const [extractionStage, setExtractionStage] = useState(0); // 0: intacta, 1: detergente, 2: proteinase K, 3: separação DNA puro
+  const simTimerRef = useRef(null);
+
+  const step = PIPELINE_STEPS[currentStep];
+  const isStepDone = Boolean(executedSteps[step.id]);
+  const completedTotal = Object.keys(executedSteps).length;
+
+  const clearSimTimer = useCallback(() => {
+    if (simTimerRef.current) {
+      clearInterval(simTimerRef.current);
+      clearTimeout(simTimerRef.current);
+      simTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => clearSimTimer();
+  }, [clearSimTimer]);
+
+  useEffect(() => {
+    if (completedTotal === PIPELINE_STEPS.length) {
+      onCompletePipeline();
+    }
+  }, [completedTotal, onCompletePipeline]);
+
+  const markStepExecuted = useCallback((stepId) => {
+    setExecutedSteps((prev) => (prev[stepId] ? prev : { ...prev, [stepId]: true }));
+  }, []);
+
+  const runSimulation = () => {
+    if (simRunning) return;
+    clearSimTimer();
+    soundEngine.playLabPulse(currentStep);
+    setSimRunning(true);
+
+    if (step.id === 'extracao') {
+      // Velocidade cadenciada em 3 sub-etapas (1400ms cada -> ~4.2s total) para acompanhar a lise celular
+      setExtractionStage(1);
+      let stage = 1;
+      const targetId = step.id;
+      simTimerRef.current = setInterval(() => {
+        stage += 1;
+        if (stage <= 3) {
+          setExtractionStage(stage);
+          soundEngine.playTone(400 + stage * 90, 0.09, 'sine', 0.04);
+        }
+        if (stage >= 3) {
+          clearSimTimer();
+          simTimerRef.current = setTimeout(() => {
+            simTimerRef.current = null;
+            setSimRunning(false);
+            markStepExecuted(targetId);
+            soundEngine.playSuccess();
+          }, 1400);
+        }
+      }, 1400);
+    } else if (step.id === 'pcr') {
+      // Velocidade cadenciada (500ms por pulso de 3 ciclos) para leitura didática das 3 fases térmicas
+      setPcrCycle(0);
+      setPcrThermalPhase(0);
+      let tickCount = 0;
+      const targetId = step.id;
+      simTimerRef.current = setInterval(() => {
+        tickCount += 1;
+        const nextPhase = tickCount % 3;
+        setPcrThermalPhase(nextPhase);
+        const nextCycle = Math.min(30, tickCount * 3);
+        setPcrCycle(nextCycle);
+        soundEngine.playTone(420 + nextPhase * 110, 0.07, 'sine', 0.035);
+
+        if (nextCycle >= 30) {
+          clearSimTimer();
+          setSimRunning(false);
+          markStepExecuted(targetId);
+          soundEngine.playSuccess();
+        }
+      }, 500);
+    } else {
+      const targetId = step.id;
+      const isFinal = currentStep === PIPELINE_STEPS.length - 1;
+      simTimerRef.current = setTimeout(() => {
+        simTimerRef.current = null;
+        setSimRunning(false);
+        markStepExecuted(targetId);
+        if (isFinal) {
+          soundEngine.playVictory();
+        } else {
+          soundEngine.playSuccess();
+        }
+      }, 1500);
+    }
+  };
+
+  // Coordenadas compartilhadas para a Fase 05 (Comparação) no sistema SVG 560x220
+  const comparisonLanes = [
+    {
+      name: 'Amostra Coletada',
+      sub: 'Evidência #042',
+      bandsY: [68, 108, 142],
+      isTarget: true,
+      isMatch: false,
+    },
+    {
+      name: contextMode === 'forense' ? 'Perfil DB #01' : 'Alelo Saudável',
+      sub: 'Incompatível',
+      bandsY: [80, 126, 158],
+      isTarget: false,
+      isMatch: false,
+    },
+    {
+      name: contextMode === 'forense' ? 'Perfil DB #02 (Alvo)' : 'Mutação Alvo',
+      sub: '100% MATCH',
+      bandsY: [68, 108, 142],
+      isTarget: false,
+      isMatch: true,
+    },
+    {
+      name: contextMode === 'forense' ? 'Perfil DB #03' : 'Variante Neutra',
+      sub: 'Incompatível',
+      bandsY: [58, 118, 162],
+      isTarget: false,
+      isMatch: false,
+    },
+  ];
+
+  return (
+    <section
+      id="pipeline"
+      data-testid="pipeline-section"
+      className="py-8 sm:py-12 px-4 sm:px-6 max-w-7xl mx-auto animate-tactical-in"
+    >
+      <SectionHeader
+        eyebrow="Módulo 04 // Missão Laboratório (Protocolo Pericial & Clínico)"
+        title="O Passo a Passo do Laboratório (5 Fases)"
+        accent="yellow"
+        subtitle="Execute cada fase do protocolo tático — Coleta, Extração, PCR, Análise e Comparação — para processar a amostra biológica e emitir o laudo técnico."
+      />
+
+      {/* Scenario Context Toggle + Progress */}
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div className="inline-flex bg-black border border-zinc-800 divide-x divide-zinc-800">
+          <button
+            type="button"
+            data-testid="context-mode-forense"
+            onClick={() => {
+              soundEngine.playClick();
+              setContextMode('forense');
+            }}
+            className={`px-4 py-2 text-[11px] font-mono uppercase tracking-[0.1em] transition-colors ${
+              contextMode === 'forense'
+                ? 'bg-yellow-400 text-black font-bold'
+                : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-950'
+            }`}
+          >
+            MODO FORENSE (SUSPEITOS)
+          </button>
+          <button
+            type="button"
+            data-testid="context-mode-clinico"
+            onClick={() => {
+              soundEngine.playClick();
+              setContextMode('clinico');
+            }}
+            className={`px-4 py-2 text-[11px] font-mono uppercase tracking-[0.1em] transition-colors ${
+              contextMode === 'clinico'
+                ? 'bg-yellow-400 text-black font-bold'
+                : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-950'
+            }`}
+          >
+            MODO DIAGNÓSTICO (DOENÇAS)
+          </button>
+        </div>
+
+        <div className="text-[11px] font-mono text-zinc-400 bg-zinc-950 border border-zinc-800 px-3.5 py-2 tabular-nums">
+          PROTOCOLO:{' '}
+          <span className="text-yellow-400 font-bold ml-1">{completedTotal} / 5 FASES VALIDADAS</span>
+        </div>
+      </div>
+
+      {/* Ponte para o Laboratório BioForense 3D no Ecossistema */}
+      <a
+        href="./pcr.html"
+        className="mb-6 p-4 bg-zinc-950 border border-emerald-500/40 hover:border-emerald-400 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+      >
+        <div className="flex items-start sm:items-center gap-3">
+          <span className="px-2.5 py-1 bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 font-mono text-[10px] font-bold uppercase tracking-[0.14em] shrink-0">
+            ECOSSISTEMA 3D
+          </span>
+          <span className="text-xs sm:text-sm font-sans text-zinc-200">
+            Quer executar essas mesmas 5 fases (Coleta, Extração, PCR, Eletroforese e Match STR) em uma <strong className="text-emerald-300">bancada 3D imersiva</strong>?
+          </span>
+        </div>
+        <span className="px-3.5 py-2 bg-emerald-400 group-hover:bg-emerald-300 text-black font-mono text-[11px] font-bold uppercase tracking-[0.1em] shrink-0 text-center">
+          ABRIR BIOFORENSE 3D ↗
+        </span>
+      </a>
+
+      {/* 5-Step Interactive Stepper Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-6" role="tablist" aria-label="Fases do laboratório">
+        {PIPELINE_STEPS.map((s, idx) => {
+          const active = idx === currentStep;
+          const done = Boolean(executedSteps[s.id]);
+          return (
+            <button
+              key={s.id}
+              type="button"
+              role="tab"
+              data-testid={`stepper-${s.id}`}
+              aria-selected={active}
+              onClick={() => {
+                soundEngine.playClick();
+                clearSimTimer();
+                setCurrentStep(idx);
+                setSimRunning(false);
+                setExtractionStage(0);
+              }}
+              className={`p-3.5 border text-left transition-colors relative overflow-hidden ${
+                idx === 4 ? 'col-span-2 sm:col-span-1 ' : ''
+              }${
+                active
+                  ? 'bg-zinc-950 border-yellow-400 text-zinc-100'
+                  : done
+                  ? 'bg-black border-zinc-700 text-zinc-200 hover:border-zinc-500'
+                  : 'bg-black border-zinc-800 hover:border-zinc-600 text-zinc-400'
+              }`}
+            >
+              {active && <span className="absolute top-0 inset-x-0 h-0.5 bg-yellow-400" aria-hidden="true"></span>}
+              <div className="flex items-center justify-between mb-1.5">
+                <span
+                  className={`text-[10px] font-mono uppercase tracking-[0.14em] tabular-nums ${
+                    active ? 'text-yellow-400 font-bold' : done ? 'text-zinc-300' : 'text-zinc-500'
+                  }`}
+                >
+                  FASE {s.number}
+                </span>
+                {done && (
+                  <span
+                    className={`w-4 h-4 text-[10px] font-mono font-bold flex items-center justify-center ${
+                      active ? 'bg-yellow-400 text-black' : 'bg-zinc-800 text-yellow-400'
+                    }`}
+                  >
+                    ✓
+                  </span>
+                )}
+              </div>
+              <div className={`font-display font-semibold text-sm sm:text-base ${active ? 'text-white' : 'text-zinc-200'}`}>
+                {s.title}
+              </div>
+              <div className="text-[11px] font-sans truncate text-zinc-500 mt-0.5">
+                {s.subtitle}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Active Lab Station */}
+      <div className="bg-zinc-950 border border-zinc-800 p-6 sm:p-8">
+        <div className="grid lg:grid-cols-12 gap-8 items-center">
+          {/* Left Info & Controls */}
+          <div className="lg:col-span-5 space-y-4">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="px-2 py-0.5 bg-yellow-400 text-black font-bold text-[10px] font-mono uppercase tracking-[0.14em] tabular-nums">
+                ETAPA {step.number} / 05
+              </span>
+              <span className="text-[11px] font-mono text-zinc-400">{step.equipment}</span>
+            </div>
+
+            <h3 className="text-2xl sm:text-3xl font-display font-semibold tracking-[-0.02em] text-zinc-100">
+              {step.title}: {step.subtitle}
+            </h3>
+
+            <p className="text-sm font-sans text-zinc-300 leading-relaxed max-w-[60ch]">
+              {step.summary}
+            </p>
+
+            <div className="p-4 bg-black border border-zinc-800 text-xs sm:text-sm font-sans text-zinc-300 leading-relaxed">
+              <strong className="font-mono text-[11px] uppercase tracking-[0.14em] text-yellow-400 block mb-1.5">
+                &gt;_ LAUDO TÉCNICO DE BANCADA
+              </strong>
+              {step.scienceNote}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <button
+                type="button"
+                data-testid="pipeline-execute-btn"
+                onClick={runSimulation}
+                disabled={simRunning}
+                className={`px-5 py-3 font-mono uppercase font-bold text-xs tracking-[0.1em] border transition-all flex items-center gap-2 active:scale-[0.98] ${
+                  simRunning
+                    ? 'bg-black border-yellow-400 text-yellow-400 cursor-wait'
+                    : 'bg-yellow-400 border-yellow-400 text-black hover:bg-yellow-300'
+                }`}
+              >
+                {simRunning ? (
+                  <ScrambleText text="PROCESSANDO EVIDÊNCIA..." duration={180} />
+                ) : isStepDone ? (
+                  `✓ REEXECUTAR: ${step.title.toUpperCase()}`
+                ) : (
+                  step.actionLabel.toUpperCase()
+                )}
+              </button>
+
+              {currentStep < PIPELINE_STEPS.length - 1 && (
+                <button
+                  type="button"
+                  data-testid="pipeline-next-btn"
+                  onClick={() => {
+                    soundEngine.playClick();
+                    clearSimTimer();
+                    setSimRunning(false);
+                    setExtractionStage(0);
+                    setCurrentStep((s) => s + 1);
+                  }}
+                  className="px-4 py-3 border border-zinc-800 bg-black hover:border-yellow-400 hover:text-yellow-400 text-xs font-mono uppercase tracking-[0.1em] text-zinc-300 transition-colors"
+                >
+                  PRÓXIMA FASE →
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Right Interactive Animated Lab Viewport */}
+          <div
+            data-testid="pipeline-viewport"
+            className={`lg:col-span-7 bg-black border p-5 sm:p-6 min-h-[340px] flex flex-col justify-between relative overflow-hidden transition-colors ${
+              isStepDone || simRunning ? 'border-yellow-400/70' : 'border-zinc-800'
+            }`}
+          >
+            <div className="scanline-overlay absolute inset-0"></div>
+
+            {/* Viewport Header */}
+            <div className="relative z-10 flex items-center justify-between text-[11px] font-mono text-zinc-400 border-b border-zinc-800 pb-3 mb-4">
+              <span className="text-zinc-200 tracking-[0.12em]">
+                TERMINAL CSI // CÂMARA {step.id.toUpperCase()}
+              </span>
+              <span
+                className={`flex items-center gap-2 tracking-[0.1em] ${
+                  isStepDone ? 'text-yellow-400 font-bold' : simRunning ? 'text-yellow-400' : 'text-zinc-500'
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 ${
+                    isStepDone
+                      ? 'bg-yellow-400'
+                      : simRunning
+                      ? 'bg-yellow-400 terminal-cursor'
+                      : 'bg-zinc-600'
+                  }`}
+                ></span>
+                {simRunning ? (
+                  <ScrambleText text="ESCANEANDO..." />
+                ) : isStepDone ? (
+                  <ScrambleText text="LAUDO VALIDADO" />
+                ) : (
+                  'AGUARDANDO COMANDO'
+                )}
+              </span>
+            </div>
+
+            {/* STAGE 1: COLETA (Swab coordenado tocando fisicamente o centro do alvo biológico) */}
+            {step.id === 'coleta' && (
+              <div className="relative z-10 flex-1 flex flex-col items-center justify-center py-1">
+                <svg
+                  data-testid="coleta-scene-svg"
+                  viewBox="0 0 460 210"
+                  className="w-full h-52 sm:h-56 overflow-visible"
+                  aria-label="Cena de coleta com swab estéril tocando fisicamente o vestígio biológico e transferindo amostra para o Tubo #CSI-042"
+                >
+                  {/* Retículo de Bancada */}
+                  <rect x="8" y="8" width="444" height="194" fill="#09090B" stroke="#27272A" strokeWidth="1" />
+
+                  {/* 1. Alvo / Vestígio Biológico Central (cx=205, cy=112) */}
+                  <g data-testid="swab-biological-target">
+                    <rect x="145" y="52" width="120" height="120" fill="#000000" stroke="#3F3F46" strokeDasharray="4 3" />
+                    <line x1="205" y1="44" x2="205" y2="62" stroke="#FACC15" strokeWidth="1.2" />
+                    <line x1="205" y1="162" x2="205" y2="180" stroke="#FACC15" strokeWidth="1.2" />
+                    <line x1="137" y1="112" x2="155" y2="112" stroke="#FACC15" strokeWidth="1.2" />
+                    <line x1="255" y1="112" x2="273" y2="112" stroke="#FACC15" strokeWidth="1.2" />
+
+                    {/* Mancha / Amostra Biológica no Alvo */}
+                    <circle
+                      cx="205"
+                      cy="112"
+                      r="28"
+                      fill={contextMode === 'forense' ? '#F43F5E' : '#22D3EE'}
+                      fillOpacity={simRunning || isStepDone ? '0.28' : '0.16'}
+                      stroke={simRunning || isStepDone ? '#FACC15' : '#F43F5E'}
+                      strokeWidth="1.8"
+                    />
+                    <polygon
+                      points="205,90 225,101 225,123 205,134 185,123 185,101"
+                      fill="#FACC15"
+                      fillOpacity={simRunning || isStepDone ? '0.35' : '0.12'}
+                      stroke="#FACC15"
+                      strokeWidth="1.5"
+                    />
+
+                    {/* Ondas de Contato Físico quando o Swab toca o alvo */}
+                    {(simRunning || isStepDone) && (
+                      <>
+                        <circle
+                          cx="205"
+                          cy="112"
+                          r="36"
+                          fill="none"
+                          stroke="#FACC15"
+                          strokeWidth="1.2"
+                          strokeDasharray="3 3"
+                        />
+                        <text
+                          x="230"
+                          y="26"
+                          textAnchor="middle"
+                          fill="#FACC15"
+                          fontSize="9"
+                          fontWeight="bold"
+                          fontFamily="JetBrains Mono"
+                        >
+                          ✓ CONTATO FÍSICO NO ALVO: CÉLULAS COLETADAS
+                        </text>
+                      </>
+                    )}
+
+                    <text x="205" y="191" textAnchor="middle" fill="#D4D4D8" fontSize="9.5" fontFamily="JetBrains Mono">
+                      {contextMode === 'forense' ? 'ALVO: VESTÍGIO BIOLÓGICO' : 'ALVO: MUCOSA / SALIVA'}
+                    </text>
+                  </g>
+
+                  {/* 2. Linha de Transferência de Partículas para o Microtubo #CSI-042 */}
+                  <g>
+                    <path
+                      d="M233,112 C275,92 315,92 355,112"
+                      fill="none"
+                      stroke={simRunning || isStepDone ? '#FACC15' : '#27272A'}
+                      strokeWidth="1.5"
+                      strokeDasharray="4 3"
+                    />
+                    {(simRunning || isStepDone) && (
+                      <>
+                        <circle cx="268" cy="100" r="3" fill="#FACC15" />
+                        <circle cx="298" cy="97" r="3.5" fill="#22D3EE" />
+                        <circle cx="328" cy="102" r="3" fill="#FACC15" />
+                      </>
+                    )}
+                  </g>
+
+                  {/* 3. Microtubo Graduado #CSI-042 (Direita x=355..405) */}
+                  <g data-testid="coleta-microtube">
+                    <rect x="355" y="58" width="50" height="106" rx="4" fill="#000000" stroke="#71717A" strokeWidth="1.6" />
+                    <rect x="350" y="52" width="60" height="7" fill="#27272A" stroke="#A1A1AA" strokeWidth="1" />
+                    {/* Solução com DNA coletado no tubo */}
+                    <rect
+                      x="357"
+                      y={isStepDone ? 104 : simRunning ? 122 : 150}
+                      width="46"
+                      height={isStepDone ? 58 : simRunning ? 40 : 12}
+                      fill="#FACC15"
+                      fillOpacity={simRunning || isStepDone ? '0.35' : '0.15'}
+                    />
+                    <line
+                      x1="357"
+                      y1={isStepDone ? 104 : simRunning ? 122 : 150}
+                      x2="403"
+                      y2={isStepDone ? 104 : simRunning ? 122 : 150}
+                      stroke="#FACC15"
+                      strokeWidth="1.5"
+                    />
+                    <text x="380" y="182" textAnchor="middle" fill="#FACC15" fontSize="9.5" fontWeight="bold" fontFamily="JetBrains Mono">
+                      Tubo #CSI-042
+                    </text>
+                  </g>
+
+                  {/* 4. Swab Estéril Coordenado: toca diretamente o centro do Alvo (205, 112) */}
+                  <g
+                    data-testid="swab-actor"
+                    className={simRunning || isStepDone ? 'animate-swab-contact' : ''}
+                    transform={simRunning || isStepDone ? 'translate(205, 112)' : 'translate(88, 108)'}
+                  >
+                    {/* Haste do Swab saindo para cima/esquerda */}
+                    <line x1="-78" y1="-58" x2="-8" y2="-6" stroke="#E4E4E7" strokeWidth="3.2" strokeLinecap="round" />
+                    <rect x="-86" y="-66" width="18" height="10" rx="2" transform="rotate(36 -78 -58)" fill="#FACC15" />
+                    {/* Ponta de Algodão do Swab centrada exatamente na origem (0,0) = (205,112) no alvo! */}
+                    <ellipse
+                      data-testid="swab-cotton-tip"
+                      cx="0"
+                      cy="0"
+                      rx="14"
+                      ry="9"
+                      transform="rotate(36)"
+                      fill={simRunning || isStepDone ? '#FACC15' : '#F4F4F5'}
+                      stroke={simRunning || isStepDone ? '#22D3EE' : '#A1A1AA'}
+                      strokeWidth="2"
+                    />
+                    {(simRunning || isStepDone) && (
+                      <>
+                        <circle cx="-4" cy="-2" r="2.2" fill="#000" />
+                        <circle cx="4" cy="2" r="2.2" fill="#F43F5E" />
+                      </>
+                    )}
+                    <text x="-96" y="-18" textAnchor="middle" fill="#FACC15" fontSize="8.5" fontWeight="bold" fontFamily="JetBrains Mono">
+                      SWAB ESTÉRIL
+                    </text>
+                  </g>
+                </svg>
+              </div>
+            )}
+
+            {/* STAGE 2: EXTRAÇÃO (Ilustração Citológica e Bioquímica Detalhada: Célula Eucariótica + Lise + Pellet/Sobrenadante) */}
+            {step.id === 'extracao' && (() => {
+              const extStage = simRunning ? extractionStage : isStepDone ? 3 : 0;
+              return (
+              <div className="relative z-10 flex-1 flex flex-col items-center justify-center py-1">
+                <svg
+                  data-testid="extracao-cell-svg"
+                  viewBox="0 0 500 225"
+                  className="w-full h-56 sm:h-60"
+                  aria-label="Diagrama citológico detalhado de extração de DNA: lise da membrana plasmática e nuclear por detergente e Proteinase K, precipitação do pellet e isolamento do DNA puro no sobrenadante"
+                >
+                  <rect x="6" y="6" width="488" height="213" fill="#09090B" stroke="#27272A" />
+
+                  {/* ZONA ESQUERDA: CÉLULA EUCARIÓTICA DETALHADA SOFRENDO LISE (cx=142, cy=108) */}
+                  <g data-testid="eukaryotic-cell-diagram">
+                    <text x="142" y="23" textAnchor="middle" fill="#22D3EE" fontSize="9" fontWeight="bold" fontFamily="JetBrains Mono">
+                      {extStage >= 2
+                        ? '1. LISE CELULAR E NUCLEAR (MEMBRANAS ROMPIDAS)'
+                        : extStage === 1
+                        ? '1. DETERGENTE ROMPENDO MEMBRANA PLASMÁTICA'
+                        : '1. CÉLULA EUCARIÓTICA NUCLEADA INTACTA'}
+                    </text>
+
+                    {/* Citoplasma & Bicamada Lipídica da Membrana Plasmática */}
+                    <circle
+                      cx="142"
+                      cy="108"
+                      r="68"
+                      fill="#18181B"
+                      fillOpacity="0.7"
+                      stroke={extStage === 1 ? '#FACC15' : '#22D3EE'}
+                      strokeWidth="2.5"
+                      strokeDasharray={extStage >= 1 ? '10 9 6 11' : 'none'}
+                    />
+                    <circle
+                      cx="142"
+                      cy="108"
+                      r="63"
+                      fill="none"
+                      stroke="#0891B2"
+                      strokeWidth="1.2"
+                      strokeDasharray={extStage >= 1 ? '6 10' : '3 2'}
+                    />
+
+                    {/* Organelas Citoplasmáticas: Mitocôndrias, Retículo e Proteínas/Histonas */}
+                    {/* Mitocôndria 1 */}
+                    <g transform="translate(92, 74) rotate(-20)" opacity={extStage >= 2 ? 0.35 : 1}>
+                      <ellipse cx="0" cy="0" rx="12" ry="6.5" fill="#09090B" stroke="#F43F5E" strokeWidth="1.3" />
+                      <path d="M-8,0 Q-4,-4 0,0 T8,0" fill="none" stroke="#F43F5E" strokeWidth="1" />
+                    </g>
+                    {/* Mitocôndria 2 */}
+                    <g transform="translate(190, 138) rotate(25)" opacity={extStage >= 2 ? 0.35 : 1}>
+                      <ellipse cx="0" cy="0" rx="11" ry="6" fill="#09090B" stroke="#F43F5E" strokeWidth="1.3" />
+                      <path d="M-7,0 Q-3,-3 0,0 T7,0" fill="none" stroke="#F43F5E" strokeWidth="1" />
+                    </g>
+                    {/* Retículo Endoplasmático / Proteínas Celulares */}
+                    <path d="M95,134 Q108,148 124,142" fill="none" stroke="#A78BFA" strokeWidth="1.8" opacity={extStage >= 2 ? 0.3 : 1} />
+                    <circle cx="188" cy="76" r="4.5" fill="#FB7185" fillOpacity={extStage >= 2 ? '0.2' : '0.6'} />
+                    <circle cx="102" cy="122" r="4" fill="#FB7185" fillOpacity={extStage >= 2 ? '0.2' : '0.6'} />
+
+                    {/* Reagentes de Lise atuando (Detergente SDS + Proteinase K) */}
+                    <g>
+                      <rect
+                        x="16"
+                        y="34"
+                        width="84"
+                        height="20"
+                        fill={extStage === 1 ? '#FACC15' : '#000'}
+                        stroke="#FACC15"
+                        strokeWidth="1"
+                      />
+                      <text
+                        x="58"
+                        y="47"
+                        textAnchor="middle"
+                        fill={extStage === 1 ? '#000' : '#FACC15'}
+                        fontSize="7.5"
+                        fontWeight="bold"
+                        fontFamily="JetBrains Mono"
+                      >
+                        + DETERGENTE
+                      </text>
+                      <rect
+                        x="16"
+                        y="168"
+                        width="92"
+                        height="20"
+                        fill={extStage === 2 ? '#F43F5E' : '#000'}
+                        stroke="#F43F5E"
+                        strokeWidth="1"
+                      />
+                      <text
+                        x="62"
+                        y="181"
+                        textAnchor="middle"
+                        fill={extStage === 2 ? '#000' : '#F43F5E'}
+                        fontSize="7.5"
+                        fontWeight="bold"
+                        fontFamily="JetBrains Mono"
+                      >
+                        + PROTEINASE K
+                      </text>
+                    </g>
+
+                    {/* Núcleo Celular Definido (Carioteca Dupla + Cromatina/DNA) */}
+                    <circle
+                      cx="142"
+                      cy="108"
+                      r="34"
+                      fill="#000000"
+                      stroke={extStage === 2 ? '#F43F5E' : '#FACC15'}
+                      strokeWidth="2"
+                      strokeDasharray={extStage >= 2 ? '7 7' : '4 2'}
+                    />
+                    <text x="142" y="84" textAnchor="middle" fill="#FACC15" fontSize="7.5" fontWeight="bold" fontFamily="JetBrains Mono">
+                      NÚCLEO
+                    </text>
+
+                    {/* Fitas de Cromatina / DNA dentro do núcleo (liberadas na lise) */}
+                    <path
+                      d="M120,104 Q131,92 142,104 T164,104"
+                      fill="none"
+                      stroke="#FACC15"
+                      strokeWidth="2.2"
+                    />
+                    <path
+                      d="M120,115 Q131,127 142,115 T164,115"
+                      fill="none"
+                      stroke="#22D3EE"
+                      strokeWidth="2.2"
+                    />
+                    <text x="142" y="196" textAnchor="middle" fill="#A1A1AA" fontSize="8" fontFamily="JetBrains Mono">
+                      Membrana Lipídica + Citoplasma + Núcleo
+                    </text>
+                  </g>
+
+                  {/* SETA DE TRANSIÇÃO BIOQUÍMICA */}
+                  <g opacity={extStage >= 2 ? 1 : 0.35}>
+                    <line x1="224" y1="108" x2="278" y2="108" stroke="#FACC15" strokeWidth="2" strokeDasharray="4 3" />
+                    <polygon points="278,103 288,108 278,113" fill="#FACC15" />
+                    <text x="256" y="96" textAnchor="middle" fill="#FACC15" fontSize="7.5" fontWeight="bold" fontFamily="JetBrains Mono">
+                      CENTRIFUGAÇÃO
+                    </text>
+                  </g>
+
+                  {/* ZONA DIREITA: TUBO DE SEPARAÇÃO DE FASES (SOBRENADANTE AQUOSO COM DNA PURO vs PELLET NO FUNDO) */}
+                  <g data-testid="extraction-tube-separation" opacity={extStage >= 3 ? 1 : extStage >= 1 ? 0.5 : 0.35}>
+                    <text x="386" y="23" textAnchor="middle" fill="#FACC15" fontSize="9" fontWeight="bold" fontFamily="JetBrains Mono">
+                      2. SEPARAÇÃO DE FASES NO TUBO
+                    </text>
+
+                    {/* Corpo do Tubo Eppendorf */}
+                    <path
+                      d="M326,38 L446,38 L446,136 L406,192 L366,192 L326,136 Z"
+                      fill="#000000"
+                      stroke={extStage >= 3 ? '#FACC15' : '#A1A1AA'}
+                      strokeWidth="1.8"
+                    />
+
+                    {/* FASE SUPERIOR: SOBRENADANTE AQUOSO (DNA PURO ISOLADO) */}
+                    <path
+                      d="M328,52 L444,52 L444,132 L328,132 Z"
+                      fill="#22D3EE"
+                      fillOpacity={extStage >= 3 ? '0.2' : '0.06'}
+                    />
+                    <text x="386" y="66" textAnchor="middle" fill="#22D3EE" fontSize="8" fontWeight="bold" fontFamily="JetBrains Mono">
+                      SOBRENADANTE AQUOSO
+                    </text>
+                    <text x="386" y="77" textAnchor="middle" fill="#FACC15" fontSize="8.5" fontWeight="bold" fontFamily="JetBrains Mono">
+                      ★ DNA PURO ISOLADO
+                    </text>
+
+                    {/* Hélices de DNA Puro Flutuando no Sobrenadante */}
+                    {extStage >= 3 && (
+                      <>
+                        <path
+                          d="M342,96 Q364,82 386,96 T430,96"
+                          fill="none"
+                          stroke="#FACC15"
+                          strokeWidth="2.4"
+                          className="svg-draw-line"
+                          style={{ '--dash-len': 120 }}
+                        />
+                        <path
+                          d="M342,112 Q364,126 386,112 T430,112"
+                          fill="none"
+                          stroke="#34D399"
+                          strokeWidth="2.2"
+                          className="svg-draw-line"
+                          style={{ '--dash-len': 120 }}
+                        />
+                      </>
+                    )}
+
+                    {/* FASE INFERIOR (FUNDO DO TUBO): PELLET DE DETRITOS CELULARES, LIPÍDIOS E PROTEÍNAS */}
+                    <path
+                      d="M328,133 L444,133 L405,190 L367,190 Z"
+                      fill="#713F12"
+                      fillOpacity={extStage >= 3 ? '0.72' : '0.25'}
+                      stroke="#CA8A04"
+                      strokeWidth="1"
+                    />
+                    <circle cx="368" cy="156" r="4" fill="#F43F5E" fillOpacity="0.6" />
+                    <circle cx="398" cy="162" r="5" fill="#A1A1AA" fillOpacity="0.5" />
+                    <circle cx="382" cy="174" r="4.5" fill="#FACC15" fillOpacity="0.4" />
+                    <text x="386" y="150" textAnchor="middle" fill="#FDE047" fontSize="7.5" fontWeight="bold" fontFamily="JetBrains Mono">
+                      PELLET (PRECIPITADO)
+                    </text>
+                    <text x="386" y="162" textAnchor="middle" fill="#E4E4E7" fontSize="7" fontFamily="JetBrains Mono">
+                      Lipídios + Proteínas + Detritos
+                    </text>
+                  </g>
+                </svg>
+
+                {/* Legendas Explicativas das 3 Etapas Bioquímicas */}
+                <div className="grid grid-cols-3 gap-2 w-full text-center text-[10px] font-mono mt-2">
+                  <div
+                    data-testid="extraction-step-1"
+                    className={`p-2 border transition-colors ${
+                      extStage === 1
+                        ? 'bg-cyan-400 border-cyan-400 text-black font-bold'
+                        : extStage >= 1
+                        ? 'bg-zinc-950 border-cyan-400/60 text-cyan-400'
+                        : 'bg-zinc-950 border-zinc-800 text-cyan-400/70'
+                    }`}
+                  >
+                    1. Detergente: Rompe Membranas
+                  </div>
+                  <div
+                    data-testid="extraction-step-2"
+                    className={`p-2 border transition-colors ${
+                      extStage === 2
+                        ? 'bg-rose-500 border-rose-500 text-black font-bold'
+                        : extStage >= 2
+                        ? 'bg-zinc-950 border-rose-500/60 text-rose-400'
+                        : 'bg-zinc-950 border-zinc-800 text-rose-400/70'
+                    }`}
+                  >
+                    2. Proteinase K: Digere Proteínas
+                  </div>
+                  <div
+                    data-testid="extraction-step-3"
+                    className={`p-2 border font-bold transition-colors ${
+                      extStage >= 3
+                        ? 'bg-yellow-400 border-yellow-400 text-black'
+                        : 'bg-zinc-950 border-zinc-800 text-yellow-400/70'
+                    }`}
+                  >
+                    3. Sobrenadante: DNA Puro Isolado
+                  </div>
+                </div>
+              </div>
+              );
+            })()}
+
+            {/* STAGE 3: PCR (Velocidade Cadenciada + Ilustração das 3 Fases Térmicas) */}
+            {step.id === 'pcr' && (
+              <div className="relative z-10 flex-1 flex flex-col justify-center py-2">
+                <div className="grid grid-cols-3 gap-2.5 mb-3">
+                  {[
+                    {
+                      idx: 0,
+                      label: '1. Desnaturação',
+                      temp: '95°C',
+                      desc: 'Separa as 2 fitas',
+                      active: simRunning && pcrThermalPhase === 0,
+                    },
+                    {
+                      idx: 1,
+                      label: '2. Anelamento',
+                      temp: '58°C',
+                      desc: 'Primers acoplam',
+                      active: simRunning && pcrThermalPhase === 1,
+                    },
+                    {
+                      idx: 2,
+                      label: '3. Extensão (Taq)',
+                      temp: '72°C',
+                      desc: 'Síntese de cópias',
+                      active: simRunning && pcrThermalPhase === 2,
+                    },
+                  ].map((phase) => (
+                    <div
+                      key={phase.label}
+                      data-testid={`pcr-phase-${phase.idx}`}
+                      className={`p-2.5 border text-center transition-colors ${
+                        phase.active
+                          ? 'bg-yellow-400 border-yellow-400 text-black font-bold'
+                          : 'bg-zinc-950 border-zinc-800 text-zinc-200'
+                      }`}
+                    >
+                      <div className="text-base sm:text-lg font-display font-bold tabular-nums">{phase.temp}</div>
+                      <div className="text-[10px] font-mono uppercase tracking-[0.08em]">{phase.label}</div>
+                      <div className={`text-[9px] font-sans mt-0.5 ${phase.active ? 'text-black/80 font-semibold' : 'text-zinc-500'}`}>
+                        {phase.desc}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Ilustração SVG Dinâmica do Ciclo Térmico da PCR */}
+                <div className="bg-zinc-950 border border-zinc-800 p-3 mb-3">
+                  <svg viewBox="0 0 420 74" className="w-full h-16" aria-hidden="true">
+                    <line x1="24" y1="22" x2="396" y2="22" stroke="#FACC15" strokeWidth="2.2" />
+                    <line x1="24" y1="52" x2="396" y2="52" stroke="#22D3EE" strokeWidth="2.2" />
+                    {(!simRunning || pcrThermalPhase !== 0) && (
+                      <>
+                        <rect x="82" y="27" width="54" height="8" fill="#F43F5E" />
+                        <text x="109" y="34" textAnchor="middle" fill="#FFF" fontSize="6.5" fontWeight="bold" fontFamily="JetBrains Mono">PRIMER F</text>
+                        <rect x="284" y="39" width="54" height="8" fill="#F43F5E" />
+                        <text x="311" y="46" textAnchor="middle" fill="#FFF" fontSize="6.5" fontWeight="bold" fontFamily="JetBrains Mono">PRIMER R</text>
+                      </>
+                    )}
+                    {(isStepDone || (simRunning && pcrThermalPhase === 2)) && (
+                      <>
+                        <line x1="138" y1="31" x2="340" y2="31" stroke="#34D399" strokeWidth="2.2" strokeDasharray="4 2" />
+                        <line x1="80" y1="43" x2="282" y2="43" stroke="#34D399" strokeWidth="2.2" strokeDasharray="4 2" />
+                        <circle cx="238" cy="31" r="6" fill="#34D399" />
+                        <text x="238" y="15" textAnchor="middle" fill="#34D399" fontSize="8" fontWeight="bold" fontFamily="JetBrains Mono">
+                          TAQ POLIMERASE SINTETIZANDO NOVA FITA (5&apos;→3&apos;)
+                        </text>
+                      </>
+                    )}
+                  </svg>
+                </div>
+
+                <div className="bg-zinc-950 border border-zinc-800 p-4">
+                  <div className="flex items-center justify-between text-xs font-mono mb-3 tabular-nums">
+                    <span className="text-zinc-400">
+                      CICLO TÉRMICO: <strong className="text-yellow-400">{isStepDone ? 30 : pcrCycle} / 30</strong>
+                    </span>
+                    <span className="text-yellow-400 font-bold">
+                      CÓPIAS (2ⁿ): {isStepDone ? '1.073.741.824' : Math.pow(2, pcrCycle).toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 items-center justify-center min-h-[38px]">
+                    {Array.from({ length: Math.min(24, Math.max(1, isStepDone ? 24 : Math.floor(pcrCycle * 0.8) + 1)) }).map(
+                      (_, idx) => (
+                        <div key={idx} className="w-6 h-1.5 bg-yellow-400 animate-tactical-in"></div>
+                      )
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* STAGE 4: ANÁLISE (ELETROFORESE) */}
+            {step.id === 'analise' && (
+              <div className="relative z-10 flex-1 flex flex-col justify-center py-2">
+                <div className="bg-zinc-950 border border-zinc-800 p-4 relative">
+                  <div className="flex justify-between text-[10px] font-mono uppercase tracking-[0.12em] mb-2">
+                    <span className="text-zinc-400">POLO NEGATIVO (-) POÇOS DE APLICAÇÃO</span>
+                    <span className="text-yellow-400 font-semibold">POLO POSITIVO (+) MIGRAÇÃO DO DNA</span>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-3 h-40 bg-black border border-zinc-800 p-3 relative overflow-hidden">
+                    {['Ladder', 'Amostra #042', 'Controle (+)', 'Controle (-)'].map((lane, lIdx) => {
+                      const bandOffsets =
+                        lIdx === 0
+                          ? [20, 42, 65, 92, 115]
+                          : lIdx === 1
+                          ? [28, 72, 108]
+                          : lIdx === 2
+                          ? [28, 72, 108]
+                          : [];
+                      return (
+                        <div key={lane} className="relative border-r last:border-r-0 border-zinc-800/80 flex flex-col items-center">
+                          <div className="w-8 h-1.5 bg-zinc-800 mb-2"></div>
+                          <span className="text-[9px] font-mono text-zinc-400 text-center">{lane}</span>
+                          {(simRunning || isStepDone) &&
+                            bandOffsets.map((y, bIdx) => (
+                              <div
+                                key={bIdx}
+                                style={{ '--target-y': `${y}px` }}
+                                className={`animate-gel-band absolute top-6 w-10 h-1.5 ${
+                                  lIdx === 1 ? 'bg-yellow-400' : 'bg-zinc-400'
+                                }`}
+                              ></div>
+                            ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* STAGE 5: COMPARAÇÃO (Sistema Único de Coordenadas SVG 560x220 com Alinhamento 100% Exato das Linhas de Match) */}
+            {step.id === 'comparacao' && (
+              <div className="relative z-10 flex-1 flex flex-col justify-center py-1">
+                <div className="relative bg-zinc-950 border border-zinc-800 p-2 sm:p-3">
+                  {simRunning && (
+                    <div className="animate-scan absolute inset-x-0 h-0.5 bg-yellow-400 z-20"></div>
+                  )}
+
+                  <svg
+                    data-testid="comparison-unified-svg"
+                    viewBox="0 0 560 216"
+                    className="w-full h-auto block select-none"
+                    role="img"
+                    aria-label="Comparação lado a lado de bandas eletroforéticas com linhas de Match perfeitamente alinhadas entre a Amostra Coletada e o Perfil Alvo"
+                  >
+                    {/* Renderização das 4 Colunas de Gel dentro do mesmo espaço vetorial */}
+                    {comparisonLanes.map((col, idx) => {
+                      const colX = 12 + idx * 138; // 12, 150, 288, 426 (largura 122)
+                      const gelX = colX + 10;      // 22, 160, 298, 436 (largura 102)
+                      const bandX = gelX + 8;      // 30, 168, 306, 444 (largura 86 -> direita em 116, 254, 392, 530)
+                      const highlightMatch = isStepDone && col.isMatch;
+
+                      return (
+                        <g key={idx} data-testid={`comparison-lane-${idx}`}>
+                          {/* Moldura da Coluna */}
+                          <rect
+                            x={colX}
+                            y="6"
+                            width="122"
+                            height="204"
+                            fill={highlightMatch ? 'rgba(250, 204, 21, 0.08)' : '#09090B'}
+                            stroke={highlightMatch ? '#FACC15' : col.isTarget ? '#71717A' : '#27272A'}
+                            strokeWidth={highlightMatch ? '1.8' : '1.2'}
+                          />
+
+                          {/* Título da Raia */}
+                          <text
+                            x={colX + 61}
+                            y="25"
+                            textAnchor="middle"
+                            fill={highlightMatch ? '#FACC15' : '#E4E4E7'}
+                            fontSize="9.5"
+                            fontWeight="700"
+                            fontFamily="JetBrains Mono, monospace"
+                          >
+                            {col.name}
+                          </text>
+
+                          {/* Área Interna do Gel */}
+                          <rect
+                            x={gelX}
+                            y="36"
+                            width="102"
+                            height="140"
+                            fill="#000000"
+                            stroke="#27272A"
+                            strokeWidth="1"
+                          />
+
+                          {/* Poço de Injeção Superior */}
+                          <rect x={colX + 45} y="41" width="32" height="4" fill="#27272A" />
+
+                          {/* Bandas de DNA posicionadas na coordenada Y exata */}
+                          {col.bandsY.map((yCenter, bIdx) => {
+                            const isHighlightedBand = isStepDone && (col.isTarget || col.isMatch);
+                            return (
+                              <rect
+                                key={bIdx}
+                                data-testid={
+                                  col.isTarget
+                                    ? `sample-band-${bIdx}`
+                                    : col.isMatch
+                                    ? `target-band-${bIdx}`
+                                    : `other-band-${idx}-${bIdx}`
+                                }
+                                x={bandX}
+                                y={yCenter - 2.5}
+                                width="86"
+                                height="5"
+                                rx="1"
+                                fill={isHighlightedBand ? '#FACC15' : '#52525B'}
+                              />
+                            );
+                          })}
+
+                          {/* Rodapé de Status da Coluna */}
+                          {highlightMatch ? (
+                            <g>
+                              <rect x={colX + 18} y="183" width="86" height="19" fill="#FACC15" />
+                              <text
+                                x={colX + 61}
+                                y="196"
+                                textAnchor="middle"
+                                fill="#000000"
+                                fontSize="9.5"
+                                fontWeight="700"
+                                fontFamily="JetBrains Mono, monospace"
+                              >
+                                100% MATCH
+                              </text>
+                            </g>
+                          ) : (
+                            <text
+                              x={colX + 61}
+                              y="196"
+                              textAnchor="middle"
+                              fill="#71717A"
+                              fontSize="8.5"
+                              fontFamily="JetBrains Mono, monospace"
+                            >
+                              {col.sub}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    })}
+
+                    {/* Linhas Tracejadas Conectoras de Match: saem de x1=116 (borda direita da Amostra) até x2=306 (borda esquerda do Alvo) no mesmo Y exato! */}
+                    {isStepDone &&
+                      [68, 108, 142].map((yPos, lIdx) => (
+                        <g key={lIdx} data-testid={`match-connector-group-${lIdx}`}>
+                          <line
+                            data-testid={`match-line-${lIdx}`}
+                            x1="116"
+                            y1={yPos}
+                            x2="306"
+                            y2={yPos}
+                            stroke="#FACC15"
+                            strokeWidth="2"
+                            strokeDasharray="5 3"
+                            className="svg-draw-line"
+                            style={{ '--dash-len': 195, animationDelay: `${lIdx * 80}ms` }}
+                          />
+                          <circle cx="116" cy={yPos} r="3" fill="#FACC15" />
+                          <circle cx="306" cy={yPos} r="3" fill="#FACC15" />
+                        </g>
+                      ))}
+                  </svg>
+                </div>
+              </div>
+            )}
+
+            {/* Bottom Status Strip */}
+            <div className="relative z-10 mt-4 pt-3 border-t border-zinc-800 flex items-center justify-between text-[10px] font-mono text-zinc-500">
+              <span>
+                APLICAÇÃO: {contextMode === 'forense' ? 'INVESTIGAÇÃO CRIMINAL (CODIS)' : 'DIAGNÓSTICO CLÍNICO'}
+              </span>
+              {isStepDone && (
+                <span className="text-yellow-400 font-bold">
+                  &gt;&gt; <ScrambleText text="EVIDÊNCIA SINCRONIZADA" />
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ============================================================================
+ * 10. MÓDULO 5 — HUB DE JOGOS (PAREAMENTO, MEMÓRIA & QUIZ V OU F)
+ * ============================================================================ */
+function MolecularPairingLab({ onCompleteMission }) {
+  const [missionIdx, setMissionIdx] = useState(0);
+  const mission = PAIRING_MISSIONS[missionIdx];
+
+  const [pairs, setPairs] = useState(() => Array(mission.template.length).fill(null));
+  const [activeSlot, setActiveSlot] = useState(0);
+  const [dragOverSlot, setDragOverSlot] = useState(null);
+  const [errorSlot, setErrorSlot] = useState(null);
+  const [feedback, setFeedback] = useState({
+    type: 'info',
+    message: 'Clique ou arraste o nucleotídeo complementar (A↔T, C↔G) para parear a fita molde.',
+  });
+  const [mistakes, setMistakes] = useState(0);
+  const slotRefs = useRef([]);
+
+  const resetMission = useCallback((idx) => {
+    const nextMission = PAIRING_MISSIONS[idx];
+    setMissionIdx(idx);
+    setPairs(Array(nextMission.template.length).fill(null));
+    setActiveSlot(0);
+    setDragOverSlot(null);
+    setErrorSlot(null);
+    setMistakes(0);
+    setFeedback({
+      type: 'info',
+      message: `Missão "${nextMission.title}" carregada. Complete os ${nextMission.template.length} pares da fita!`,
+    });
+  }, []);
+
+  const completedCount = pairs.filter(Boolean).length;
+  const isComplete = completedCount === mission.template.length;
+
+  // Garante visibilidade imediata do slot ativo em telas móveis sem corte
+  useEffect(() => {
+    const el = slotRefs.current[activeSlot];
+    if (el && typeof el.scrollIntoView === 'function' && completedCount > 0) {
+      try {
+        el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      } catch (e) {}
+    }
+  }, [activeSlot, completedCount]);
+
+  const attemptPair = useCallback(
+    (slotIndex, chosenBase) => {
+      if (isComplete) return;
+      if (slotIndex < 0 || slotIndex >= mission.template.length) return;
+      if (pairs[slotIndex]) {
+        const firstEmpty = pairs.findIndex((p) => !p);
+        if (firstEmpty !== -1) setActiveSlot(firstEmpty);
+        return;
+      }
+
+      const templateBase = mission.template[slotIndex];
+      const expectedBase = BASE_INFO[templateBase].pair;
+
+      if (chosenBase === expectedBase) {
+        soundEngine.playSuccess();
+        const updated = [...pairs];
+        updated[slotIndex] = chosenBase;
+        setPairs(updated);
+        setErrorSlot(null);
+
+        const nextEmpty = updated.findIndex((p) => !p);
+        setActiveSlot(nextEmpty === -1 ? slotIndex : nextEmpty);
+
+        const justFinished = updated.every(Boolean);
+        if (justFinished) {
+          soundEngine.playVictory();
+          onCompleteMission();
+          setFeedback({
+            type: 'success',
+            message: `Dupla hélice estabilizada com 100% de precisão! Todas as ligações fosfodiéster e pontes de hidrogênio foram formadas.`,
+          });
+        } else {
+          setFeedback({
+            type: 'success',
+            message: `Pareamento correto: ${BASE_INFO[templateBase].name} (${templateBase}) ↔ ${BASE_INFO[chosenBase].name} (${chosenBase}) com ${BASE_INFO[templateBase].bonds} pontes de hidrogênio!`,
+          });
+        }
+      } else {
+        soundEngine.playError();
+        setMistakes((m) => m + 1);
+        setErrorSlot(slotIndex);
+        setTimeout(() => setErrorSlot(null), 500);
+        setFeedback({
+          type: 'error',
+          message: `Incompatibilidade estérica! ${BASE_INFO[templateBase].name} (${templateBase}) pareia exclusivamente com ${BASE_INFO[expectedBase].name} (${expectedBase}), não com ${BASE_INFO[chosenBase].name} (${chosenBase}).`,
+        });
+      }
+    },
+    [isComplete, mission.template, onCompleteMission, pairs]
+  );
+
+  const handleKeyDown = (e) => {
+    const key = e.key.toUpperCase();
+    if (['A', 'T', 'C', 'G'].includes(key) && !isComplete) {
+      attemptPair(activeSlot, key);
+    }
+  };
+
+  const gcCount = mission.template.filter((b) => b === 'G' || b === 'C').length;
+  const gcPercent = Math.round((gcCount / mission.template.length) * 100);
+  const tmCelsius = 4 * gcCount + 2 * (mission.template.length - gcCount);
+
+  return (
+    <div
+      id="pareamento"
+      data-testid="pairing-section"
+      tabIndex={-1}
+      onKeyDown={handleKeyDown}
+      className="focus:outline-none"
+    >
+      {/* Mission Switcher */}
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+        <div className="flex flex-wrap gap-2">
+          {PAIRING_MISSIONS.map((m, idx) => (
+            <button
+              key={m.id}
+              type="button"
+              data-testid={`mission-select-${m.id}`}
+              onClick={() => {
+                soundEngine.playClick();
+                resetMission(idx);
+              }}
+              className={`px-3.5 py-2 text-[11px] font-mono uppercase tracking-[0.1em] border transition-colors flex items-center gap-2 ${
+                missionIdx === idx
+                  ? 'bg-zinc-950 border-yellow-400 text-yellow-400 font-semibold'
+                  : 'bg-black border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-100'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 ${missionIdx === idx ? 'bg-yellow-400' : 'bg-zinc-700'}`}></span>
+              {m.title}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 text-[11px] font-mono tabular-nums">
+          <span className="px-3 py-1.5 bg-zinc-950 border border-zinc-800 text-zinc-400">
+            PARES <strong className="text-yellow-400 ml-1">{completedCount}/{mission.template.length}</strong>
+          </span>
+          <span className="px-3 py-1.5 bg-zinc-950 border border-zinc-800 text-zinc-400">
+            ERROS <strong className="text-zinc-100 ml-1">{mistakes}</strong>
+          </span>
+          <button
+            type="button"
+            data-testid="pairing-reset"
+            onClick={() => {
+              soundEngine.playClick();
+              resetMission(missionIdx);
+            }}
+            className="px-3 py-1.5 bg-black hover:border-yellow-400 hover:text-yellow-400 text-zinc-300 border border-zinc-800 font-semibold uppercase tracking-[0.1em] transition-colors"
+          >
+            REINICIAR
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-zinc-950 p-4 sm:p-8 border border-zinc-800 relative overflow-hidden">
+        {/* Live Feedback Banner */}
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="pairing-status"
+          className={`mb-5 p-3.5 sm:p-4 border text-xs sm:text-sm font-mono flex items-center gap-3 transition-colors ${
+            feedback.type === 'success'
+              ? 'bg-yellow-400/[0.06] border-yellow-400 text-zinc-100'
+              : feedback.type === 'error'
+              ? 'bg-black border-rose-500/80 text-yellow-300'
+              : 'bg-black border-zinc-800 text-zinc-300'
+          }`}
+        >
+          <span
+            className={`w-1.5 h-1.5 shrink-0 ${
+              feedback.type === 'success'
+                ? 'bg-yellow-400 terminal-cursor'
+                : feedback.type === 'error'
+                ? 'bg-rose-500 terminal-cursor'
+                : 'bg-zinc-500'
+            }`}
+          ></span>
+          <span className="relative z-10">
+            {feedback.type === 'success' && <strong className="text-yellow-400 mr-2">[SCAN MATCH OK]</strong>}
+            {feedback.type === 'error' && <strong className="text-rose-400 mr-2">[ALERTA DE ERRO]</strong>}
+            <ScrambleText text={feedback.message} />
+          </span>
+        </div>
+
+        {/* Strand Pairing Canvas: Responsivo sem corte horizontal no mobile (grid-cols-4 no celular = todos os 8 alvos visíveis simultaneamente; sm:grid-cols-8 no desktop) */}
+        <div className="bg-black border border-zinc-800 p-3 sm:p-6">
+          <div className="w-full">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-zinc-400 mb-3">
+              <span className="text-yellow-400 font-semibold tracking-[0.1em]">3&apos; — FITA MOLDE (8 ALVOS VISÍVEIS) — 5&apos;</span>
+              <span className="font-sans text-zinc-400 text-xs">{mission.description}</span>
+            </div>
+
+            <div className="h-5 bg-zinc-950 border border-zinc-800 mb-3 flex items-center justify-between px-3">
+              <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-400">
+                ESQUELETO AÇÚCAR-FOSFATO
+              </span>
+              <span className="text-[10px] font-mono text-yellow-400 font-bold">
+                ALVO ATUAL: #{activeSlot + 1} ({mission.template[activeSlot]} → ?)
+              </span>
+            </div>
+
+            {/* Grade Responsiva: 4 colunas x 2 linhas no Mobile (todos os 8 visíveis sem scroll lateral) e 8 colunas no Desktop */}
+            <div
+              data-testid="pairing-slots-grid"
+              className="grid grid-cols-4 sm:grid-cols-8 gap-2 sm:gap-3 my-2"
+            >
+              {mission.template.map((tBase, idx) => {
+                const pairedBase = pairs[idx];
+                const isTarget = !pairedBase && activeSlot === idx;
+                const isError = errorSlot === idx;
+                const isDragTarget = dragOverSlot === idx;
+                const info = BASE_INFO[tBase];
+
+                return (
+                  <div
+                    key={idx}
+                    ref={(el) => {
+                      slotRefs.current[idx] = el;
+                    }}
+                    className="flex flex-col items-center"
+                  >
+                    {/* Base da Fita Molde */}
+                    <div
+                      className={`w-full py-2 border flex flex-col items-center justify-center transition-colors ${
+                        isTarget ? 'bg-zinc-900 border-yellow-400/80' : info.bgClass
+                      }`}
+                    >
+                      <span className="text-[9px] font-mono text-zinc-500 mb-0.5">#{idx + 1}</span>
+                      <NucleotideShapeIcon base={tBase} size={28} active={Boolean(pairedBase) || isTarget} />
+                      <span className="text-[9px] sm:text-[10px] font-mono mt-0.5 font-semibold uppercase text-zinc-300 truncate max-w-full px-1">
+                        {info.name}
+                      </span>
+                    </div>
+
+                    {/* Zona de Pontes de Hidrogênio */}
+                    <div className="h-7 sm:h-9 flex flex-col items-center justify-center my-0.5">
+                      {pairedBase ? (
+                        <svg width="24" height="28" viewBox="0 0 24 28" aria-hidden="true" className="overflow-visible">
+                          {Array.from({ length: info.bonds }).map((_, bIdx) => {
+                            const x = info.bonds === 2 ? 8 + bIdx * 8 : 5 + bIdx * 7;
+                            return (
+                              <line
+                                key={bIdx}
+                                x1={x}
+                                y1="2"
+                                x2={x}
+                                y2="26"
+                                stroke="#FACC15"
+                                strokeWidth="1.5"
+                                className="svg-draw-line"
+                                style={{ '--dash-len': 28, animationDelay: `${bIdx * 70}ms` }}
+                              />
+                            );
+                          })}
+                        </svg>
+                      ) : (
+                        <span className={`text-[9px] font-mono tabular-nums ${isTarget ? 'text-yellow-400 font-bold' : 'text-zinc-600'}`}>
+                          {info.bonds}H
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Alvo da Base Complementar */}
+                    <button
+                      type="button"
+                      data-testid={`pairing-slot-${idx}`}
+                      data-active-target={isTarget ? 'true' : 'false'}
+                      onClick={() => {
+                        if (!pairedBase) {
+                          soundEngine.playClick();
+                          setActiveSlot(idx);
+                        }
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (!pairedBase) setDragOverSlot(idx);
+                      }}
+                      onDragLeave={() => setDragOverSlot(null)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setDragOverSlot(null);
+                        const droppedBase = e.dataTransfer.getData('text/plain');
+                        if (droppedBase) {
+                          attemptPair(idx, droppedBase);
+                        }
+                      }}
+                      aria-label={`Posição ${idx + 1}: Fita molde ${info.name}. ${
+                        pairedBase ? `Pareado com ${BASE_INFO[pairedBase].name}` : 'Aguardando nucleotídeo complementar'
+                      }`}
+                      className={`w-full min-h-[64px] sm:min-h-[74px] border flex flex-col items-center justify-center transition-all ${
+                        pairedBase
+                          ? 'bg-yellow-400/[0.1] border-yellow-400 text-yellow-400 animate-tactical-in'
+                          : isError
+                          ? 'bg-zinc-950 border-rose-500 text-rose-300 animate-shake'
+                          : isDragTarget
+                          ? 'bg-yellow-400/20 border-yellow-400 scale-[1.03]'
+                          : isTarget
+                          ? 'bg-yellow-400/10 border-2 border-yellow-400 ring-2 ring-yellow-400/40'
+                          : 'bg-black border-dashed border-zinc-800 hover:border-zinc-600'
+                      }`}
+                    >
+                      {pairedBase ? (
+                        <>
+                          <NucleotideShapeIcon base={pairedBase} size={28} active />
+                          <span className="text-[9px] sm:text-[10px] font-mono text-yellow-400 mt-0.5 font-semibold truncate max-w-full px-1">
+                            ✓ {BASE_INFO[pairedBase].code}
+                          </span>
+                        </>
+                      ) : (
+                        <span
+                          className={`text-[9px] sm:text-[10px] font-mono px-1 text-center uppercase tracking-[0.06em] ${
+                            isTarget ? 'text-yellow-400 font-bold' : 'text-zinc-500'
+                          }`}
+                        >
+                          {isTarget ? `ALVO #${idx + 1}` : `#${idx + 1}`}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Complementary Backbone Progress */}
+            <div className="h-2 bg-zinc-950 border border-zinc-800 mt-3 relative overflow-hidden">
+              <div
+                className="h-full bg-yellow-400 transition-[width] duration-300"
+                style={{ width: `${(completedCount / mission.template.length) * 100}%` }}
+              ></div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono text-zinc-500 mt-2">
+              <span className="text-zinc-300">5&apos; — FITA COMPLEMENTAR SINTETIZADA — 3&apos;</span>
+              <span>TOQUE OU PRESSIONE A, T, C, G PARA PAREAR</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Botões dos Nucleotídeos Livres sempre visíveis junto ao alvo */}
+        {!isComplete ? (
+          <div className="mt-5">
+            <div className="text-[11px] font-mono uppercase tracking-[0.12em] text-zinc-300 mb-2.5 flex items-center justify-between">
+              <span>
+                <span className="text-yellow-400 mr-1.5">&gt;</span>
+                ESCOLHA O NUCLEOTÍDEO COMPLEMENTAR PARA O <strong className="text-yellow-400">ALVO #{activeSlot + 1} ({mission.template[activeSlot]})</strong>:
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+              {['A', 'T', 'C', 'G'].map((b) => {
+                const info = BASE_INFO[b];
+                return (
+                  <button
+                    key={b}
+                    type="button"
+                    data-testid={`nucleotide-${b.toLowerCase()}`}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', b);
+                      soundEngine.playClick();
+                    }}
+                    onClick={() => attemptPair(activeSlot, b)}
+                    className="group bg-black hover:bg-zinc-900/90 hover:border-yellow-400 p-3 sm:p-4 border border-zinc-800 cursor-pointer transition-all flex items-center gap-2.5 sm:gap-3 text-left active:scale-[0.98]"
+                  >
+                    <NucleotideShapeIcon base={b} size={34} />
+                    <div>
+                      <div className="font-display font-semibold text-zinc-100 group-hover:text-yellow-400 text-sm sm:text-base flex items-center gap-1.5 transition-colors">
+                        {info.name}
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 bg-zinc-900 border border-zinc-700 group-hover:border-yellow-400 group-hover:text-yellow-400 text-zinc-300">
+                          {b}
+                        </span>
+                      </div>
+                      <div className="text-[10px] font-mono text-zinc-400 mt-0.5 tabular-nums">
+                        Pareia c/ {info.pair} ({info.bonds}H)
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div
+            data-testid="pairing-complete-banner"
+            className="mt-6 bg-black border border-yellow-400 p-6 animate-tactical-in"
+          >
+            <div className="grid md:grid-cols-12 gap-6 items-center relative z-10">
+              <div className="md:col-span-7">
+                <span className="inline-flex items-center gap-2 px-2.5 py-1 bg-yellow-400 text-black text-[11px] font-mono font-bold uppercase tracking-[0.14em] mb-3">
+                  <span className="w-1.5 h-1.5 bg-black"></span>
+                  SÍNTESE VALIDADA // DUPLA HÉLICE ESTÁVEL
+                </span>
+                <h3 className="text-xl sm:text-2xl font-display font-semibold text-zinc-100 mb-2">
+                  <ScrambleText text="Fitas Pareadas com 100% de Conformidade" />
+                </h3>
+                <p className="text-sm font-sans text-zinc-400 leading-relaxed mb-5 max-w-[65ch]">
+                  As duas fitas antiparalelas (<code className="font-mono text-yellow-400">3&apos;→5&apos;</code> e{' '}
+                  <code className="font-mono text-yellow-400">5&apos;→3&apos;</code>) acoplaram perfeitamente formando uma dupla hélice termodinamicamente estável.
+                </p>
+                <div className="grid grid-cols-3 gap-3 tabular-nums">
+                  <div className="bg-zinc-950 border border-zinc-800 p-3">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.12em] text-zinc-500">CONTEÚDO GC</div>
+                    <div className="text-xl font-display font-semibold text-yellow-400 mt-1">{gcPercent}%</div>
+                  </div>
+                  <div className="bg-zinc-950 border border-zinc-800 p-3">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.12em] text-zinc-500">TEMP. MELTING</div>
+                    <div className="text-xl font-display font-semibold text-yellow-400 mt-1">{tmCelsius}°C</div>
+                  </div>
+                  <div className="bg-zinc-950 border border-zinc-800 p-3">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.12em] text-zinc-500">PRECISÃO</div>
+                    <div className="text-xl font-display font-semibold text-zinc-100 mt-1">
+                      {Math.max(0, Math.round((mission.template.length / (mission.template.length + mistakes)) * 100))}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="md:col-span-5 flex flex-col items-center justify-center bg-zinc-950 border border-zinc-800 p-4 h-52 overflow-hidden">
+                <div className="helix-scene-3d w-full h-full flex items-center justify-center">
+                  <div className="helix-rotor-3d w-36 h-40 flex flex-col justify-between">
+                    {mission.template.map((tB, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between"
+                        style={{ transform: `rotateY(${i * 36}deg)`, transformStyle: 'preserve-3d' }}
+                      >
+                        <span className="w-5 h-5 border border-yellow-400 bg-black text-[10px] font-mono font-bold text-yellow-400 flex items-center justify-center">
+                          {tB}
+                        </span>
+                        <span className="flex-1 h-px mx-1.5 bg-yellow-400/70"></span>
+                        <span className="w-5 h-5 border border-zinc-500 bg-black text-[10px] font-mono font-bold text-zinc-200 flex items-center justify-center">
+                          {pairs[i]}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function buildShuffledDeck(numPairs) {
+  const subset = MEMORY_PAIRS_DATA.slice(0, numPairs);
+  const cards = [];
+  subset.forEach((pair, pairIdx) => {
+    cards.push({
+      uid: `${pair.pairId}-a`,
+      pairId: pair.pairId,
+      pairIndex: pairIdx,
+      label: pair.a.label,
+      tag: pair.a.tag,
+      icon: pair.a.icon,
+      category: pair.category,
+      color: pair.color,
+      explanation: pair.explanation,
+    });
+    cards.push({
+      uid: `${pair.pairId}-b`,
+      pairId: pair.pairId,
+      pairIndex: pairIdx,
+      label: pair.b.label,
+      tag: pair.b.tag,
+      icon: pair.b.icon,
+      category: pair.category,
+      color: pair.color,
+      explanation: pair.explanation,
+    });
+  });
+
+  for (let i = cards.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [cards[i], cards[j]] = [cards[j], cards[i]];
+  }
+  return cards;
+}
+
+function MemoryCardIllustrationSVG({ icon, isMatched }) {
+  const ink = isMatched ? '#09090B' : '#FACC15';
+  const inkSoft = isMatched ? 'rgba(9, 9, 11, 0.34)' : 'rgba(250, 204, 21, 0.30)';
+  const inkMid = isMatched ? 'rgba(9, 9, 11, 0.68)' : 'rgba(250, 204, 21, 0.66)';
+  const bondAccent = isMatched ? '#09090B' : '#22D3EE';
+  const nodeFill = isMatched ? '#FACC15' : '#09090B';
+
+  const Crosshair = ({ cx, cy, r = 9 }) => (
+    <g stroke={ink} strokeWidth="1.2" fill="none">
+      <circle cx={cx} cy={cy} r={r} />
+      <circle cx={cx} cy={cy} r={r * 0.55} strokeDasharray="3 2" />
+      <line x1={cx - r - 3} y1={cy} x2={cx - r * 0.45} y2={cy} />
+      <line x1={cx + r * 0.45} y1={cy} x2={cx + r + 3} y2={cy} />
+      <line x1={cx} y1={cy - r - 3} x2={cx} y2={cy - r * 0.45} />
+      <line x1={cx} y1={cy + r * 0.45} x2={cx} y2={cy + r + 3} />
+      <line x1={cx - 2} y1={cy} x2={cx + 2} y2={cy} strokeWidth="1.4" />
+      <line x1={cx} y1={cy - 2} x2={cx} y2={cy + 2} strokeWidth="1.4" />
+    </g>
+  );
+
+  const CornerFrame = ({ x1 = 10, y1 = 6, x2 = 210, y2 = 104, len = 8 }) => (
+    <g stroke={ink} strokeWidth="1.7" fill="none">
+      <path d={`M ${x1} ${y1 + len} V ${y1} H ${x1 + len}`} />
+      <path d={`M ${x2 - len} ${y1} H ${x2} V ${y1 + len}`} />
+      <path d={`M ${x1} ${y2 - len} V ${y2} H ${x1 + len}`} />
+      <path d={`M ${x2 - len} ${y2} H ${x2} V ${y2 - len}`} />
+    </g>
+  );
+
+  const MiniHelix = ({ cx, y, h = 24, w = 8 }) => {
+    const y2 = y + h;
+    const ym = y + h * 0.5;
+    return (
+      <g stroke={ink} strokeWidth="1.35" fill="none" strokeLinecap="round">
+        <path d={`M ${cx - w} ${y} C ${cx + w} ${y + h * 0.28}, ${cx - w} ${y + h * 0.72}, ${cx + w} ${y2}`} />
+        <path d={`M ${cx + w} ${y} C ${cx - w} ${y + h * 0.28}, ${cx + w} ${y + h * 0.72}, ${cx - w} ${y2}`} stroke={inkMid} />
+        <line x1={cx - w * 0.65} y1={y + h * 0.2} x2={cx + w * 0.65} y2={y + h * 0.2} strokeWidth="1" />
+        <line x1={cx - w * 0.4} y1={ym} x2={cx + w * 0.4} y2={ym} strokeWidth="1" />
+        <line x1={cx - w * 0.65} y1={y + h * 0.8} x2={cx + w * 0.65} y2={y + h * 0.8} strokeWidth="1" />
+      </g>
+    );
+  };
+
+  const MoleculeIcon = ({ cx, cy, s = 1 }) => (
+    <g transform={`translate(${cx}, ${cy}) scale(${s})`} stroke={inkMid} strokeWidth="1.2" fill={nodeFill}>
+      <line x1="0" y1="0" x2="-9" y2="-6" />
+      <line x1="0" y1="0" x2="10" y2="-4" />
+      <line x1="0" y1="0" x2="4" y2="10" />
+      <circle cx="0" cy="0" r="2.6" />
+      <circle cx="-9" cy="-6" r="2.1" />
+      <circle cx="10" cy="-4" r="2.1" />
+      <circle cx="4" cy="10" r="2.1" />
+    </g>
+  );
+
+  const AtomNode = ({ cx, cy, r = 4.8 }) => (
+    <circle cx={cx} cy={cy} r={r} fill={nodeFill} stroke={ink} strokeWidth="2.3" />
+  );
+
+  const renderMainDiagram = () => {
+    switch (icon) {
+      case 'A':
+        return (
+          <g strokeLinecap="round" strokeLinejoin="round">
+            <g stroke={ink} strokeWidth="2.7" fill="none">
+              <polygon points="48,54 71,32 104,40 104,72 71,82" />
+              <polygon points="104,40 138,24 170,40 170,74 138,90 104,72" />
+              <line x1="56" y1="53" x2="72" y2="38" strokeWidth="2.2" />
+              <line x1="110" y1="44" x2="110" y2="68" strokeWidth="2.2" />
+              <line x1="138" y1="31" x2="163" y2="43" strokeWidth="2.2" />
+              <line x1="138" y1="83" x2="163" y2="71" strokeWidth="2.2" />
+              <line x1="138" y1="24" x2="138" y2="7" />
+            </g>
+            <AtomNode cx={48} cy={54} />
+            <AtomNode cx={71} cy={32} />
+            <AtomNode cx={71} cy={82} />
+            <AtomNode cx={104} cy={40} />
+            <AtomNode cx={104} cy={72} />
+            <AtomNode cx={138} cy={24} />
+            <AtomNode cx={170} cy={40} />
+            <AtomNode cx={170} cy={74} />
+            <AtomNode cx={138} cy={90} />
+            <AtomNode cx={138} cy={7} />
+          </g>
+        );
+
+      case 'G':
+        return (
+          <g strokeLinecap="round" strokeLinejoin="round">
+            <g stroke={ink} strokeWidth="2.7" fill="none">
+              <polygon points="48,54 70,33 102,41 102,73 70,83" />
+              <polygon points="102,41 136,26 168,41 168,74 136,90 102,73" />
+              <line x1="56" y1="53" x2="71" y2="39" strokeWidth="2.2" />
+              <line x1="108" y1="45" x2="108" y2="69" strokeWidth="2.2" />
+              <line x1="137" y1="83" x2="161" y2="71" strokeWidth="2.2" />
+              <line x1="133" y1="26" x2="133" y2="8" strokeWidth="2.4" />
+              <line x1="139" y1="26" x2="139" y2="8" strokeWidth="2.4" />
+              <line x1="70" y1="83" x2="54" y2="101" />
+            </g>
+            <AtomNode cx={48} cy={54} />
+            <AtomNode cx={70} cy={33} />
+            <AtomNode cx={70} cy={83} />
+            <AtomNode cx={102} cy={41} />
+            <AtomNode cx={102} cy={73} />
+            <AtomNode cx={136} cy={26} />
+            <AtomNode cx={168} cy={41} />
+            <AtomNode cx={168} cy={74} />
+            <AtomNode cx={136} cy={90} />
+            <AtomNode cx={136} cy={7} />
+            <AtomNode cx={54} cy={101} />
+          </g>
+        );
+
+      case 'T':
+        return (
+          <g strokeLinecap="round" strokeLinejoin="round">
+            <CornerFrame x1={26} y1={10} x2={194} y2={102} len={7} />
+            <g stroke={ink} strokeWidth="2.7" fill="none">
+              <polygon points="110,24 146,42 146,74 110,92 74,74 74,42" />
+              <line x1="81" y1="46" x2="81" y2="70" strokeWidth="2.2" />
+              <line x1="107" y1="24" x2="107" y2="9" strokeWidth="2.3" />
+              <line x1="113" y1="24" x2="113" y2="9" strokeWidth="2.3" />
+              <line x1="73" y1="71" x2="54" y2="82" strokeWidth="2.3" />
+              <line x1="76" y1="77" x2="57" y2="88" strokeWidth="2.3" />
+              <line x1="146" y1="42" x2="168" y2="30" />
+            </g>
+            <AtomNode cx={110} cy={24} />
+            <AtomNode cx={146} cy={42} />
+            <AtomNode cx={146} cy={74} />
+            <AtomNode cx={110} cy={92} />
+            <AtomNode cx={74} cy={74} />
+            <AtomNode cx={74} cy={42} />
+            <AtomNode cx={110} cy={8} />
+            <AtomNode cx={55} cy={85} />
+            <AtomNode cx={168} cy={30} />
+          </g>
+        );
+
+      case 'C':
+        return (
+          <g strokeLinecap="round" strokeLinejoin="round">
+            <CornerFrame x1={26} y1={10} x2={194} y2={102} len={7} />
+            <g stroke={ink} strokeWidth="2.7" fill="none">
+              <polygon points="110,24 146,42 146,74 110,92 74,74 74,42" />
+              <line x1="110" y1="31" x2="139" y2="45" strokeWidth="2.2" />
+              <line x1="81" y1="46" x2="81" y2="70" strokeWidth="2.2" />
+              <line x1="110" y1="24" x2="110" y2="8" />
+              <line x1="145" y1="71" x2="164" y2="82" strokeWidth="2.3" />
+              <line x1="142" y1="77" x2="161" y2="88" strokeWidth="2.3" />
+            </g>
+            <AtomNode cx={110} cy={24} />
+            <AtomNode cx={146} cy={42} />
+            <AtomNode cx={146} cy={74} />
+            <AtomNode cx={110} cy={92} />
+            <AtomNode cx={74} cy={74} />
+            <AtomNode cx={74} cy={42} />
+            <AtomNode cx={110} cy={8} />
+            <AtomNode cx={163} cy={85} />
+          </g>
+        );
+
+      case 'swab':
+        return (
+          <g strokeLinecap="round" strokeLinejoin="round">
+            <Crosshair cx={62} cy={22} r={9} />
+            <Crosshair cx={26} cy={76} r={9} />
+            <path d="M 26 65 L 44 48" stroke={inkMid} strokeWidth="1.2" strokeDasharray="3 3" fill="none" />
+            <g stroke={ink} strokeWidth="1.8" fill="none">
+              <path d="M 16 14 L 74 72" strokeWidth="4.2" stroke={inkSoft} />
+              <path d="M 14 12 L 26 24" strokeWidth="5.2" />
+              <line x1="24" y1="22" x2="72" y2="70" strokeWidth="2.2" />
+              <ellipse cx="77" cy="75" rx="8" ry="4.5" transform="rotate(45 77 75)" fill={inkMid} />
+              <path d="M 88 54 C 93 62, 93 69, 88 69 C 83 69, 83 62, 88 54 Z" fill={inkSoft} />
+              <path d="M 73 84 Q 82 88 92 81" strokeWidth="1.3" />
+            </g>
+            <g stroke={ink} strokeWidth="2" fill="none">
+              <path d="M 99 10 C 122 24, 96 42, 118 58 C 96 74, 122 92, 99 104" />
+              <path d="M 119 10 C 96 24, 122 42, 100 58 C 122 74, 96 92, 119 104" stroke={inkMid} />
+              {[18, 30, 44, 58, 72, 86, 98].map((yy) => (
+                <line key={yy} x1="103" y1={yy} x2="115" y2={yy} strokeWidth="1.4" />
+              ))}
+            </g>
+            <g stroke={ink} strokeWidth="1.3" strokeDasharray="3 2.5" fill="none">
+              <path d="M 122 14 H 150 V 26" />
+              <path d="M 124 62 H 140" />
+            </g>
+            <polyline points="147,23 150,27 153,23" stroke={ink} strokeWidth="1.3" fill="none" />
+            <polyline points="137,59 141,62 137,65" stroke={ink} strokeWidth="1.3" fill="none" />
+            <g stroke={ink} strokeWidth="1.7" fill="none">
+              <rect x="142" y="29" width="22" height="7" rx="1.5" fill={inkSoft} />
+              <line x1="146" y1="29" x2="146" y2="36" strokeWidth="1.1" />
+              <line x1="150" y1="29" x2="150" y2="36" strokeWidth="1.1" />
+              <line x1="154" y1="29" x2="154" y2="36" strokeWidth="1.1" />
+              <line x1="158" y1="29" x2="158" y2="36" strokeWidth="1.1" />
+              <path d="M 144 36 V 88 A 9 9 0 0 0 162 88 V 36 Z" />
+              <path d="M 144 58 H 162 V 88 A 9 9 0 0 1 144 88 Z" fill={inkSoft} />
+              <line x1="145" y1="45" x2="150" y2="45" strokeWidth="1.2" />
+              <line x1="145" y1="53" x2="149" y2="53" strokeWidth="1.2" />
+              <line x1="145" y1="65" x2="150" y2="65" strokeWidth="1.2" />
+              <line x1="145" y1="73" x2="149" y2="73" strokeWidth="1.2" />
+              <rect x="154" y="49" width="5" height="24" strokeWidth="1" />
+            </g>
+            <g transform="translate(194, 22) rotate(-25)" stroke={ink} strokeWidth="1.4" fill="none">
+              <rect x="-11" y="-5.5" width="22" height="11" rx="5.5" fill={inkSoft} />
+              <circle cx="-4" cy="0" r="1.4" fill={ink} />
+              <circle cx="4" cy="0" r="1.4" fill={ink} />
+            </g>
+            <MoleculeIcon cx={196} cy={60} s={0.95} />
+            <Crosshair cx={188} cy={92} r={7.5} />
+            <path d="M 164 52 L 182 32 M 164 70 L 184 58 M 164 82 L 180 90" stroke={inkMid} strokeWidth="1.1" strokeDasharray="2.5 2" />
+          </g>
+        );
+
+      case 'scene':
+        return (
+          <g strokeLinecap="round" strokeLinejoin="round">
+            <CornerFrame x1={12} y1={8} x2={208} y2={104} len={7} />
+            <g stroke={inkSoft} strokeWidth="1" fill="none">
+              <line x1="20" y1="84" x2="128" y2="84" />
+              <line x1="34" y1="68" x2="118" y2="68" strokeDasharray="3 3" />
+              <line x1="48" y1="52" x2="72" y2="96" />
+              <line x1="106" y1="52" x2="86" y2="96" />
+            </g>
+            <g stroke={ink} strokeWidth="1.8" fill="none">
+              <polygon points="36,88 50,52 64,88" fill={inkSoft} />
+              <text x="50" y="82" textAnchor="middle" fill={ink} stroke="none" fontSize="11" fontWeight="800" fontFamily="monospace">01</text>
+            </g>
+            <path d="M 108 38 C 115 50, 115 58, 108 58 C 101 58, 101 50, 108 38 Z" fill={inkSoft} stroke={ink} strokeWidth="1.5" />
+            <circle cx="94" cy="64" r="3.5" fill={inkMid} />
+            <circle cx="122" cy="68" r="2.6" fill={inkMid} />
+            <Crosshair cx={108} cy={52} r={19} />
+            <g transform="translate(174, 44)" stroke={inkMid} strokeWidth="1.4" fill="none">
+              <path d="M -12 8 C -12 -10, 12 -10, 12 8" />
+              <path d="M -8 11 C -8 -5, 8 -5, 8 11" />
+              <path d="M -4 13 C -4 0, 4 0, 4 13" />
+              <line x1="0" y1="4" x2="0" y2="14" />
+            </g>
+            <rect x="156" y="76" width="36" height="16" rx="2" stroke={ink} strokeWidth="1.3" fill={inkSoft} />
+            <line x1="162" y1="84" x2="186" y2="84" stroke={ink} strokeWidth="1.6" strokeDasharray="4 2" />
+          </g>
+        );
+
+      case 'bands':
+        return (
+          <g strokeLinecap="round" strokeLinejoin="round">
+            {[12, 39, 66, 93, 120, 147].map((lx, laneIdx) => {
+              const bandsByLane = [
+                [18, 28, 36, 48, 56, 66, 76, 86, 95],
+                [20, 32, 46, 56, 66, 74, 86, 95],
+                [24, 38, 49, 60, 74, 92],
+                [22, 34, 48, 58, 70, 88],
+                [20, 38, 50, 63, 82, 95],
+                [19, 32, 46, 58, 72, 86, 96],
+              ][laneIdx];
+              return (
+                <g key={lx}>
+                  <path d={`M ${lx} 14 V 10 H ${lx + 6} M ${lx + 14} 10 H ${lx + 20} V 14`} stroke={ink} strokeWidth="1.3" fill="none" />
+                  <path d={`M ${lx} 98 V 102 H ${lx + 6} M ${lx + 14} 102 H ${lx + 20} V 98`} stroke={ink} strokeWidth="1.3" fill="none" />
+                  <line x1={lx + 3} y1="14" x2={lx + 3} y2="98" stroke={inkMid} strokeWidth="1" />
+                  <line x1={lx + 17} y1="14" x2={lx + 17} y2="98" stroke={inkMid} strokeWidth="1" />
+                  {bandsByLane.map((by, bi) => (
+                    <rect
+                      key={bi}
+                      x={lx + 4.5}
+                      y={by}
+                      width="11"
+                      height={bi === 2 ? '3.4' : '2.2'}
+                      fill={bi % 3 === 0 ? inkMid : ink}
+                    />
+                  ))}
+                </g>
+              );
+            })}
+            <polyline
+              points="49,60 76,58 103,64 130,63 157,59"
+              fill="none"
+              stroke={ink}
+              strokeWidth="1.3"
+              strokeDasharray="2.5 2"
+            />
+            <circle cx="147" cy="67" r="2.2" fill={nodeFill} stroke={ink} strokeWidth="1.4" />
+            <circle cx="167" cy="67" r="2.2" fill={nodeFill} stroke={ink} strokeWidth="1.4" />
+            <Crosshair cx={192} cy={22} r={9} />
+            <g stroke={ink} strokeWidth="1.2" fill="none">
+              <path d="M 178 44 V 40 H 182 M 202 40 H 206 V 44" />
+              <path d="M 178 62 V 66 H 182 M 202 66 H 206 V 62" />
+              <circle cx="192" cy="53" r="8" />
+              <circle cx="192" cy="53" r="4" fill={inkSoft} />
+            </g>
+            <Crosshair cx={192} cy={88} r={9} />
+          </g>
+        );
+
+      case 'gel':
+        return (
+          <g strokeLinecap="round" strokeLinejoin="round">
+            <CornerFrame x1={12} y1={8} x2={208} y2={104} len={7} />
+            <rect x="28" y="20" width="136" height="74" rx="3" stroke={ink} strokeWidth="1.6" fill="none" />
+            <text x="20" y="28" fill={ink} fontSize="11" fontWeight="800" fontFamily="monospace">−</text>
+            <text x="19" y="94" fill={ink} fontSize="11" fontWeight="800" fontFamily="monospace">+</text>
+            {[42, 68, 94, 120, 142].map((wx) => (
+              <rect key={wx} x={wx} y="25" width="12" height="5" stroke={ink} strokeWidth="1.2" fill={inkSoft} />
+            ))}
+            <polygon points="97,6 103,6 101,23 99,23" fill={ink} />
+            <g fill={ink}>
+              <rect x="42" y="40" width="12" height="3" />
+              <rect x="42" y="54" width="12" height="2.5" />
+              <rect x="42" y="72" width="12" height="3" />
+              <rect x="68" y="48" width="12" height="3.2" />
+              <rect x="68" y="78" width="12" height="2.6" />
+              <rect x="94" y="44" width="12" height="3" />
+              <rect x="94" y="64" width="12" height="3.2" />
+              <rect x="120" y="54" width="12" height="3.2" />
+              <rect x="142" y="42" width="12" height="2.5" />
+              <rect x="142" y="64" width="12" height="3" />
+            </g>
+            <g stroke={ink} strokeWidth="1.4" strokeDasharray="3 2" fill="none">
+              <line x1="180" y1="26" x2="180" y2="86" />
+              <line x1="192" y1="26" x2="192" y2="86" />
+            </g>
+            <polyline points="176,81 180,87 184,81" stroke={ink} strokeWidth="1.5" fill="none" />
+            <polyline points="188,81 192,87 196,81" stroke={ink} strokeWidth="1.5" fill="none" />
+          </g>
+        );
+
+      case 'gene':
+        return (
+          <g strokeLinecap="round" strokeLinejoin="round">
+            <CornerFrame x1={10} y1={6} x2={210} y2={104} len={8} />
+            <MoleculeIcon cx={26} cy={22} s={0.9} />
+            <Crosshair cx={96} cy={20} r={8.5} />
+            <g stroke={ink} strokeWidth="1.5" fill="none">
+              <rect x="42" y="13" width="10" height="10" />
+              <line x1="52" y1="18" x2="64" y2="18" />
+              <circle cx="69" cy="18" r="5" />
+              <line x1="58" y1="18" x2="58" y2="33" />
+              <line x1="34" y1="33" x2="82" y2="33" />
+              <line x1="34" y1="33" x2="34" y2="41" />
+              <line x1="54" y1="33" x2="54" y2="41" />
+              <line x1="82" y1="33" x2="82" y2="41" />
+              <rect x="29" y="41" width="10" height="10" fill={ink} />
+              <line x1="39" y1="46" x2="49" y2="46" />
+              <circle cx="54" cy="46" r="5" />
+              <path d="M 54 41 A 5 5 0 0 1 54 51 Z" fill={ink} stroke="none" />
+              <rect x="77" y="41" width="10" height="10" />
+              <rect x="77" y="41" width="5" height="10" fill={ink} stroke="none" />
+              <line x1="87" y1="46" x2="97" y2="46" />
+              <circle cx="102" cy="46" r="5" />
+              <line x1="44" y1="46" x2="44" y2="70" />
+              <line x1="26" y1="70" x2="58" y2="70" />
+              <line x1="26" y1="70" x2="26" y2="80" />
+              <line x1="58" y1="70" x2="58" y2="80" />
+              <rect x="21" y="80" width="10" height="10" />
+              <circle cx="58" cy="85" r="5" />
+              <line x1="92" y1="46" x2="92" y2="70" />
+              <line x1="78" y1="70" x2="104" y2="70" />
+              <line x1="78" y1="70" x2="78" y2="80" />
+              <line x1="104" y1="70" x2="104" y2="80" />
+              <circle cx="78" cy="85" r="5" fill={ink} />
+              <circle cx="104" cy="85" r="5" />
+              <path d="M 104 80 A 5 5 0 0 1 104 90 Z" fill={ink} stroke="none" />
+            </g>
+            <path d="M 108 58 Q 124 58 134 50" stroke={ink} strokeWidth="1.4" strokeDasharray="3 2" fill="none" />
+            <polyline points="131,47 135,50 131,53" stroke={ink} strokeWidth="1.4" fill="none" />
+            <g transform="translate(160, 56) rotate(36)" stroke={ink} strokeWidth="2.1" fill="none">
+              <path d="M -9 -36 C 12 -22, -12 -6, 9 8 C -12 22, 12 34, -9 42" />
+              <path d="M 9 -36 C -12 -22, 12 -6, -9 8 C 12 22, -12 34, 9 42" stroke={inkMid} />
+              {[-28, -18, -6, 6, 18, 30].map((yy) => (
+                <line key={yy} x1="-6" y1={yy} x2="6" y2={yy} strokeWidth="1.5" />
+              ))}
+            </g>
+            <Crosshair cx={154} cy={46} r={10} />
+            <Crosshair cx={170} cy={66} r={9} />
+            <g transform="translate(128, 22)" stroke={ink} strokeWidth="2.2" fill="none">
+              <path d="M -4 -9 Q 0 0 -4 9 M 4 -9 Q 0 0 4 9" />
+            </g>
+            <g transform="translate(194, 86)" stroke={ink} strokeWidth="2.2" fill="none">
+              <path d="M -4 -9 Q 0 0 -4 9 M 4 -9 Q 0 0 4 9" />
+            </g>
+            <MoleculeIcon cx={172} cy={20} s={0.8} />
+          </g>
+        );
+
+      case 'biotech':
+        return (
+          <g strokeLinecap="round" strokeLinejoin="round">
+            <CornerFrame x1={10} y1={6} x2={210} y2={104} len={8} />
+            <g stroke={inkMid} strokeWidth="1.3" fill="none">
+              <polyline points="26,20 26,88 158,88" />
+              <line x1="26" y1="54" x2="158" y2="54" strokeDasharray="4 3" stroke={ink} />
+            </g>
+            <text x="148" y="49" fill={ink} fontSize="9" fontWeight="700" fontFamily="monospace">Ct</text>
+            <path
+              d="M 30 84 L 68 83 C 88 83, 98 70, 110 46 C 118 30, 130 24, 152 24"
+              fill="none"
+              stroke={ink}
+              strokeWidth="2.4"
+            />
+            <Crosshair cx={106} cy={54} r={9.5} />
+            <MiniHelix cx={186} cy={22} h={56} w={10} />
+            <circle cx="174" cy="50" r="4" fill={ink} />
+          </g>
+        );
+
+      case 'amp':
+        return (
+          <g strokeLinecap="round" strokeLinejoin="round">
+            <CornerFrame x1={10} y1={6} x2={210} y2={104} len={8} />
+            <Crosshair cx={26} cy={26} r={9} />
+            <Crosshair cx={194} cy={26} r={9} />
+            <MoleculeIcon cx={22} cy={64} s={0.95} />
+            <MoleculeIcon cx={198} cy={62} s={0.95} />
+            <MiniHelix cx={110} cy={11} h={22} w={9} />
+            <g stroke={ink} strokeWidth="1.2" strokeDasharray="3 2" fill="none">
+              <path d="M 98 22 H 68 V 33" />
+              <path d="M 122 22 H 152 V 33" />
+              <path d="M 58 45 H 42 V 56" />
+              <path d="M 78 45 H 92 V 56" />
+              <path d="M 142 45 H 128 V 56" />
+              <path d="M 162 45 H 178 V 56" />
+              <path d="M 34 69 H 24 V 79" />
+              <path d="M 48 69 H 56 V 79" />
+              <path d="M 84 69 H 78 V 79" />
+              <path d="M 98 69 H 106 V 79" />
+              <path d="M 122 69 H 118 V 79" />
+              <path d="M 134 69 H 142 V 79" />
+              <path d="M 170 69 H 164 V 79" />
+              <path d="M 184 69 H 194 V 79" />
+            </g>
+            <MiniHelix cx={68} cy={35} h={18} w={7} />
+            <MiniHelix cx={152} cy={35} h={18} w={7} />
+            {[42, 92, 128, 178].map((hx) => (
+              <MiniHelix key={hx} cx={hx} cy={57} h={17} w={6} />
+            ))}
+            {[24, 54, 78, 102, 122, 144, 166, 194].map((hx) => (
+              <MiniHelix key={hx} cx={hx} cy={80} h={17} w={5} />
+            ))}
+          </g>
+        );
+
+      case 'pcr':
+        return (
+          <g strokeLinecap="round" strokeLinejoin="round">
+            <CornerFrame x1={10} y1={6} x2={210} y2={104} len={8} />
+            <g stroke={ink} strokeWidth="2.1" fill="none">
+              <polyline points="24,84 24,28 54,28 66,74 96,74 106,48 138,48 148,28 178,28" />
+            </g>
+            <g fill={ink} fontSize="8.5" fontWeight="700" fontFamily="monospace">
+              <text x="39" y="22" textAnchor="middle">95°C</text>
+              <text x="81" y="88" textAnchor="middle">58°C</text>
+              <text x="122" y="42" textAnchor="middle">72°C</text>
+            </g>
+            {[156, 170, 184, 198].map((tx) => (
+              <g key={tx} stroke={ink} strokeWidth="1.4" fill="none">
+                <line x1={tx - 4} y1="62" x2={tx + 4} y2="62" />
+                <path d={`M ${tx - 3.5} 62 L ${tx - 2} 84 L ${tx + 2} 84 L ${tx + 3.5} 62`} fill={inkSoft} />
+              </g>
+            ))}
+            <text x="177" y="96" textAnchor="middle" fill={ink} fontSize="8.5" fontWeight="700" fontFamily="monospace">2ⁿ CÓPIAS</text>
+          </g>
+        );
+
+      case 'therapy':
+        return (
+          <g strokeLinecap="round" strokeLinejoin="round">
+            <CornerFrame x1={10} y1={6} x2={210} y2={104} len={8} />
+            <g stroke={ink} strokeWidth="1.7" fill="none">
+              <polygon points="48,24 68,36 68,60 48,72 28,60 28,36" fill={inkSoft} />
+              <polyline points="28,36 48,48 68,36" />
+              <line x1="48" y1="48" x2="48" y2="72" />
+            </g>
+            <path d="M 72 48 H 104" stroke={ink} strokeWidth="1.6" strokeDasharray="3.5 2.5" fill="none" />
+            <polyline points="100,44 105,48 100,52" stroke={ink} strokeWidth="1.6" fill="none" />
+            <rect x="114" y="24" width="66" height="50" rx="18" stroke={inkMid} strokeWidth="1.4" strokeDasharray="4 3" fill="none" />
+            <MiniHelix cx={147} cy={22} h={56} w={11} />
+            <Crosshair cx={147} cy={50} r={11} />
+          </g>
+        );
+
+      case 'repair':
+        return (
+          <g strokeLinecap="round" strokeLinejoin="round">
+            <CornerFrame x1={10} y1={6} x2={210} y2={104} len={8} />
+            <g stroke={ink} strokeWidth="2.1" fill="none">
+              <path d="M 22 46 H 78 M 142 46 H 198" />
+              <path d="M 22 62 H 78 M 142 62 H 198" stroke={inkMid} />
+              <rect x="82" y="18" width="56" height="14" rx="2" strokeDasharray="3 2" />
+              <rect x="82" y="45" width="56" height="18" rx="2" fill={inkSoft} />
+              <path d="M 110 86 V 68" strokeWidth="1.6" />
+              <polyline points="106,72 110,67 114,72" strokeWidth="1.6" />
+            </g>
+            <Crosshair cx={110} cy={54} r={12} />
+          </g>
+        );
+
+      case 'family':
+        return (
+          <g strokeLinecap="round" strokeLinejoin="round">
+            <CornerFrame x1={10} y1={6} x2={210} y2={104} len={8} />
+            <g stroke={ink} strokeWidth="1.7" fill="none">
+              <circle cx="52" cy="24" r="8" />
+              <rect x="158" y="16" width="16" height="16" />
+              <line x1="60" y1="24" x2="158" y2="24" />
+              <line x1="110" y1="24" x2="110" y2="38" />
+              <polygon points="110,38 119,47 110,56 101,47" fill={inkSoft} />
+            </g>
+            <g stroke={inkMid} strokeWidth="1.2" fill="none">
+              <rect x="42" y="64" width="20" height="32" />
+              <rect x="100" y="64" width="20" height="32" />
+              <rect x="158" y="64" width="20" height="32" />
+            </g>
+            <g fill={ink}>
+              <rect x="45" y="72" width="14" height="3.2" />
+              <rect x="103" y="72" width="14" height="3.2" />
+              <rect x="103" y="84" width="14" height="3.2" />
+              <rect x="161" y="84" width="14" height="3.2" />
+            </g>
+            <line x1="59" y1="73.5" x2="103" y2="73.5" stroke={ink} strokeWidth="1.1" strokeDasharray="2.5 2" />
+            <line x1="117" y1="85.5" x2="161" y2="85.5" stroke={ink} strokeWidth="1.1" strokeDasharray="2.5 2" />
+          </g>
+        );
+
+      case 'str':
+      default:
+        return (
+          <g strokeLinecap="round" strokeLinejoin="round">
+            <CornerFrame x1={10} y1={6} x2={210} y2={104} len={8} />
+            <text x="26" y="34" fill={inkMid} fontSize="8.5" fontWeight="700" fontFamily="monospace">ALELO 1</text>
+            <text x="26" y="74" fill={inkMid} fontSize="8.5" fontWeight="700" fontFamily="monospace">ALELO 2</text>
+            <line x1="72" y1="31" x2="196" y2="31" stroke={inkMid} strokeWidth="1.6" />
+            <line x1="72" y1="71" x2="196" y2="71" stroke={inkMid} strokeWidth="1.6" />
+            {[82, 98, 114, 130].map((bx) => (
+              <rect key={bx} x={bx} y="24" width="13" height="14" rx="1.5" fill={inkSoft} stroke={ink} strokeWidth="1.4" />
+            ))}
+            {[82, 98, 114, 130, 146, 162, 178].map((bx) => (
+              <rect key={bx} x={bx} y="64" width="13" height="14" rx="1.5" fill={ink} stroke={ink} strokeWidth="1.2" />
+            ))}
+            <text x="135" y="96" textAnchor="middle" fill={ink} fontSize="8.5" fontWeight="700" fontFamily="monospace">[AGAT]₄ vs [AGAT]₇</text>
+          </g>
+        );
+    }
+  };
+
+  const isBandDivider = icon === 'bands' || icon === 'gel' || icon === 'family' || icon === 'str';
+  const isTwoBonds = icon === 'A' || icon === 'T' || icon === 'scene';
+
+  return (
+    <div className="w-full flex-1 min-h-0 flex flex-col justify-between gap-1 select-none pointer-events-none">
+      <svg viewBox="0 0 220 110" className="w-full flex-1 min-h-0 max-h-[96px] sm:max-h-[112px]" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        {renderMainDiagram()}
+      </svg>
+
+      <svg viewBox="0 0 220 40" className="w-full h-[26px] sm:h-[32px] shrink-0" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <g stroke={ink} strokeWidth="2.4" fill="none" strokeLinecap="round">
+          <path d="M 8 5 C 24 5, 28 35, 48 35" />
+          <path d="M 8 35 C 28 35, 24 5, 48 5" stroke={inkMid} />
+          <line x1="12" y1="8" x2="12" y2="32" strokeWidth="1.3" stroke={inkMid} />
+          <line x1="18" y1="11" x2="18" y2="29" strokeWidth="1.3" stroke={inkMid} />
+          <line x1="36" y1="10" x2="36" y2="30" strokeWidth="1.3" stroke={inkMid} />
+          <line x1="42" y1="7" x2="42" y2="33" strokeWidth="1.3" stroke={inkMid} />
+        </g>
+
+        <g stroke={ink} strokeWidth="2.4" fill="none" strokeLinecap="round">
+          <path d="M 172 5 C 192 5, 196 35, 212 35" />
+          <path d="M 172 35 C 196 35, 192 5, 212 5" stroke={inkMid} />
+          <line x1="178" y1="7" x2="178" y2="33" strokeWidth="1.3" stroke={inkMid} />
+          <line x1="184" y1="10" x2="184" y2="30" strokeWidth="1.3" stroke={inkMid} />
+          <line x1="202" y1="11" x2="202" y2="29" strokeWidth="1.3" stroke={inkMid} />
+          <line x1="208" y1="8" x2="208" y2="32" strokeWidth="1.3" stroke={inkMid} />
+        </g>
+
+        {isBandDivider ? (
+          <g stroke={ink} strokeWidth="1.5" fill="none">
+            <path d="M 62 7 V 4 H 67 M 153 4 H 158 V 7" />
+            <path d="M 62 33 V 36 H 67 M 153 36 H 158 V 33" />
+            <line x1="65" y1="7" x2="65" y2="33" strokeWidth="1.1" />
+            <line x1="80" y1="7" x2="80" y2="33" strokeWidth="1.1" />
+            <line x1="140" y1="7" x2="140" y2="33" strokeWidth="1.1" />
+            <line x1="155" y1="7" x2="155" y2="33" strokeWidth="1.1" />
+            <rect x="67" y="13" width="11" height="4" fill={ink} stroke="none" />
+            <rect x="67" y="21" width="11" height="3" fill={ink} stroke="none" />
+            <rect x="142" y="14" width="11" height="3" fill={ink} stroke="none" />
+            <rect x="142" y="25" width="11" height="4" fill={ink} stroke="none" />
+            <line x1="94" y1="9" x2="126" y2="9" stroke={bondAccent} strokeDasharray="2.5 2" />
+            <line x1="94" y1="20" x2="126" y2="20" stroke={bondAccent} strokeDasharray="2.5 2" />
+            <line x1="94" y1="31" x2="126" y2="31" stroke={bondAccent} strokeDasharray="2.5 2" />
+            <circle cx="94" cy="9" r="2.2" fill={nodeFill} />
+            <circle cx="126" cy="9" r="2.2" fill={nodeFill} />
+            <circle cx="94" cy="20" r="2.2" fill={nodeFill} />
+            <circle cx="126" cy="20" r="2.2" fill={nodeFill} />
+            <circle cx="94" cy="31" r="2.2" fill={nodeFill} />
+            <circle cx="126" cy="31" r="2.2" fill={nodeFill} />
+          </g>
+        ) : (
+          <g stroke={ink} strokeWidth="1.4" fill="none">
+            <polygon points="55,15 68,10 82,16 82,28 68,33 55,27" />
+            <polygon points="138,16 152,10 165,15 165,27 152,33 138,28" />
+            {isTwoBonds ? (
+              <g stroke={bondAccent} strokeDasharray="2.8 2.2" strokeWidth="1.5">
+                <line x1="92" y1="15" x2="128" y2="15" />
+                <line x1="92" y1="26" x2="128" y2="26" />
+              </g>
+            ) : (
+              <g stroke={bondAccent} strokeDasharray="2.8 2.2" strokeWidth="1.5">
+                <line x1="92" y1="11" x2="128" y2="11" />
+                <line x1="92" y1="20" x2="128" y2="20" />
+                <line x1="92" y1="29" x2="128" y2="29" />
+              </g>
+            )}
+            <circle cx="90" cy={isTwoBonds ? 15 : 11} r="2" fill={nodeFill} />
+            <circle cx="130" cy={isTwoBonds ? 15 : 11} r="2" fill={nodeFill} />
+            <circle cx="90" cy={isTwoBonds ? 26 : 29} r="2" fill={nodeFill} />
+            <circle cx="130" cy={isTwoBonds ? 26 : 29} r="2" fill={nodeFill} />
+            {!isTwoBonds && (
+              <>
+                <circle cx="90" cy="20" r="2" fill={nodeFill} />
+                <circle cx="130" cy="20" r="2" fill={nodeFill} />
+              </>
+            )}
+          </g>
+        )}
+      </svg>
+
+      <svg viewBox="0 0 220 26" className="w-full h-[18px] sm:h-[22px] shrink-0" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <rect x="2" y="2" width="4" height="4" fill={ink} fillOpacity="0.28" />
+        <rect x="2" y="8" width="4" height="4" fill={ink} fillOpacity="0.52" />
+        <rect x="2" y="14" width="4" height="4" fill={ink} fillOpacity="0.78" />
+        <rect x="2" y="20" width="4" height="4" fill={ink} />
+
+        <path d="M 16 6 V 3 H 20 M 102 3 H 106 V 6" stroke={inkMid} strokeWidth="1" fill="none" />
+        <path d="M 16 10 V 13 H 20 M 102 13 H 106 V 10" stroke={inkMid} strokeWidth="1" fill="none" />
+        <rect x="20" y="6" width="46" height="4" fill={ink} />
+        <rect x="66" y="7" width="36" height="2" fill={inkSoft} />
+        {[20, 26, 32, 38, 44, 50, 56, 62, 68, 74, 80, 86, 92, 98].map((tx, idx) => (
+          <rect key={tx} x={tx} y="18" width="3" height="5" fill={ink} fillOpacity={idx < 7 ? 0.95 : 0.3} />
+        ))}
+
+        <path d="M 114 6 V 3 H 118 M 154 3 H 158 V 6" stroke={inkMid} strokeWidth="1" fill="none" />
+        <path d="M 114 21 V 24 H 118 M 154 24 H 158 V 21" stroke={inkMid} strokeWidth="1" fill="none" />
+        {[
+          [118, 3], [124, 4], [130, 2], [136, 5], [142, 3], [148, 4],
+        ].map(([bx, rowsCount]) =>
+          Array.from({ length: rowsCount }).map((_, ri) => (
+            <rect
+              key={`${bx}-${ri}`}
+              x={bx}
+              y={20 - ri * 3.6}
+              width="3.8"
+              height="2.6"
+              fill={ink}
+              fillOpacity={ri === rowsCount - 1 ? 0.45 : 0.95}
+            />
+          ))
+        )}
+
+        <path d="M 168 6 V 3 H 172 M 212 3 H 216 V 6" stroke={inkMid} strokeWidth="1" fill="none" />
+        <path d="M 168 21 V 24 H 172 M 212 24 H 216 V 21" stroke={inkMid} strokeWidth="1" fill="none" />
+        <rect x="174" y="13" width="3" height="3" fill={inkSoft} />
+        <rect x="182" y="8" width="3" height="3" fill={ink} />
+        <rect x="190" y="16" width="3" height="3" fill={inkMid} />
+        <rect x="198" y="11" width="3" height="3" fill={inkSoft} />
+        <rect x="206" y="7" width="3" height="3" fill={ink} />
+      </svg>
+    </div>
+  );
+}
+
+function GeneticMemoryGame({ onWinGame }) {
+  const [pairCount, setPairCount] = useState(6);
+  const [cards, setCards] = useState(() => buildShuffledDeck(6));
+  const [flippedIndices, setFlippedIndices] = useState([]);
+  const [matchedPairIds, setMatchedPairIds] = useState([]);
+  const [moves, setMoves] = useState(0);
+  const [isLocked, setIsLocked] = useState(false);
+  const [lastMatchExplanation, setLastMatchExplanation] = useState(
+    'Vire duas cartas no quadro de investigação para conectar pares lógicos (ex: Adenina ↔ Timina, Local do Crime ↔ Coleta de DNA).'
+  );
+  const [elapsedSec, setElapsedSec] = useState(0);
+  const [hasStarted, setHasStarted] = useState(false);
+  const mismatchTimerRef = useRef(null);
+
+  const isWon = matchedPairIds.length === pairCount;
+
+  useEffect(() => {
+    return () => {
+      if (mismatchTimerRef.current) clearTimeout(mismatchTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasStarted || isWon) return;
+    const interval = setInterval(() => setElapsedSec((s) => s + 1), 1000);
+    return () => clearInterval(interval);
+  }, [hasStarted, isWon]);
+
+  useEffect(() => {
+    if (isWon) {
+      onWinGame();
+    }
+  }, [isWon, onWinGame]);
+
+  const restartGame = (newCount = pairCount) => {
+    soundEngine.playClick();
+    if (mismatchTimerRef.current) {
+      clearTimeout(mismatchTimerRef.current);
+      mismatchTimerRef.current = null;
+    }
+    setPairCount(newCount);
+    setCards(buildShuffledDeck(newCount));
+    setFlippedIndices([]);
+    setMatchedPairIds([]);
+    setMoves(0);
+    setIsLocked(false);
+    setElapsedSec(0);
+    setHasStarted(false);
+    setLastMatchExplanation('Quadro reembaralhado! Conecte todos os pares lógicos com precisão pericial.');
+  };
+
+  const handleCardClick = (idx) => {
+    if (isLocked) return;
+    if (flippedIndices.includes(idx)) return;
+    const card = cards[idx];
+    if (matchedPairIds.includes(card.pairId)) return;
+
+    if (!hasStarted) setHasStarted(true);
+    soundEngine.playClick();
+
+    const nextFlipped = [...flippedIndices, idx];
+    setFlippedIndices(nextFlipped);
+
+    if (nextFlipped.length === 2) {
+      setMoves((m) => m + 1);
+      const firstCard = cards[nextFlipped[0]];
+      const secondCard = cards[nextFlipped[1]];
+
+      if (firstCard.pairId === secondCard.pairId) {
+        const updatedMatches = [...matchedPairIds, firstCard.pairId];
+        setMatchedPairIds(updatedMatches);
+        setFlippedIndices([]);
+        setLastMatchExplanation(
+          `✓ Par Lógico Formado: ${firstCard.label} ↔ ${secondCard.label} — ${firstCard.explanation}`
+        );
+        if (updatedMatches.length === pairCount) {
+          soundEngine.playVictory();
+        } else {
+          soundEngine.playSuccess();
+        }
+      } else {
+        setIsLocked(true);
+        mismatchTimerRef.current = setTimeout(() => {
+          mismatchTimerRef.current = null;
+          soundEngine.playError();
+          setFlippedIndices([]);
+          setIsLocked(false);
+        }, 900);
+      }
+    }
+  };
+
+  const accuracy = moves > 0 ? Math.min(100, Math.round((matchedPairIds.length / moves) * 100)) : 100;
+
+  return (
+    <div id="memoria" data-testid="memory-section">
+      <div className="detective-board border border-zinc-800 p-4 sm:p-8 relative">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-5 border-b border-zinc-800">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              data-testid="memory-mode-6"
+              onClick={() => restartGame(6)}
+              className={`px-3.5 py-2 text-[11px] font-mono uppercase tracking-[0.1em] border transition-colors ${pairCount === 6
+                  ? 'bg-yellow-400 border-yellow-400 text-black font-bold'
+                  : 'bg-black border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-100'
+                }`}
+            >
+              CASO PADRÃO (12)
+            </button>
+            <button
+              type="button"
+              data-testid="memory-mode-8"
+              onClick={() => restartGame(8)}
+              className={`px-3.5 py-2 text-[11px] font-mono uppercase tracking-[0.1em] border transition-colors ${pairCount === 8
+                  ? 'bg-yellow-400 border-yellow-400 text-black font-bold'
+                  : 'bg-black border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-100'
+                }`}
+            >
+              CASO COMPLETO (16)
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono tabular-nums">
+            <div className="px-3 py-1.5 bg-black border border-zinc-800 text-zinc-400">
+              MOVIMENTOS <strong className="text-zinc-100 ml-1">{moves}</strong>
+            </div>
+            <div className="px-3 py-1.5 bg-black border border-zinc-800 text-zinc-400">
+              PARES <strong className="text-yellow-400 ml-1">{matchedPairIds.length}/{pairCount}</strong>
+            </div>
+            <div className="px-3 py-1.5 bg-black border border-zinc-800 text-zinc-400">
+              TEMPO <strong className="text-zinc-100 ml-1">{elapsedSec}s</strong>
+            </div>
+            <button
+              type="button"
+              data-testid="memory-restart"
+              onClick={() => restartGame(pairCount)}
+              className="px-3.5 py-1.5 bg-black hover:border-yellow-400 hover:text-yellow-400 border border-zinc-800 text-zinc-300 font-semibold uppercase tracking-[0.1em] transition-colors"
+            >
+              REINICIAR QUADRO
+            </button>
+          </div>
+        </div>
+
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="memory-status"
+          className={`mb-6 p-4 border text-xs sm:text-sm font-mono transition-colors flex items-center gap-3 ${lastMatchExplanation.startsWith('✓')
+              ? 'bg-yellow-400/[0.06] border-yellow-400 text-zinc-100'
+              : 'bg-black border-zinc-800 text-zinc-300'
+            }`}
+        >
+          <span
+            className={`w-1.5 h-1.5 shrink-0 ${lastMatchExplanation.startsWith('✓') ? 'bg-yellow-400 terminal-cursor' : 'bg-zinc-600'
+              }`}
+          ></span>
+          <span className="relative z-10">
+            {lastMatchExplanation.startsWith('✓') && (
+              <strong className="text-yellow-400 mr-2">[CONEXÃO DETECTADA]</strong>
+            )}
+            <ScrambleText text={lastMatchExplanation} />
+          </span>
+        </div>
+
+        <div
+          className={`grid gap-3 sm:gap-4 ${pairCount === 8 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'
+            }`}
+        >
+          {cards.map((card, idx) => {
+            const isFlipped = flippedIndices.includes(idx) || matchedPairIds.includes(card.pairId);
+            const isMatched = matchedPairIds.includes(card.pairId);
+            const bracketColor = isMatched ? 'border-[#09090B]' : 'border-yellow-400';
+
+            return (
+              <button
+                key={card.uid}
+                type="button"
+                data-testid={isMatched ? 'memory-card-match' : `memory-card-${idx}`}
+                data-card-index={idx}
+                data-pair-id={card.pairId}
+                data-matched={isMatched ? 'true' : 'false'}
+                onClick={() => handleCardClick(idx)}
+                aria-label={isFlipped ? `${card.label} — ${card.tag}` : `Evidência fechada número ${idx + 1}`}
+                aria-pressed={isFlipped}
+                className="perspective-1000 h-[256px] sm:h-[296px] w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black group"
+              >
+                <div
+                  className={`relative w-full h-full transform-style-3d transition-[transform] duration-300 ${isFlipped ? 'rotate-y-180' : 'group-hover:-translate-y-0.5'
+                    }`}
+                >
+                  <div className="backface-hidden absolute inset-0 bg-[#09090B] border border-zinc-800 group-hover:border-yellow-400/60 p-4 flex flex-col items-center justify-center transition-colors overflow-hidden">
+                    <span className="pointer-events-none absolute top-2 left-2 w-2.5 h-2.5 border-t-2 border-l-2 border-zinc-700 group-hover:border-yellow-400/70 transition-colors" />
+                    <span className="pointer-events-none absolute top-2 right-2 w-2.5 h-2.5 border-t-2 border-r-2 border-zinc-700 group-hover:border-yellow-400/70 transition-colors" />
+                    <span className="pointer-events-none absolute bottom-2 left-2 w-2.5 h-2.5 border-b-2 border-l-2 border-zinc-700 group-hover:border-yellow-400/70 transition-colors" />
+                    <span className="pointer-events-none absolute bottom-2 right-2 w-2.5 h-2.5 border-b-2 border-r-2 border-zinc-700 group-hover:border-yellow-400/70 transition-colors" />
+
+                    <div className="w-10 h-10 border border-zinc-800 group-hover:border-yellow-400/75 bg-black flex items-center justify-center mb-3 text-zinc-300 group-hover:text-yellow-400 font-mono font-bold text-xs tabular-nums transition-colors">
+                      #{String(idx + 1).padStart(2, '0')}
+                    </div>
+                    <span className="text-[10px] font-mono tracking-[0.16em] text-zinc-200 uppercase text-center">
+                      EVIDÊNCIA LACRADA
+                    </span>
+                    <span className="text-[9px] font-mono text-zinc-500 group-hover:text-yellow-400/80 mt-1.5 tracking-[0.12em] transition-colors">
+                      TOQUE PARA REVELAR
+                    </span>
+                  </div>
+
+                  <div
+                    className={`backface-hidden rotate-y-180 absolute inset-0 p-2.5 sm:p-3 flex flex-col justify-between gap-1 border rounded-[4px] overflow-hidden transition-colors ${isMatched
+                        ? 'bg-[#FACC15] border-[#FACC15] text-[#09090B] shadow-[0_0_24px_rgba(250,204,21,0.18)]'
+                        : 'bg-[#09090B] border-yellow-400 text-yellow-400'
+                      }`}
+                  >
+                    <span className={`pointer-events-none absolute top-1.5 left-1.5 w-2.5 h-2.5 border-t-2 border-l-2 ${bracketColor}`} />
+                    <span className={`pointer-events-none absolute top-1.5 right-1.5 w-2.5 h-2.5 border-t-2 border-r-2 ${bracketColor}`} />
+                    <span className={`pointer-events-none absolute bottom-1.5 left-1.5 w-2.5 h-2.5 border-b-2 border-l-2 ${bracketColor}`} />
+                    <span className={`pointer-events-none absolute bottom-1.5 right-1.5 w-2.5 h-2.5 border-b-2 border-r-2 ${bracketColor}`} />
+
+                    <div className="pt-1 px-1 flex items-start justify-between gap-1.5 shrink-0">
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className={`text-[8.5px] sm:text-[9.5px] font-mono font-bold uppercase tracking-[0.06em] truncate ${isMatched ? 'text-[#09090B]/90' : 'text-yellow-400/90'
+                            }`}
+                        >
+                          {card.category}
+                        </div>
+                        <div
+                          className={`font-display font-bold text-[12.5px] sm:text-[14.5px] leading-[1.15] mt-0.5 truncate ${isMatched ? 'text-[#09090B]' : 'text-zinc-100'
+                            }`}
+                        >
+                          {card.label}
+                        </div>
+                        <div
+                          className={`text-[9.5px] sm:text-[10.5px] font-mono leading-tight mt-0.5 truncate ${isMatched ? 'text-[#09090B]/85 font-semibold' : 'text-cyan-300/90'
+                            }`}
+                        >
+                          [{card.tag}]
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-1 shrink-0">
+                        <svg className="hidden sm:block w-4 h-3 mt-0.5 opacity-80" viewBox="0 0 18 12" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden="true">
+                          <rect x="1" y="1" width="3" height="3" fill="currentColor" />
+                          <line x1="6" y1="2.5" x2="11" y2="2.5" />
+                          <circle cx="14.5" cy="2.5" r="1.5" />
+                          <circle cx="3" cy="9" r="1.6" />
+                          <line x1="7" y1="7.5" x2="10.5" y2="10.5" />
+                          <line x1="10.5" y1="7.5" x2="7" y2="10.5" />
+                          <polygon points="14.5,7 17,10.5 12,10.5" fill="currentColor" />
+                        </svg>
+
+                        {isMatched ? (
+                          <div className="w-8 h-8 sm:w-9 sm:h-9 bg-[#09090B] text-[#FACC15] flex flex-col items-center justify-center font-mono font-bold leading-none shrink-0">
+                            <svg className="w-3 h-3 mb-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            <span className="text-[7.5px] sm:text-[8.5px] tracking-[0.06em]">PAR</span>
+                          </div>
+                        ) : (
+                          <div className="w-8 h-8 sm:w-9 sm:h-9 border border-yellow-400/70 bg-black text-yellow-400 flex flex-col items-center justify-center font-mono font-bold leading-none shrink-0">
+                            <svg className="w-3 h-3 mb-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
+                              <circle cx="12" cy="12" r="3.5" />
+                              <path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6-10-6-10-6z" />
+                            </svg>
+                            <span className="text-[7px] sm:text-[7.5px] tracking-[0.06em]">VER</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <MemoryCardIllustrationSVG icon={card.icon} isMatched={isMatched} />
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {isWon && (
+          <div
+            data-testid="memory-victory-banner"
+            className="mt-8 p-6 bg-black border border-yellow-400 animate-tactical-in"
+          >
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative z-10">
+              <div>
+                <span className="inline-block px-2.5 py-1 bg-yellow-400 text-black font-mono text-[10px] font-bold uppercase tracking-[0.14em] mb-2">
+                  ★ CASO SOLUCIONADO // CONEXÕES PERICIAIS VALIDADAS
+                </span>
+                <h3 className="text-xl sm:text-2xl font-display font-semibold text-zinc-100 mb-1">
+                  <ScrambleText text={`Todas as ${pairCount} conexões do quadro foram desvendadas`} />
+                </h3>
+                <p className="text-sm font-sans text-zinc-400 leading-relaxed max-w-[68ch] tabular-nums">
+                  Em <strong className="text-yellow-400">{moves} movimentos</strong> ({elapsedSec}s • Precisão de{' '}
+                  <strong className="text-yellow-400">{accuracy}%</strong>), você concluiu o pareamento molecular e conectou perícia forense e diagnóstico médico.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => restartGame(pairCount)}
+                className="shrink-0 px-5 py-3 bg-yellow-400 hover:bg-yellow-300 text-black font-mono uppercase font-bold text-xs tracking-[0.1em] border border-yellow-400 transition-colors"
+              >
+                NOVO INQUÉRITO
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* [NOVO] JOGO 3: QUIZ PERICIAL DE VERDADEIRO OU FALSO */
+function TrueOrFalseQuizGame({ onCompleteQuiz }) {
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState(null); // true | false | null
+  const [score, setScore] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [finished, setFinished] = useState(false);
+  const [history, setHistory] = useState([]);
+
+  const question = TRUE_FALSE_QUIZ_DATA[currentIdx];
+  const totalQuestions = TRUE_FALSE_QUIZ_DATA.length;
+
+  const handleAnswer = (choiceBool) => {
+    if (selectedAnswer !== null || finished) return;
+    setSelectedAnswer(choiceBool);
+    const isCorrect = choiceBool === question.isTrue;
+
+    if (isCorrect) {
+      soundEngine.playSuccess();
+      setScore((s) => s + 1);
+      setStreak((st) => st + 1);
+    } else {
+      soundEngine.playError();
+      setStreak(0);
+    }
+
+    setHistory((prev) => [
+      ...prev,
+      { id: question.id, correct: isCorrect, chosen: choiceBool },
+    ]);
+  };
+
+  const handleNextQuestion = () => {
+    soundEngine.playClick();
+    if (currentIdx + 1 < totalQuestions) {
+      setCurrentIdx((i) => i + 1);
+      setSelectedAnswer(null);
+    } else {
+      setFinished(true);
+      soundEngine.playVictory();
+      if (onCompleteQuiz) onCompleteQuiz();
+    }
+  };
+
+  const restartQuiz = () => {
+    soundEngine.playClick();
+    setCurrentIdx(0);
+    setSelectedAnswer(null);
+    setScore(0);
+    setStreak(0);
+    setFinished(false);
+    setHistory([]);
+  };
+
+  const accuracyPct = Math.round((score / totalQuestions) * 100);
+
+  return (
+    <div id="quiz-vf" data-testid="quiz-section" className="bg-zinc-950 border border-zinc-800 p-5 sm:p-8">
+      {/* Top Quiz Telemetry */}
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-5 mb-6 border-b border-zinc-800">
+        <div>
+          <span className="text-[11px] font-mono text-emerald-400 uppercase tracking-[0.16em]">
+            DESAFIO 03 // AVALIAÇÃO RÁPIDA DE CONHECIMENTO
+          </span>
+          <h3 className="text-xl sm:text-2xl font-display font-bold text-zinc-100 mt-1">
+            Quiz Pericial: Verdadeiro ou Falso
+          </h3>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono tabular-nums">
+          <span className="px-3 py-1.5 bg-black border border-zinc-800 text-zinc-400">
+            QUESTÃO <strong className="text-yellow-400 ml-1">{finished ? totalQuestions : currentIdx + 1}/{totalQuestions}</strong>
+          </span>
+          <span className="px-3 py-1.5 bg-black border border-zinc-800 text-zinc-400">
+            ACERTOS <strong className="text-emerald-400 ml-1">{score}</strong>
+          </span>
+          <span className="px-3 py-1.5 bg-black border border-zinc-800 text-zinc-400">
+            SEQUÊNCIA <strong className="text-yellow-400 ml-1">{streak}🔥</strong>
+          </span>
+          <button
+            type="button"
+            data-testid="quiz-restart-btn"
+            onClick={restartQuiz}
+            className="px-3 py-1.5 bg-black hover:border-yellow-400 hover:text-yellow-400 border border-zinc-800 text-zinc-300 font-semibold uppercase"
+          >
+            REINICIAR QUIZ
+          </button>
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="h-1.5 bg-black border border-zinc-800 mb-6 overflow-hidden">
+        <div
+          className="h-full bg-yellow-400 transition-[width] duration-300"
+          style={{ width: `${((finished ? totalQuestions : currentIdx + (selectedAnswer !== null ? 1 : 0)) / totalQuestions) * 100}%` }}
+        ></div>
+      </div>
+
+      {!finished ? (
+        <div className="space-y-6">
+          {/* Question Card */}
+          <div className="bg-black border border-zinc-800 p-6 sm:p-8 relative">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <span className="px-2.5 py-1 bg-zinc-900 border border-zinc-700 text-yellow-400 text-[10px] font-mono uppercase tracking-[0.14em]">
+                {question.category}
+              </span>
+              <span className="text-xs font-mono text-zinc-500 tabular-nums">
+                AFIRMAÇÃO #{String(currentIdx + 1).padStart(2, '0')}
+              </span>
+            </div>
+
+            <p
+              data-testid="quiz-question-statement"
+              className="text-lg sm:text-2xl font-display font-semibold text-zinc-100 leading-snug"
+            >
+              &ldquo;{question.statement}&rdquo;
+            </p>
+          </div>
+
+          {/* True / False Buttons */}
+          <div className="grid sm:grid-cols-2 gap-4">
+            <button
+              type="button"
+              data-testid="quiz-btn-true"
+              disabled={selectedAnswer !== null}
+              onClick={() => handleAnswer(true)}
+              className={`p-5 border font-mono text-sm sm:text-base font-bold uppercase tracking-[0.12em] transition-all flex items-center justify-center gap-3 ${
+                selectedAnswer === null
+                  ? 'bg-black border-zinc-700 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-400 active:scale-[0.99]'
+                  : question.isTrue === true
+                  ? 'bg-emerald-500/20 border-2 border-emerald-400 text-emerald-300'
+                  : selectedAnswer === true
+                  ? 'bg-rose-500/20 border-2 border-rose-500 text-rose-300'
+                  : 'bg-black border-zinc-800 text-zinc-600 opacity-60'
+              }`}
+            >
+              <span className="w-6 h-6 border border-current flex items-center justify-center text-xs">✓</span>
+              VERDADEIRO
+            </button>
+
+            <button
+              type="button"
+              data-testid="quiz-btn-false"
+              disabled={selectedAnswer !== null}
+              onClick={() => handleAnswer(false)}
+              className={`p-5 border font-mono text-sm sm:text-base font-bold uppercase tracking-[0.12em] transition-all flex items-center justify-center gap-3 ${
+                selectedAnswer === null
+                  ? 'bg-black border-zinc-700 text-rose-400 hover:bg-rose-500/10 hover:border-rose-400 active:scale-[0.99]'
+                  : question.isTrue === false
+                  ? 'bg-emerald-500/20 border-2 border-emerald-400 text-emerald-300'
+                  : selectedAnswer === false
+                  ? 'bg-rose-500/20 border-2 border-rose-500 text-rose-300'
+                  : 'bg-black border-zinc-800 text-zinc-600 opacity-60'
+              }`}
+            >
+              <span className="w-6 h-6 border border-current flex items-center justify-center text-xs">✕</span>
+              FALSO
+            </button>
+          </div>
+
+          {/* Immediate Explanatory Feedback */}
+          {selectedAnswer !== null && (
+            <div
+              data-testid="quiz-feedback-panel"
+              className={`p-5 border animate-tactical-in flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                selectedAnswer === question.isTrue
+                  ? 'bg-emerald-500/10 border-emerald-400 text-zinc-100'
+                  : 'bg-rose-500/10 border-rose-500 text-zinc-100'
+              }`}
+            >
+              <div className="space-y-1">
+                <div className="font-mono text-xs font-bold uppercase tracking-[0.14em]">
+                  {selectedAnswer === question.isTrue ? (
+                    <span className="text-emerald-400">✓ RESPOSTA CORRETA // LAUDO CONFIRMADO</span>
+                  ) : (
+                    <span className="text-rose-400">✕ RESPOSTA INCORRETA // CORREÇÃO CIENTÍFICA</span>
+                  )}
+                </div>
+                <p className="text-sm font-sans text-zinc-200 leading-relaxed max-w-[68ch]">
+                  {question.explanation}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                data-testid="quiz-next-btn"
+                onClick={handleNextQuestion}
+                className="shrink-0 px-5 py-3 bg-yellow-400 hover:bg-yellow-300 text-black font-mono text-xs font-bold uppercase tracking-[0.12em]"
+              >
+                {currentIdx + 1 < totalQuestions ? 'PRÓXIMA QUESTÃO →' : 'VER RESULTADO FINAL →'}
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div
+          data-testid="quiz-complete-banner"
+          className="bg-black border border-yellow-400 p-6 sm:p-8 text-center space-y-4 animate-tactical-in"
+        >
+          <span className="inline-block px-3 py-1 bg-yellow-400 text-black font-mono text-xs font-bold uppercase tracking-[0.14em]">
+            ★ QUIZ PERICIAL CONCLUÍDO
+          </span>
+          <h4 className="text-2xl sm:text-3xl font-display font-bold text-zinc-100">
+            Você acertou {score} de {totalQuestions} questões ({accuracyPct}%)
+          </h4>
+          <p className="text-sm font-sans text-zinc-400 max-w-xl mx-auto">
+            {accuracyPct >= 75
+              ? 'Excelente desempenho! Você domina os fundamentos de estrutura do DNA, Biotecnologia Vermelha, PCR, Eletroforese e Genética Forense.'
+              : 'Bom treino! Revise as explicações científicas dos módulos e jogue novamente para alcançar 100% de precisão pericial.'}
+          </p>
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={restartQuiz}
+              className="px-6 py-3 bg-yellow-400 hover:bg-yellow-300 text-black font-mono text-xs font-bold uppercase tracking-[0.12em]"
+            >
+              JOGAR NOVAMENTE ↺
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* Hub Unificado do Módulo 5 (3 Jogos Selecionáveis) */
+function GamesHubModule({ badges, onCompletePairing, onWinMemory, onCompleteQuiz }) {
+  const [activeGame, setActiveGame] = useState('pairing'); // 'pairing' | 'memory' | 'quiz'
+
+  const gamesList = [
+    {
+      id: 'pairing',
+      number: 'JOGO 01',
+      title: 'Montagem da Fita Complementar',
+      subtitle: 'Pareamento A↔T e C↔G na Dupla Hélice',
+      done: badges.pairing,
+      testId: 'game-tab-pairing',
+    },
+    {
+      id: 'memory',
+      number: 'JOGO 02',
+      title: 'Jogo da Memória: Conexões do Caso',
+      subtitle: 'Quadro Investigativo de Pares Conceituais',
+      done: badges.memory,
+      testId: 'game-tab-memory',
+    },
+    {
+      id: 'quiz',
+      number: 'JOGO 03 [NOVO]',
+      title: 'Quiz de Verdadeiro ou Falso',
+      subtitle: 'Desafio Rápido de Biologia Molecular & Forense',
+      done: badges.quiz,
+      testId: 'game-tab-quiz',
+    },
+  ];
+
+  return (
+    <section
+      id="jogos"
+      data-testid="module-5-jogos"
+      className="py-8 sm:py-12 px-4 sm:px-6 max-w-7xl mx-auto animate-tactical-in"
+    >
+      <SectionHeader
+        eyebrow="Módulo 05 // Desafios Interativos & Gamificação"
+        title="Jogos: Treinamento Prático em Biotecnologia e Perícia"
+        accent="green"
+        subtitle="Selecione um dos 3 desafios interativos abaixo para testar suas habilidades: construa uma fita complementar de DNA, conecte pares no Jogo da Memória ou responda ao Quiz de Verdadeiro ou Falso."
+      />
+
+      {/* Seletor de Jogos (3 Cards de Escolha) */}
+      <div className="grid sm:grid-cols-3 gap-3 mb-8" role="tablist" aria-label="Selecionar jogo interativo">
+        {gamesList.map((g) => {
+          const isSelected = activeGame === g.id;
+          return (
+            <button
+              key={g.id}
+              type="button"
+              role="tab"
+              data-testid={g.testId}
+              aria-selected={isSelected}
+              onClick={() => {
+                soundEngine.playClick();
+                setActiveGame(g.id);
+              }}
+              className={`p-4 border text-left transition-all relative overflow-hidden ${
+                isSelected
+                  ? 'bg-zinc-950 border-yellow-400 text-zinc-100 ring-1 ring-yellow-400/40'
+                  : 'bg-black border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'
+              }`}
+            >
+              {isSelected && <span className="absolute top-0 inset-x-0 h-0.5 bg-yellow-400"></span>}
+              <div className="flex items-center justify-between mb-1.5">
+                <span
+                  className={`text-[10px] font-mono uppercase tracking-[0.14em] px-2 py-0.5 ${
+                    isSelected ? 'bg-yellow-400 text-black font-bold' : 'bg-zinc-900 text-zinc-400'
+                  }`}
+                >
+                  {g.number}
+                </span>
+                {g.done && (
+                  <span className="text-[10px] font-mono text-emerald-400 font-bold">✓ CONCLUÍDO</span>
+                )}
+              </div>
+              <div className="font-display font-bold text-base text-zinc-100">{g.title}</div>
+              <div className="text-xs font-sans text-zinc-400 mt-0.5">{g.subtitle}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Ponte para o Jogo Investigativo Completo do Ecossistema */}
+      <a
+        href="./mistery.html"
+        className="mb-8 p-4 bg-zinc-950 border border-amber-500/40 hover:border-amber-400 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+      >
+        <div className="flex items-start sm:items-center gap-3">
+          <span className="px-2.5 py-1 bg-amber-500/15 border border-amber-400/40 text-amber-300 font-mono text-[10px] font-bold uppercase tracking-[0.14em] shrink-0">
+            JOGO DO ECOSSISTEMA
+          </span>
+          <span className="text-xs sm:text-sm font-sans text-zinc-200">
+            <strong className="text-amber-300">Arquivo Confidencial:</strong> Assuma um dossiê completo de investigação criminal com interrogatórios, evidências, caderno do detetive e acusação final.
+          </span>
+        </div>
+        <span className="px-3.5 py-2 bg-amber-400 group-hover:bg-amber-300 text-black font-mono text-[11px] font-bold uppercase tracking-[0.1em] shrink-0 text-center">
+          JOGAR ARQUIVO CONFIDENCIAL ↗
+        </span>
+      </a>
+
+      {/* Renderização do Jogo Ativo */}
+      {activeGame === 'pairing' && <MolecularPairingLab onCompleteMission={onCompletePairing} />}
+      {activeGame === 'memory' && <GeneticMemoryGame onWinGame={onWinMemory} />}
+      {activeGame === 'quiz' && <TrueOrFalseQuizGame onCompleteQuiz={onCompleteQuiz} />}
+    </section>
+  );
+}
+
+/* ============================================================================
+ * 11. MÓDULO 6 — CASOS SOLUCIONADOS: DOSSIÊS CONFIDENCIAIS (VISÃO IMEDIATA)
+ * ============================================================================ */
+function SolvedCasesCarousel() {
+  const [filter, setFilter] = useState('all');
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [expandedCaseId, setExpandedCaseId] = useState(SOLVED_CASES[0].id);
+  const [dossierOpen, setDossierOpen] = useState(true);
+  const dossierPanelRef = useRef(null);
+
+  const visibleCases = useMemo(() => {
+    if (filter === 'all') return SOLVED_CASES;
+    return SOLVED_CASES.filter((c) => c.domain === filter);
+  }, [filter]);
+
+  const currentCase = visibleCases[activeIdx] || visibleCases[0];
+
+  const focusDossierIntoView = useCallback(() => {
+    if (dossierPanelRef.current && typeof dossierPanelRef.current.scrollIntoView === 'function') {
+      try {
+        dossierPanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (e) {}
+    }
+  }, []);
+
+  const goPrev = () => {
+    soundEngine.playClick();
+    const nextIdx = (activeIdx - 1 + visibleCases.length) % visibleCases.length;
+    setActiveIdx(nextIdx);
+    setDossierOpen(true);
+    if (visibleCases[nextIdx]) setExpandedCaseId(visibleCases[nextIdx].id);
+    focusDossierIntoView();
+  };
+
+  const goNext = () => {
+    soundEngine.playClick();
+    const nextIdx = (activeIdx + 1) % visibleCases.length;
+    setActiveIdx(nextIdx);
+    setDossierOpen(true);
+    if (visibleCases[nextIdx]) setExpandedCaseId(visibleCases[nextIdx].id);
+    focusDossierIntoView();
+  };
+
+  const filterTestIds = {
+    all: 'cases-filter-all',
+    'Genética Forense': 'cases-filter-forense',
+    'Biotecnologia Vermelha': 'cases-filter-biotech',
+  };
+
+  return (
+    <section
+      id="casos"
+      data-testid="cases-section"
+      className="py-8 sm:py-12 px-4 sm:px-6 max-w-7xl mx-auto animate-tactical-in"
+    >
+      <SectionHeader
+        eyebrow="Módulo 06 // Casos Solucionados (Aplicações Reais)"
+        title="Casos Solucionados: Dossiês Confidenciais"
+        accent="cyan"
+        subtitle="Explore casos reais de Medicina Diagnóstica (Biotecnologia Vermelha) e Perícia Criminal (Genética Forense). Clique em qualquer pasta abaixo para exibir o laudo completo imediatamente em tela."
+      />
+
+      {/* Filter & Carousel Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+        <div className="flex flex-wrap gap-2">
+          {['all', 'Genética Forense', 'Biotecnologia Vermelha'].map((f) => (
+            <button
+              key={f}
+              type="button"
+              data-testid={filterTestIds[f]}
+              onClick={() => {
+                soundEngine.playClick();
+                setFilter(f);
+                setActiveIdx(0);
+                setDossierOpen(true);
+                const nextList = f === 'all' ? SOLVED_CASES : SOLVED_CASES.filter((c) => c.domain === f);
+                if (nextList[0]) setExpandedCaseId(nextList[0].id);
+              }}
+              className={`px-3.5 py-2 text-[11px] font-mono uppercase tracking-[0.1em] border transition-colors ${
+                filter === f
+                  ? 'bg-yellow-400 border-yellow-400 text-black font-bold'
+                  : 'bg-black border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-100'
+              }`}
+            >
+              {f === 'all' ? 'TODOS OS DOSSIÊS' : f.toUpperCase()}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            data-testid="cases-prev"
+            onClick={goPrev}
+            aria-label="Caso anterior"
+            className="w-9 h-9 bg-black border border-zinc-800 hover:border-yellow-400 hover:text-yellow-400 text-zinc-300 font-mono flex items-center justify-center transition-colors"
+          >
+            ←
+          </button>
+          <span className="text-xs font-mono text-yellow-400 px-2 tabular-nums">
+            {activeIdx + 1} / {visibleCases.length}
+          </span>
+          <button
+            type="button"
+            data-testid="cases-next"
+            onClick={goNext}
+            aria-label="Próximo caso"
+            className="w-9 h-9 bg-black border border-zinc-800 hover:border-yellow-400 hover:text-yellow-400 text-zinc-300 font-mono flex items-center justify-center transition-colors"
+          >
+            →
+          </button>
+        </div>
+      </div>
+
+      {/* Painel do Dossiê Posicionado Imediatamente no Campo de Visão Superior */}
+      {currentCase && dossierOpen && (
+        <article
+          ref={dossierPanelRef}
+          key={currentCase.id}
+          data-testid="case-dossier-panel"
+          className="scroll-mt-28 mb-6 bg-zinc-950 border-2 border-yellow-400 p-5 sm:p-7 relative overflow-hidden animate-tactical-in shadow-2xl"
+        >
+          <span className="absolute top-0 inset-x-0 h-1 bg-yellow-400" aria-hidden="true"></span>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-zinc-800">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="text-[11px] font-mono px-2.5 py-1 bg-yellow-400 text-black font-bold uppercase tracking-[0.1em] tabular-nums">
+                {currentCase.domain.toUpperCase()} // <ScrambleText text={currentCase.code} />
+              </span>
+              <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-[0.14em] px-2 py-0.5 bg-black border border-emerald-500/40">
+                ● LAUDO EM EXIBIÇÃO IMEDIATA
+              </span>
+            </div>
+
+            <button
+              type="button"
+              data-testid="close-dossier-btn"
+              onClick={() => {
+                soundEngine.playClick();
+                setDossierOpen(false);
+              }}
+              className="px-3 py-1 bg-black hover:border-yellow-400 hover:text-yellow-400 border border-zinc-700 text-[10px] font-mono font-bold uppercase tracking-[0.12em] text-zinc-300"
+            >
+              FECHAR PASTA [X]
+            </button>
+          </div>
+
+          <h3 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold tracking-[-0.02em] text-zinc-100 mb-2">
+            {currentCase.title}
+          </h3>
+
+          <p className="text-sm font-sans text-zinc-300 leading-relaxed mb-5 max-w-[72ch]">
+            {currentCase.summary}
+          </p>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-px bg-zinc-800 border border-zinc-800 text-left">
+            <div className="bg-black p-4 sm:p-5">
+              <div className="text-[10px] font-mono text-yellow-400 font-semibold uppercase tracking-[0.14em] mb-1.5">
+                01. AMOSTRA COLETADA
+              </div>
+              <p className="text-xs sm:text-sm font-sans text-zinc-300 leading-relaxed">{currentCase.sample}</p>
+            </div>
+            <div className="bg-black p-4 sm:p-5">
+              <div className="text-[10px] font-mono text-yellow-400 font-semibold uppercase tracking-[0.14em] mb-1.5">
+                02. PROTOCOLO MOLECULAR
+              </div>
+              <p className="text-xs sm:text-sm font-sans text-zinc-300 leading-relaxed">{currentCase.technique}</p>
+            </div>
+            <div className="bg-black p-4 sm:p-5">
+              <div className="text-[10px] font-mono text-yellow-400 font-semibold uppercase tracking-[0.14em] mb-1.5">
+                03. RESULTADO PERICIAL
+              </div>
+              <p className="text-xs sm:text-sm font-sans text-zinc-300 leading-relaxed">{currentCase.outcome}</p>
+            </div>
+            <div className="bg-zinc-950 p-4 sm:p-5">
+              <div className="text-[10px] font-mono text-yellow-400 font-semibold uppercase tracking-[0.14em] mb-1.5">
+                04. IMPACTO &amp; VEREDITO
+              </div>
+              <p className="text-xs sm:text-sm font-sans text-zinc-100 leading-relaxed mb-3">{currentCase.impact}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(currentCase.metrics).map(([k, v]) => (
+                  <span
+                    key={k}
+                    className="text-[10px] font-mono px-2 py-0.5 bg-yellow-400 text-black font-bold tabular-nums"
+                  >
+                    {v}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </article>
+      )}
+
+      {/* Horizontal Confidential Folder Selector Strip */}
+      <div className="mb-2 text-[11px] font-mono uppercase tracking-[0.14em] text-zinc-400">
+        SELECIONE UM ARQUIVO CONFIDENCIAL ABAIXO ({visibleCases.length} PASTAS DISPONÍVEIS):
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {visibleCases.map((item, idx) => {
+          const isSelected = currentCase && currentCase.id === item.id && dossierOpen;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              data-testid={`case-folder-${item.id}`}
+              onClick={() => {
+                soundEngine.playClick();
+                setActiveIdx(idx);
+                setExpandedCaseId(item.id);
+                setDossierOpen(true);
+                setTimeout(() => focusDossierIntoView(), 40);
+              }}
+              className={`text-left p-5 border transition-all relative overflow-hidden group ${
+                isSelected
+                  ? 'bg-zinc-950 border-yellow-400 ring-1 ring-yellow-400/40'
+                  : 'bg-black border-zinc-800 hover:border-zinc-600'
+              }`}
+            >
+              {isSelected && <span className="absolute top-0 inset-x-0 h-0.5 bg-yellow-400" aria-hidden="true"></span>}
+
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <span
+                  className={`text-[10px] font-mono px-2 py-0.5 border tabular-nums ${
+                    isSelected
+                      ? 'bg-black border-yellow-400/60 text-yellow-400'
+                      : 'bg-zinc-950 border-zinc-800 text-zinc-400'
+                  }`}
+                >
+                  {item.code}
+                </span>
+                <span
+                  className={`text-[10px] font-mono px-2 py-0.5 font-bold ${
+                    isSelected ? 'bg-yellow-400 text-black' : 'bg-zinc-900 text-zinc-300'
+                  }`}
+                >
+                  SOLUCIONADO
+                </span>
+              </div>
+
+              <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.14em] mb-1">
+                {item.domain}
+              </div>
+              <h3 className="font-display font-semibold text-zinc-100 text-base leading-snug mb-2 group-hover:text-yellow-400 transition-colors">
+                {item.title}
+              </h3>
+              <p className="text-xs font-sans text-zinc-400 line-clamp-2 leading-relaxed">{item.summary}</p>
+
+              <div className="mt-4 pt-3 border-t border-zinc-800/80 flex items-center justify-between text-[11px] font-mono">
+                <span className={isSelected ? 'text-yellow-400 font-bold' : 'text-zinc-400 group-hover:text-yellow-400'}>
+                  {isSelected ? 'PASTA ABERTA NO TOPO ▲' : 'LER LAUDO COMPLETO AGORA →'}
+                </span>
+                <span className="text-zinc-200 font-semibold tabular-nums">{Object.values(item.metrics)[1]}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/* ============================================================================
+ * 12. MODAL DO PÔSTER OFICIAL UFPA / FABIOTEC & PAGINADOR DE MÓDULOS
+ * ============================================================================ */
+function PosterModal({ open, onClose }) {
+  const dialogRef = useRef(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (open && !dialog.open) {
+      if (typeof dialog.showModal === 'function') {
+        dialog.showModal();
+      } else {
+        dialog.setAttribute('open', '');
+      }
+    } else if (!open && dialog.open) {
+      if (typeof dialog.close === 'function') {
+        dialog.close();
+      } else {
+        dialog.removeAttribute('open');
+      }
+    }
+  }, [open]);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      data-testid="poster-modal"
+      aria-label="Pôster Científico Oficial UFPA FABIOTEC"
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="tactical-dialog overflow-visible"
+    >
+      <div className="bg-zinc-950 w-full max-h-[90vh] overflow-y-auto border border-zinc-700 p-6 sm:p-8 relative">
+        <span className="absolute top-0 inset-x-0 h-0.5 bg-yellow-400" aria-hidden="true"></span>
+        <div className="flex items-start justify-between gap-4 border-b border-zinc-800 pb-4 mb-5">
+          <div>
+            <span className="text-[11px] font-mono text-yellow-400 uppercase tracking-[0.14em]">
+              Universidade Federal do Pará (UFPA) • ICB • FABIOTEC
+            </span>
+            <h3 className="text-lg sm:text-xl font-display font-semibold text-zinc-100 mt-1">
+              Extensão Biotecnologia Vermelha — Pôster Oficial
+            </h3>
+          </div>
+          <button
+            type="button"
+            data-testid="poster-modal-close"
+            onClick={onClose}
+            className="px-3 py-1.5 bg-yellow-400 hover:bg-yellow-300 text-xs font-mono font-bold text-black transition-colors"
+          >
+            FECHAR [ESC]
+          </button>
+        </div>
+
+        <div className="overflow-hidden border border-zinc-800 bg-black mb-5 flex justify-center">
+          <img
+            src={POSTER_IMAGE_PATH}
+            alt="Pôster acadêmico Extensão Biotecnologia Vermelha - DNA e Diagnóstico da UFPA FABIOTEC"
+            className="max-h-[60vh] w-auto object-contain"
+          />
+        </div>
+
+        <div className="text-xs font-sans text-zinc-300 space-y-2 leading-relaxed">
+          <p>
+            <strong className="font-mono text-yellow-400 uppercase tracking-[0.08em] mr-1">
+              Extensão Biotecnologia Vermelha — Autores:
+            </strong>{' '}
+            Hanna Gabrielle Tavares Favacho, Jéssica Larissa Valle de Souza, Julliany Christinny Girard Carneiro, Kayllane Cristine Bezerra Carvalho, Maria Kailane da Silva de Souza e Richard Wesley da Silva Barbosa.
+          </p>
+          <p className="text-zinc-500 font-mono text-[11px]">
+            Referências: National Human Genome Research Institute (NHGRI), National Institute of Justice (NIJ) e Nelson &amp; Cox — Princípios de Bioquímica de Lehninger.
+          </p>
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
+function ModulePaginationFooter({ activeModule, onSelectModule }) {
+  const prevMod = activeModule > 1 ? MODULES_CONFIG[activeModule - 2] : null;
+  const nextMod = activeModule < MODULES_CONFIG.length ? MODULES_CONFIG[activeModule] : null;
+  const currentMod = MODULES_CONFIG[activeModule - 1];
+
+  return (
+    <div
+      data-testid="module-pagination"
+      className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 pb-12"
+    >
+      <div className="bg-zinc-950 border border-zinc-800 p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="w-full sm:w-auto">
+          {prevMod ? (
+            <button
+              type="button"
+              data-testid="prev-module-btn"
+              onClick={() => onSelectModule(prevMod.id)}
+              className="w-full sm:w-auto px-4 py-3 bg-black hover:border-yellow-400 hover:text-yellow-400 border border-zinc-800 text-xs font-mono uppercase tracking-[0.1em] text-zinc-200 transition-colors flex items-center justify-center gap-2"
+            >
+              <span>← Módulo Anterior:</span>
+              <strong className="text-yellow-400">{prevMod.shortLabel}</strong>
+            </button>
+          ) : (
+            <span className="inline-block px-4 py-3 bg-black/50 border border-zinc-900 text-xs font-mono uppercase text-zinc-600">
+              INÍCIO DA TRILHA (MÓDULO 01)
+            </span>
+          )}
+        </div>
+
+        {/* Indicador Central de Progresso */}
+        <div className="flex flex-col items-center text-center">
+          <span className="text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-400 mb-1.5">
+            PROGRESSÃO // MÓDULO 0{activeModule} DE 06 ({currentMod.navLabel})
+          </span>
+          <div className="flex items-center gap-1.5">
+            {MODULES_CONFIG.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                aria-label={`Ir para ${m.title}`}
+                onClick={() => onSelectModule(m.id)}
+                className={`h-2 transition-all ${
+                  m.id === activeModule
+                    ? 'w-8 bg-yellow-400'
+                    : m.id < activeModule
+                    ? 'w-3 bg-yellow-400/50 hover:bg-yellow-400'
+                    : 'w-3 bg-zinc-800 hover:bg-zinc-600'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="w-full sm:w-auto">
+          {nextMod ? (
+            <button
+              type="button"
+              data-testid="next-module-btn"
+              onClick={() => onSelectModule(nextMod.id)}
+              className="w-full sm:w-auto px-5 py-3 bg-yellow-400 hover:bg-yellow-300 text-black text-xs font-mono font-bold uppercase tracking-[0.1em] border border-yellow-400 transition-colors flex items-center justify-center gap-2"
+            >
+              <span>Próximo Módulo: {nextMod.shortLabel}</span>
+              <span>→</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              data-testid="next-module-btn"
+              onClick={() => onSelectModule(1)}
+              className="w-full sm:w-auto px-5 py-3 bg-yellow-400 hover:bg-yellow-300 text-black text-xs font-mono font-bold uppercase tracking-[0.1em] border border-yellow-400 transition-colors"
+            >
+              VOLTAR AO MÓDULO 01 ↺
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EcosystemAppIcon({ id }) {
+  switch (id) {
+    case 'dna':
+      return (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <path d="M4 4c4 0 4 16 8 16s4-16 8-16" />
+          <path d="M4 20c4 0 4-16 8-16s4 16 8 16" />
+          <line x1="7" y1="8.5" x2="17" y2="8.5" />
+          <line x1="7" y1="15.5" x2="17" y2="15.5" />
+        </svg>
+      );
+    case 'pcr':
+      return (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 3h6" />
+          <path d="M10 3v6.5L5.2 18.2A2 2 0 0 0 7 21h10a2 2 0 0 0 1.8-2.8L14 9.5V3" />
+          <path d="M7.5 15h9" />
+        </svg>
+      );
+    case 'banner':
+      return (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="5" y="3" width="14" height="15" rx="1.5" />
+          <path d="M9 7h6" />
+          <path d="M9 11h6" />
+          <path d="M12 18v3" />
+          <path d="M8 21h8" />
+        </svg>
+      );
+    case 'folder':
+      return (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2V6z" />
+          <path d="M9 4v14" />
+          <path d="M15 6v14" />
+        </svg>
+      );
+    case 'mistery':
+      return (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-3.5-3.5" />
+          <path d="M11 8v6" />
+          <path d="M8 11h6" />
+        </svg>
+      );
+    default:
+      return (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="12 2 15 9 22 9.5 16.5 14 18.2 21 12 17.2 5.8 21 7.5 14 2 9.5 9 9 12 2" />
+        </svg>
+      );
+  }
+}
+
+function EcosystemShowcaseSection() {
+  return (
+    <section
+      id="ecossistema-hub"
+      data-testid="ecosystem-showcase"
+      className="max-w-7xl mx-auto px-4 sm:px-6 pb-14"
+    >
+      <div className="bg-zinc-950/90 border border-zinc-800 p-5 sm:p-7 relative overflow-hidden">
+        <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-yellow-400 via-cyan-400 to-rose-500" aria-hidden="true"></div>
+
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 mb-6 border-b border-zinc-800">
+          <div>
+            <div className="inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.16em] text-yellow-400 mb-2">
+              <span className="w-2 h-2 bg-yellow-400"></span>
+              <span>ECOSSISTEMA INTERATIVO // 6 EXPERIÊNCIAS CONECTADAS</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-display font-bold tracking-[-0.02em] text-zinc-100">
+              Ambientes 3D, Laboratório &amp; Experiências Especiais
+            </h2>
+            <p className="text-xs sm:text-sm font-sans text-zinc-400 mt-1.5 max-w-[68ch]">
+              Navegue livremente por todo o ecossistema da extensão: cada página possui barra flutuante integrada para voltar ao portal principal (<code className="text-zinc-200 font-mono">index.html</code>) ou saltar diretamente para qualquer outra experiência.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={openEcosystemHub}
+            className="px-4 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-black font-mono font-bold text-xs uppercase tracking-[0.1em] transition-colors shrink-0 self-start md:self-auto"
+          >
+            ◈ ABRIR MAPA RÁPIDO (ALT+E)
+          </button>
+        </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {ECOSYSTEM_APPS.map((app) => (
+            <a
+              key={app.id}
+              href={app.href}
+              data-testid={`eco-card-${app.id}`}
+              className={`group relative bg-black border border-zinc-800 ${app.accentBorder} p-4 sm:p-5 flex flex-col justify-between gap-4 transition-all hover:-translate-y-0.5`}
+            >
+              <span className={`absolute top-0 inset-x-0 h-0.5 ${app.accentBar} opacity-75 group-hover:opacity-100`} aria-hidden="true"></span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className={`w-9 h-9 border border-zinc-800 bg-zinc-950 flex items-center justify-center ${app.accentText}`}>
+                    <EcosystemAppIcon id={app.id} />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-mono text-zinc-500">{app.code}</span>
+                    <span className={`text-[10px] font-mono font-semibold uppercase tracking-[0.08em] px-2 py-0.5 border ${app.accentBadge}`}>
+                      {app.tag}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base text-zinc-100 group-hover:text-white">
+                    {app.title}
+                  </h3>
+                  <p className="text-xs font-sans text-zinc-400 leading-relaxed mt-1">
+                    {app.description}
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-zinc-900 flex items-center justify-between text-[11px] font-mono uppercase tracking-[0.1em]">
+                <span className="text-zinc-500">{app.file}</span>
+                <span className={`${app.accentText} font-bold group-hover:translate-x-0.5 transition-transform`}>
+                  ABRIR ↗
+                </span>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ============================================================================
+ * 13. APLICAÇÃO PRINCIPAL MULTIPAGE (6 MÓDULOS INDEPENDENTES)
+ * ============================================================================ */
+export default function App() {
+  const [activeModule, setActiveModule] = useState(1);
+  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [posterOpen, setPosterOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [badges, setBadges] = useState({
+    pairing: false,
+    pipeline: false,
+    memory: false,
+    quiz: false,
+  });
+
+  const selectModule = useCallback((modId) => {
+    const validId = Math.max(1, Math.min(6, Number(modId) || 1));
+    soundEngine.playClick();
+    setActiveModule(validId);
+    setMobileMenuOpen(false);
+    if (typeof window !== 'undefined') {
+      try {
+        window.history.replaceState(null, '', `#modulo-${validId}`);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (e) {}
+    }
+  }, []);
+
+  // Sincronia inicial com hash de URL
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const applyHash = () => {
+      const h = (window.location.hash || '').toLowerCase();
+      if (h.includes('modulo-2') || h.includes('diagnostico')) setActiveModule(2);
+      else if (h.includes('modulo-3') || h.includes('forense')) setActiveModule(3);
+      else if (h.includes('modulo-4') || h.includes('pipeline') || h.includes('laboratorio')) setActiveModule(4);
+      else if (h.includes('modulo-5') || h.includes('pareamento') || h.includes('memoria') || h.includes('jogos')) setActiveModule(5);
+      else if (h.includes('modulo-6') || h.includes('casos')) setActiveModule(6);
+      else if (h.includes('modulo-1') || h.includes('hero')) setActiveModule(1);
+    };
+    applyHash();
+    window.addEventListener('hashchange', applyHash);
+    return () => window.removeEventListener('hashchange', applyHash);
+  }, []);
+
+  const toggleAudio = () => {
+    const next = !audioEnabled;
+    soundEngine.enabled = next;
+    setAudioEnabled(next);
+    if (next) soundEngine.playClick();
+  };
+
+  const markBadge = useCallback((key) => {
+    setBadges((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+  }, []);
+
+  const unlockedCount = Object.values(badges).filter(Boolean).length;
+
+  return (
+    <div data-testid="app-shell" className="min-h-screen bg-black tactical-grid relative flex flex-col justify-between">
+      {/* Textura Sutil de Hardware */}
+      <svg
+        className="pointer-events-none fixed inset-0 z-50 h-full w-full opacity-[0.04]"
+        aria-hidden="true"
+      >
+        <filter id="tactical-hardware-noise">
+          <feTurbulence type="fractalNoise" baseFrequency="0.82" numOctaves="3" stitchTiles="stitch" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#tactical-hardware-noise)" />
+      </svg>
+
+      {/* Filete Superior */}
+      <div className="hazard-tape-micro h-1 w-full sticky top-0 z-50 border-b border-zinc-900" aria-hidden="true"></div>
+
+      {/* Navbar Persistente Multipage (6 Módulos) */}
+      <header
+        data-testid="navbar"
+        className="sticky top-1 z-40 border-b border-zinc-800 bg-black/95 backdrop-blur-sm"
+      >
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 min-h-[64px] py-2 flex items-center justify-between gap-2 sm:gap-3">
+          {/* Título Principal do Projeto */}
+          <button
+            type="button"
+            data-testid="brand-home-btn"
+            onClick={() => selectModule(1)}
+            className="flex items-center gap-2.5 sm:gap-3 text-left group min-w-0 sm:shrink-0"
+          >
+            <div className="w-8 h-8 sm:w-9 sm:h-9 bg-yellow-400 flex items-center justify-center font-mono font-bold text-[11px] sm:text-xs text-black shrink-0">
+              UFPA
+            </div>
+            <div className="min-w-0">
+              <div
+                data-testid="navbar-project-title"
+                className="font-display font-bold text-xs sm:text-base leading-tight tracking-[-0.01em] text-zinc-100 group-hover:text-yellow-400 transition-colors sm:whitespace-nowrap"
+              >
+                Extensão Biotecnologia Vermelha
+              </div>
+              <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-[0.1em] hidden md:block whitespace-nowrap">
+                ICB • FABIOTEC // DNA, DIAGNÓSTICO &amp; FORENSE
+              </div>
+            </div>
+          </button>
+
+          {/* Controles à Direita (Sem barra horizontal de módulos — apenas o Menu) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div
+              data-testid="mission-counter"
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 text-[10px] font-mono uppercase tracking-[0.1em] tabular-nums"
+              title="Desafios concluídos"
+            >
+              <span className="text-zinc-500">MISSÕES</span>
+              <span className="text-yellow-400 font-bold">{unlockedCount}/4</span>
+            </div>
+
+            <button
+              type="button"
+              data-testid="audio-toggle"
+              onClick={toggleAudio}
+              className={`px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-[0.1em] border transition-colors ${
+                audioEnabled
+                  ? 'bg-zinc-950 border-yellow-400/70 text-yellow-400 font-semibold'
+                  : 'bg-black border-zinc-800 text-zinc-500 hover:border-zinc-600'
+              }`}
+            >
+              {audioEnabled ? 'ÁUDIO: ON' : 'ÁUDIO: OFF'}
+            </button>
+
+            <button
+              type="button"
+              data-testid="ecosystem-nav-trigger"
+              onClick={openEcosystemHub}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950 hover:border-cyan-400 hover:text-cyan-300 border border-cyan-500/40 text-[10px] font-mono font-semibold uppercase tracking-[0.1em] text-cyan-300 transition-colors"
+              title="Abrir Mapa do Ecossistema (Alt+E)"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+              <span>ECOSSISTEMA</span>
+            </button>
+
+            <button
+              type="button"
+              data-testid="poster-modal-trigger"
+              onClick={() => {
+                soundEngine.playClick();
+                setPosterOpen(true);
+              }}
+              className="hidden md:inline-flex px-3 py-1.5 bg-black hover:border-yellow-400 hover:text-yellow-400 border border-zinc-800 text-[10px] font-mono font-semibold uppercase tracking-[0.1em] text-zinc-300 transition-colors"
+            >
+              PÔSTER UFPA
+            </button>
+
+            <button
+              type="button"
+              data-testid="mobile-menu-toggle"
+              onClick={() => setMobileMenuOpen((o) => !o)}
+              aria-label="Abrir menu de navegação"
+              aria-expanded={mobileMenuOpen}
+              className="px-3.5 py-1.5 border border-yellow-400/80 bg-zinc-950 hover:bg-yellow-400 hover:text-black text-[11px] font-mono font-bold uppercase tracking-[0.12em] text-yellow-400 transition-colors"
+            >
+              {mobileMenuOpen ? 'FECHAR [X]' : 'MENU'}
+            </button>
+          </div>
+        </div>
+
+        {/* Drawer / Menu Completo com os 6 Módulos + Ecossistema (Desktop e Mobile) */}
+        {mobileMenuOpen && (
+          <div
+            data-testid="mobile-menu-drawer"
+            className="border-t border-zinc-800 bg-black px-4 sm:px-6 py-4 max-h-[82vh] overflow-y-auto"
+          >
+            <div className="max-w-7xl mx-auto space-y-4">
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-400 mb-2">
+                  MÓDULOS DA PLATAFORMA (01 → 06)
+                </div>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {MODULES_CONFIG.map((mod) => {
+                    const isActive = activeModule === mod.id;
+                    return (
+                      <button
+                        key={mod.id}
+                        type="button"
+                        data-testid={`mobile-nav-mod-${mod.id}`}
+                        onClick={() => selectModule(mod.id)}
+                        className={`w-full text-left px-3.5 py-2.5 text-xs font-mono uppercase tracking-[0.08em] border flex items-center justify-between gap-2 transition-colors ${
+                          isActive
+                            ? 'bg-yellow-400 border-yellow-400 text-black font-bold'
+                            : 'bg-zinc-950 border-zinc-800 text-zinc-200 hover:border-yellow-400'
+                        }`}
+                      >
+                        <span className="truncate">{mod.title}</span>
+                        <span className="shrink-0">{isActive ? 'ATIVO ●' : 'ABRIR →'}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-zinc-800">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-cyan-400">
+                    ECOSSISTEMA INTERATIVO // 6 EXPERIÊNCIAS STANDALONE
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      openEcosystemHub();
+                    }}
+                    className="text-[10px] font-mono uppercase tracking-[0.1em] text-yellow-400 hover:underline"
+                  >
+                    VER MAPA COMPLETO ◈
+                  </button>
+                </div>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {ECOSYSTEM_APPS.map((app) => (
+                    <a
+                      key={app.id}
+                      href={app.href}
+                      data-testid={`mobile-nav-eco-${app.id}`}
+                      className={`w-full text-left px-3.5 py-2.5 text-xs font-mono uppercase tracking-[0.08em] border bg-zinc-950 border-zinc-800 ${app.accentBorder} text-zinc-200 flex items-center justify-between gap-2 transition-colors`}
+                    >
+                      <span className="truncate">
+                        <span className={`${app.accentText} mr-1.5`}>{app.code}</span>
+                        {app.title}
+                      </span>
+                      <span className={`${app.accentText} shrink-0`}>↗</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setPosterOpen(true);
+                  }}
+                  className="w-full sm:w-auto px-4 py-2.5 text-xs font-mono font-bold uppercase tracking-[0.12em] text-black bg-yellow-400 hover:bg-yellow-300 transition-colors"
+                >
+                  ABRIR PÔSTER OFICIAL UFPA
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    openEcosystemHub();
+                  }}
+                  className="w-full sm:w-auto px-4 py-2.5 text-xs font-mono font-bold uppercase tracking-[0.12em] text-cyan-300 bg-zinc-950 border border-cyan-500/50 hover:border-cyan-400 transition-colors"
+                >
+                  ◈ MAPA DO ECOSSISTEMA (7 AMBIENTES)
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </header>
+
+      {/* Conteúdo Dedicado do Módulo Ativo (Arquitetura Multipage) */}
+      <main className="relative z-10 flex-1">
+        {activeModule === 1 && <Module1DNAView onSelectModule={selectModule} />}
+        {activeModule === 2 && <Module2DiagnosticoView />}
+        {activeModule === 3 && <Module3ForenseView />}
+        {activeModule === 4 && (
+          <LaboratoryPipelineStepper onCompletePipeline={() => markBadge('pipeline')} />
+        )}
+        {activeModule === 5 && (
+          <GamesHubModule
+            badges={badges}
+            onCompletePairing={() => markBadge('pairing')}
+            onWinMemory={() => markBadge('memory')}
+            onCompleteQuiz={() => markBadge('quiz')}
+          />
+        )}
+        {activeModule === 6 && <SolvedCasesCarousel />}
+
+        {/* Paginador Sequencial entre Módulos */}
+        <ModulePaginationFooter activeModule={activeModule} onSelectModule={selectModule} />
+
+        {/* Hub Visual de Todas as Experiências do Ecossistema */}
+        <EcosystemShowcaseSection />
+      </main>
+
+      {/* Rodapé Institucional */}
+      <footer className="relative z-10 border-t border-zinc-800 bg-black pb-24 sm:pb-20">
+        <div className="max-w-7xl mx-auto pt-8 pb-6 px-4 sm:px-6 border-b border-zinc-900">
+          <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-zinc-400 mb-3">
+            ECOSSISTEMA CONECTADO // ACESSO RÁPIDO ENTRE AMBIENTES
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="./index.html"
+              className="px-3 py-1.5 bg-yellow-400/15 border border-yellow-400/60 text-yellow-300 text-[11px] font-mono uppercase tracking-[0.08em]"
+            >
+              ● Portal Principal
+            </a>
+            {ECOSYSTEM_APPS.map((app) => (
+              <a
+                key={app.id}
+                href={app.href}
+                className={`px-3 py-1.5 bg-zinc-950 border border-zinc-800 ${app.accentBorder} text-zinc-300 hover:text-white text-[11px] font-mono uppercase tracking-[0.08em] transition-colors`}
+              >
+                {app.shortLabel} ↗
+              </a>
+            ))}
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 grid md:grid-cols-2 gap-8 items-center">
+          <div>
+            <div className="font-mono uppercase tracking-[0.14em] text-yellow-400 text-xs font-semibold mb-2">
+              Extensão Biotecnologia Vermelha • UFPA • ICB • FABIOTEC
+            </div>
+            <p className="text-xs font-sans text-zinc-400 leading-relaxed max-w-[65ch]">
+              Projeto de Extensão Universitária <strong className="text-zinc-200 font-medium">Biotecnologia Vermelha: DNA e Diagnóstico</strong> — Equipe: Hanna Gabrielle Tavares Favacho, Jéssica Larissa Valle de Souza, Julliany Christinny Girard Carneiro, Kayllane Cristine Bezerra Carvalho, Maria Kailane da Silva de Souza e Richard Wesley da Silva Barbosa.
+            </p>
+          </div>
+          <div className="md:text-right space-y-3">
+            <div className="text-[11px] font-mono text-zinc-500">
+              Referências: NHGRI (DNA Fact Sheet) • NIJ (DNA Evidence) • Lehninger (Princípios de Bioquímica)
+            </div>
+            <div className="flex md:justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPosterOpen(true)}
+                className="px-3.5 py-2 bg-zinc-950 hover:border-yellow-400 hover:text-yellow-400 border border-zinc-800 text-[11px] font-mono font-semibold uppercase tracking-[0.1em] text-zinc-300 transition-colors"
+              >
+                ABRIR PÔSTER ORIGINAL
+              </button>
+              <button
+                type="button"
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                className="px-3.5 py-2 bg-yellow-400 hover:bg-yellow-300 text-[11px] font-mono font-bold uppercase tracking-[0.1em] text-black transition-colors"
+              >
+                TOPO ↑
+              </button>
+            </div>
+          </div>
+        </div>
+      </footer>
+
+      <PosterModal open={posterOpen} onClose={() => setPosterOpen(false)} />
+    </div>
+  );
+}
