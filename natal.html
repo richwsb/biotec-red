@@ -201,7 +201,7 @@
       align-items: center;
       gap: 4px;
       padding: 5px;
-      max-width: calc(100vw - 196px);
+      max-width: calc(100vw - 304px);
       border-radius: 999px;
       background: rgba(6, 11, 20, 0.78);
       backdrop-filter: blur(14px);
@@ -285,9 +285,11 @@
       }
 
       .natal-controls {
-        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-        left: calc(12px + env(safe-area-inset-left, 0px));
-        max-width: calc(100vw - 188px);
+        bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+        left: 50%;
+        transform: translateX(-50%);
+        width: max-content;
+        max-width: calc(100vw - 24px);
       }
 
       .natal-btn {
@@ -300,7 +302,9 @@
       .natal-btn-label {
         display: none;
       }
+    }
 
+    @media (max-width: 780px) {
       .natal-btn-short {
         display: inline;
       }
@@ -310,7 +314,7 @@
       }
     }
 
-    @media (min-width: 481px) {
+    @media (min-width: 781px) {
       .natal-btn-short {
         display: none;
       }
@@ -363,7 +367,7 @@
 
   <div class="natal-controls" role="region" aria-label="Controles da cena natalina">
     <!-- Controles do Modo 2D -->
-    <div id="natal-controls-2d" class="inline-flex items-center gap-1">
+    <div id="natal-controls-2d" class="inline-flex flex-wrap justify-center items-center gap-1">
       <button type="button" id="btn-natal-play" class="natal-btn" aria-pressed="false" title="Pausar ou retomar animação (Espaço)">
         <span id="natal-play-icon" style="display:inline-flex;align-items:center;" aria-hidden="true">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -390,7 +394,7 @@
     </div>
 
     <!-- Controles do Modo 3D (Visíveis após o Easter Egg de 5 toques na estrela) -->
-    <div id="natal-controls-3d" class="hidden items-center gap-1.5">
+    <div id="natal-controls-3d" class="hidden flex-wrap justify-center items-center gap-1.5">
       <button type="button" id="btn-natal-back-2d" class="natal-btn is-sky" title="Voltar à Vila Natalina 2D (Esc)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M19 12H5" /><path d="m12 19-7-7 7-7" />

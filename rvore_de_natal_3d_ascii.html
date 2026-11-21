@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -15,7 +16,9 @@
       user-select: none;
       -webkit-user-select: none;
     }
-    html, body {
+
+    html,
+    body {
       margin: 0;
       padding: 0;
       width: 100%;
@@ -24,6 +27,7 @@
       background-color: #04070d;
       font-family: 'JetBrains Mono', monospace;
     }
+
     canvas {
       display: block;
       width: 100vw;
@@ -31,9 +35,11 @@
       cursor: grab;
       touch-action: none;
     }
+
     canvas:active {
       cursor: grabbing;
     }
+
     .glass-btn {
       background: rgba(10, 18, 34, 0.65);
       backdrop-filter: blur(8px);
@@ -41,43 +47,43 @@
       border: 1px solid rgba(125, 185, 255, 0.22);
       transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     }
+
     .glass-btn:hover {
       background: rgba(20, 36, 66, 0.85);
       border-color: rgba(255, 215, 100, 0.55);
       transform: translateY(-1px);
       box-shadow: 0 0 18px rgba(255, 200, 70, 0.2);
     }
+
     .glass-btn:active {
       transform: translateY(0px) scale(0.98);
     }
   </style>
 </head>
+
 <body class="relative bg-[#04070d] text-slate-200">
 
   <!-- Tela Principal ASCII 3D -->
   <canvas id="asciiCanvas"></canvas>
 
-  <!-- Controles Discretos no Canto Inferior Esquerdo (sem colidir com o .eco-dock à direita) -->
-  <div class="fixed bottom-[calc(12px+env(safe-area-inset-bottom,0px))] left-[calc(12px+env(safe-area-inset-left,0px))] sm:bottom-[calc(16px+env(safe-area-inset-bottom,0px))] sm:left-[calc(16px+env(safe-area-inset-left,0px))] z-20 flex flex-wrap items-center gap-2 max-w-[calc(100vw-190px)]">
-    <a
-      href="./natal.html"
-      aria-label="Voltar à Vila Natalina 2D"
-      class="glass-btn flex items-center gap-1.5 rounded-full px-3 py-2 sm:px-3.5 sm:py-2.5 min-h-[40px] sm:min-h-[42px] text-[11px] sm:text-xs font-bold tracking-wide text-sky-200 shadow-lg no-underline"
-    >
-      <svg class="h-3.5 w-3.5 text-sky-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M19 12H5" /><path d="m12 19-7-7 7-7" />
+  <!-- Controles Discretos (acima do .eco-dock no celular e à esquerda em telas maiores) -->
+  <div
+    class="fixed bottom-[calc(78px+env(safe-area-inset-bottom,0px))] left-1/2 -translate-x-1/2 sm:translate-x-0 sm:bottom-[calc(16px+env(safe-area-inset-bottom,0px))] sm:left-[calc(16px+env(safe-area-inset-left,0px))] z-20 flex flex-wrap items-center justify-center sm:justify-start gap-2 w-max max-w-[calc(100vw-24px)] sm:max-w-[calc(100vw-304px)]">
+    <a href="./natal.html" aria-label="Voltar à Vila Natalina 2D"
+      class="glass-btn flex items-center gap-1.5 rounded-full px-3 py-2 sm:px-3.5 sm:py-2.5 min-h-[40px] sm:min-h-[42px] text-[11px] sm:text-xs font-bold tracking-wide text-sky-200 shadow-lg no-underline">
+      <svg class="h-3.5 w-3.5 text-sky-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M19 12H5" />
+        <path d="m12 19-7-7 7-7" />
       </svg>
       <span class="hidden sm:inline">Voltar à Vila Natalina 2D</span>
       <span class="sm:hidden">Cena 2D</span>
     </a>
 
-    <button
-      id="replayBtn"
-      type="button"
-      aria-label="Repetir Animação 3D"
-      class="glass-btn flex items-center gap-1.5 rounded-full px-3 py-2 sm:px-4 sm:py-2.5 min-h-[40px] sm:min-h-[42px] text-[11px] sm:text-xs font-bold tracking-wider text-amber-200/95 shadow-lg cursor-pointer"
-    >
-      <svg class="h-3.5 w-3.5 text-amber-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <button id="replayBtn" type="button" aria-label="Repetir Animação 3D"
+      class="glass-btn flex items-center gap-1.5 rounded-full px-3 py-2 sm:px-4 sm:py-2.5 min-h-[40px] sm:min-h-[42px] text-[11px] sm:text-xs font-bold tracking-wider text-amber-200/95 shadow-lg cursor-pointer">
+      <svg class="h-3.5 w-3.5 text-amber-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
         <path d="M3 3v5h5" />
       </svg>
@@ -87,7 +93,8 @@
   </div>
 
   <!-- Indicador Sutil de Interação no Topo Esquerdo -->
-  <div id="hintBadge" class="pointer-events-none fixed top-[calc(12px+env(safe-area-inset-top,0px))] left-[calc(12px+env(safe-area-inset-left,0px))] z-10 rounded-full border border-sky-400/20 bg-slate-950/60 px-3 py-1.5 text-[11px] tracking-wide text-sky-200/75 backdrop-blur-sm transition-opacity duration-700 sm:top-4 sm:left-4">
+  <div id="hintBadge"
+    class="pointer-events-none fixed top-[calc(12px+env(safe-area-inset-top,0px))] left-[calc(12px+env(safe-area-inset-left,0px))] z-10 rounded-full border border-sky-400/20 bg-slate-950/60 px-3 py-1.5 text-[11px] tracking-wide text-sky-200/75 backdrop-blur-sm transition-opacity duration-700 sm:top-4 sm:left-4">
     Arraste para girar • Árvore 3D 2026
   </div>
 
@@ -271,8 +278,8 @@
         treePoints = [];
         const tiers = [
           { yMin: -0.82, yMax: -0.10, rBottom: 1.04, rTop: 0.44, snowBand: 0.16, slopeNy: 0.55 },
-          { yMin: -0.20, yMax: 0.46,  rBottom: 0.78, rTop: 0.27, snowBand: 0.17, slopeNy: 0.58 },
-          { yMin: 0.36,  yMax: 1.18,  rBottom: 0.52, rTop: 0.015, snowBand: 0.18, slopeNy: 0.62 }
+          { yMin: -0.20, yMax: 0.46, rBottom: 0.78, rTop: 0.27, snowBand: 0.17, slopeNy: 0.58 },
+          { yMin: 0.36, yMax: 1.18, rBottom: 0.52, rTop: 0.015, snowBand: 0.18, slopeNy: 0.62 }
         ];
 
         const treeTotalBottom = -0.82;
@@ -380,16 +387,16 @@
           { y: -0.34, theta: 4.5, color: 'gold' },
           // Degrau do meio
           { y: -0.05, theta: 0.6, color: 'red' },
-          { y: 0.04,  theta: 2.0, color: 'gold' },
+          { y: 0.04, theta: 2.0, color: 'gold' },
           { y: -0.02, theta: 3.4, color: 'red' },
-          { y: 0.12,  theta: 4.8, color: 'gold' },
-          { y: 0.25,  theta: 1.3, color: 'red' },
-          { y: 0.28,  theta: 3.8, color: 'gold' },
+          { y: 0.12, theta: 4.8, color: 'gold' },
+          { y: 0.25, theta: 1.3, color: 'red' },
+          { y: 0.28, theta: 3.8, color: 'gold' },
           // Degrau superior
-          { y: 0.50,  theta: 0.4, color: 'gold' },
-          { y: 0.56,  theta: 2.4, color: 'red' },
-          { y: 0.64,  theta: 4.4, color: 'gold' },
-          { y: 0.78,  theta: 1.6, color: 'red' }
+          { y: 0.50, theta: 0.4, color: 'gold' },
+          { y: 0.56, theta: 2.4, color: 'red' },
+          { y: 0.64, theta: 4.4, color: 'gold' },
+          { y: 0.78, theta: 1.6, color: 'red' }
         ];
 
         ornamentSpecs.forEach((spec, idx) => {
@@ -1273,4 +1280,5 @@
   </script>
   <script src="./ecosystem-nav.js" defer data-page="natal.html" data-theme="dark" data-idle-dim="true"></script>
 </body>
+
 </html>
