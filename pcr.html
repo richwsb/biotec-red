@@ -1,0 +1,4390 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>BioForense 3D — Laboratório Interativo de Análise de DNA</title>
+
+    <!-- Import Map oficial do Three.js v0.160.0 via unpkg -->
+    <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+
+    <style>
+        /* =========================================================================
+       ESTILOS GLOBAIS E DESIGN SYSTEM (GLASSMORPHISM CIENTÍFICO)
+       ========================================================================= */
+        :root {
+            --bg-dark: #0b1220;
+            --glass-bg: rgba(13, 22, 39, 0.76);
+            --glass-bg-strong: rgba(11, 18, 33, 0.9);
+            --glass-border: rgba(94, 214, 255, 0.22);
+            --glass-border-strong: rgba(94, 214, 255, 0.48);
+            --accent-cyan: #22d3ee;
+            --accent-blue: #3b82f6;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #a855f7;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --shadow-lg: 0 18px 45px rgba(0, 0, 0, 0.55);
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            -webkit-font-smoothing: antialiased;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            z-index: 1;
+            touch-action: none;
+        }
+
+        #canvas-container canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            outline: none;
+        }
+
+        /* =========================================================================
+       BARRA SUPERIOR (PROGRESSO DAS 5 ETAPAS + CONTROLES)
+       ========================================================================= */
+        .top-hud {
+            position: fixed;
+            top: 14px;
+            left: 16px;
+            right: 16px;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            pointer-events: none;
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow-lg);
+            pointer-events: auto;
+        }
+
+        .brand-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 14px;
+            border-radius: var(--radius-md);
+            flex-shrink: 0;
+        }
+
+        .brand-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, rgba(34, 211, 238, 0.22), rgba(59, 130, 246, 0.35));
+            border: 1px solid rgba(34, 211, 238, 0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-cyan);
+        }
+
+        .brand-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }
+
+        .brand-sub {
+            font-size: 0.68rem;
+            color: var(--accent-cyan);
+            font-family: var(--font-mono);
+            opacity: 0.9;
+        }
+
+        /* Barra de Progresso */
+        .stepper-bar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            overflow-x: auto;
+            max-width: 100%;
+            scrollbar-width: none;
+        }
+
+        .stepper-bar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .step-pill {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 13px;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            background: transparent;
+            color: var(--text-muted);
+            font-family: var(--font-sans);
+            font-size: 0.78rem;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: not-allowed;
+            transition: all 0.25s ease;
+        }
+
+        .step-pill .step-num {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-family: var(--font-mono);
+            background: rgba(148, 163, 184, 0.14);
+            color: var(--text-secondary);
+            transition: all 0.25s ease;
+        }
+
+        .step-pill.unlocked {
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        .step-pill.unlocked:hover {
+            background: rgba(34, 211, 238, 0.1);
+            color: var(--text-primary);
+        }
+
+        .step-pill.completed .step-num {
+            background: rgba(16, 185, 129, 0.22);
+            color: var(--accent-emerald);
+            border: 1px solid rgba(16, 185, 129, 0.5);
+        }
+
+        .step-pill.active {
+            background: rgba(34, 211, 238, 0.16);
+            border-color: rgba(34, 211, 238, 0.52);
+            color: #ffffff;
+            cursor: pointer;
+            box-shadow: 0 0 18px rgba(34, 211, 238, 0.22);
+        }
+
+        .step-pill.active .step-num {
+            background: var(--accent-cyan);
+            color: #06131f;
+            font-weight: 800;
+        }
+
+        .step-connector {
+            width: 14px;
+            height: 2px;
+            background: rgba(148, 163, 184, 0.2);
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .step-connector.done {
+            background: rgba(16, 185, 129, 0.65);
+        }
+
+        /* Botões utilitários do topo */
+        .top-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 9px 12px;
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .icon-btn:hover {
+            border-color: var(--glass-border-strong);
+            background: rgba(34, 211, 238, 0.14);
+            transform: translateY(-1px);
+        }
+
+        .icon-btn:active {
+            transform: translateY(0);
+        }
+
+        /* =========================================================================
+       PAINEL LATERAL RETRÁTIL (INSTRUÇÕES + CONTROLES + EXPLICAÇÃO CIENTÍFICA)
+       ========================================================================= */
+        .side-panel-wrapper {
+            position: fixed;
+            top: 78px;
+            left: 16px;
+            z-index: 20;
+            width: 355px;
+            max-width: calc(100vw - 32px);
+            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+            pointer-events: none;
+        }
+
+        .side-panel-wrapper.collapsed {
+            transform: translateX(calc(-100% + 44px));
+        }
+
+        .side-panel {
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 102px);
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 13px 15px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+            background: rgba(15, 23, 42, 0.55);
+        }
+
+        .stage-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .stage-tag .pulse-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            box-shadow: 0 0 8px var(--accent-cyan);
+            animation: pulseDot 1.6s infinite;
+        }
+
+        @keyframes pulseDot {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.45;
+                transform: scale(0.75);
+            }
+        }
+
+        .collapse-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            background: rgba(30, 41, 59, 0.65);
+            color: var(--text-primary);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .collapse-btn:hover {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        .panel-body {
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 13px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(34, 211, 238, 0.3) transparent;
+        }
+
+        .stage-title {
+            font-size: 1.12rem;
+            font-weight: 700;
+            color: #ffffff;
+            line-height: 1.25;
+        }
+
+        .stage-objective {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            line-height: 1.45;
+            margin-top: 3px;
+        }
+
+        /* Caixa de Instrução Ativa */
+        .action-box {
+            padding: 12px 13px;
+            border-radius: var(--radius-md);
+            background: linear-gradient(135deg, rgba(34, 211, 238, 0.14), rgba(59, 130, 246, 0.12));
+            border: 1px solid rgba(34, 211, 238, 0.42);
+            position: relative;
+        }
+
+        .action-box-label {
+            font-size: 0.68rem;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--accent-cyan);
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .action-box-text {
+            font-size: 0.87rem;
+            font-weight: 600;
+            color: #ffffff;
+            line-height: 1.42;
+        }
+
+        /* Controles Dinâmicos da Etapa */
+        .stage-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+
+        .stage-controls:empty {
+            display: none;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 11px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(34, 211, 238, 0.6);
+            background: linear-gradient(135deg, #0891b2, #2563eb);
+            color: #ffffff;
+            font-family: var(--font-sans);
+            font-size: 0.84rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 6px 18px rgba(8, 145, 178, 0.32);
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            filter: brightness(1.12);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            filter: grayscale(0.4);
+        }
+
+        .btn-emerald {
+            background: linear-gradient(135deg, #059669, #10b981);
+            border-color: rgba(52, 211, 153, 0.65);
+            box-shadow: 0 6px 18px rgba(16, 185, 129, 0.32);
+        }
+
+        .btn-uv {
+            background: linear-gradient(135deg, #6d28d9, #4f46e5);
+            border-color: rgba(168, 85, 247, 0.7);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.38);
+        }
+
+        .btn-uv.uv-active {
+            background: linear-gradient(135deg, #06b6d4, #10b981);
+            border-color: #34d399;
+            box-shadow: 0 0 22px rgba(34, 211, 238, 0.55);
+        }
+
+        .btn-secondary {
+            width: 100%;
+            padding: 9px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            background: rgba(30, 41, 59, 0.65);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            border-color: var(--accent-cyan);
+            background: rgba(34, 211, 238, 0.14);
+        }
+
+        /* Métricas / Telemetria no Painel */
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .telemetry-card {
+            padding: 9px 10px;
+            border-radius: 10px;
+            background: rgba(15, 23, 42, 0.68);
+            border: 1px solid rgba(148, 163, 184, 0.16);
+        }
+
+        .telemetry-label {
+            font-size: 0.65rem;
+            font-family: var(--font-mono);
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .telemetry-value {
+            font-size: 0.98rem;
+            font-family: var(--font-mono);
+            font-weight: 700;
+            color: var(--accent-cyan);
+            margin-top: 2px;
+        }
+
+        /* Slider Forense (Etapa 5) */
+        .slider-card {
+            padding: 11px 12px;
+            border-radius: 10px;
+            background: rgba(15, 23, 42, 0.72);
+            border: 1px solid rgba(34, 211, 238, 0.28);
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.76rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .slider-target-badge {
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            color: var(--accent-cyan);
+            background: rgba(34, 211, 238, 0.14);
+            padding: 2px 7px;
+            border-radius: 6px;
+        }
+
+        input[type="range"].forensic-slider {
+            width: 100%;
+            accent-color: var(--accent-cyan);
+            cursor: pointer;
+            height: 6px;
+        }
+
+        .slider-ticks {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.67rem;
+            font-family: var(--font-mono);
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+
+        .suspect-btn-group {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 7px;
+        }
+
+        .suspect-choice-btn {
+            padding: 10px 6px;
+            border-radius: 9px;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            background: rgba(15, 23, 42, 0.78);
+            color: #ffffff;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .suspect-choice-btn:hover {
+            border-color: var(--accent-cyan);
+            background: rgba(34, 211, 238, 0.16);
+        }
+
+        .suspect-choice-btn.wrong {
+            border-color: var(--accent-rose);
+            background: rgba(244, 63, 94, 0.18);
+            color: #fecdd3;
+        }
+
+        .suspect-choice-btn.correct {
+            border-color: var(--accent-emerald);
+            background: rgba(16, 185, 129, 0.24);
+            color: #a7f3d0;
+        }
+
+        /* Bloco de Explicação Científica */
+        .science-card {
+            padding: 12px 13px;
+            border-radius: var(--radius-md);
+            background: rgba(15, 23, 42, 0.58);
+            border: 1px solid rgba(148, 163, 184, 0.15);
+        }
+
+        .science-title {
+            font-size: 0.74rem;
+            font-weight: 700;
+            color: #cbd5e1;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .science-text {
+            font-size: 0.79rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Dica de controle de câmera */
+        .controls-hint {
+            position: fixed;
+            bottom: 14px;
+            right: 16px;
+            z-index: 15;
+            padding: 7px 12px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        /* Tooltip 3D Hover */
+        #hover-tooltip {
+            position: fixed;
+            z-index: 30;
+            pointer-events: none;
+            padding: 6px 11px;
+            border-radius: 8px;
+            background: rgba(9, 15, 28, 0.92);
+            border: 1px solid rgba(34, 211, 238, 0.55);
+            color: #ffffff;
+            font-size: 0.76rem;
+            font-weight: 600;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            transform: translate(14px, -12px);
+            opacity: 0;
+            transition: opacity 0.14s ease;
+            white-space: nowrap;
+        }
+
+        #hover-tooltip.visible {
+            opacity: 1;
+        }
+
+        #hover-tooltip .tip-sub {
+            display: block;
+            font-size: 0.66rem;
+            color: var(--accent-cyan);
+            font-weight: 500;
+            margin-top: 1px;
+        }
+
+        /* Toast de Feedback Técnico */
+        #feedback-toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(24px);
+            z-index: 40;
+            max-width: min(560px, calc(100vw - 32px));
+            padding: 12px 18px;
+            border-radius: var(--radius-md);
+            background: var(--glass-bg-strong);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow-lg);
+            backdrop-filter: blur(14px);
+            font-size: 0.84rem;
+            line-height: 1.45;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.28s ease;
+        }
+
+        #feedback-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        #feedback-toast.error {
+            border-color: rgba(244, 63, 94, 0.75);
+            background: rgba(45, 11, 22, 0.92);
+            color: #ffe4e6;
+        }
+
+        #feedback-toast.success {
+            border-color: rgba(16, 185, 129, 0.75);
+            background: rgba(6, 40, 31, 0.92);
+            color: #d1fae5;
+        }
+
+        /* =========================================================================
+       MODAL LAUDO PERICIAL FINAL
+       ========================================================================= */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            background: rgba(5, 10, 20, 0.74);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-backdrop.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .report-modal {
+            width: 100%;
+            max-width: 560px;
+            max-height: 90vh;
+            overflow-y: auto;
+            border-radius: 18px;
+            background: rgba(11, 19, 36, 0.96);
+            border: 1px solid rgba(16, 185, 129, 0.55);
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.72), 0 0 40px rgba(16, 185, 129, 0.16);
+            padding: 22px 24px;
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-backdrop.open .report-modal {
+            transform: scale(1);
+        }
+
+        .report-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+            padding-bottom: 14px;
+            margin-bottom: 16px;
+        }
+
+        .report-badge {
+            display: inline-block;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--accent-emerald);
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.45);
+            padding: 3px 9px;
+            border-radius: 999px;
+            margin-bottom: 6px;
+        }
+
+        .report-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #ffffff;
+        }
+
+        .report-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .stat-box {
+            padding: 11px 13px;
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+        }
+
+        .stat-box .lbl {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-family: var(--font-mono);
+        }
+
+        .stat-box .val {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--accent-emerald);
+            margin-top: 3px;
+        }
+
+        .loci-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+            margin-bottom: 18px;
+            font-family: var(--font-mono);
+        }
+
+        .loci-table th,
+        .loci-table td {
+            padding: 7px 9px;
+            text-align: left;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+        }
+
+        .loci-table th {
+            color: var(--text-secondary);
+            font-size: 0.69rem;
+            text-transform: uppercase;
+        }
+
+        .match-chip {
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 6px;
+            background: rgba(16, 185, 129, 0.2);
+            color: #6ee7b7;
+            font-weight: 700;
+            font-size: 0.7rem;
+        }
+
+        .report-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Responsividade para Tablets e Celulares */
+        @media (max-width: 960px) {
+            .brand-badge {
+                display: none;
+            }
+
+            .controls-hint {
+                display: none;
+            }
+
+            .side-panel-wrapper {
+                width: 315px;
+                top: 72px;
+            }
+
+            .top-hud {
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                gap: 8px;
+            }
+
+            .icon-btn span.btn-label {
+                display: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .top-hud {
+                top: calc(8px + env(safe-area-inset-top, 0px));
+                left: 8px;
+                right: 8px;
+                gap: 6px;
+            }
+
+            .stepper-bar {
+                padding: 4px 6px;
+                gap: 4px;
+                -webkit-overflow-scrolling: touch;
+                flex: 1;
+                min-width: 0;
+            }
+
+            .step-pill {
+                padding: 5px 9px;
+                font-size: 0.72rem;
+                gap: 5px;
+            }
+
+            .step-pill .step-num {
+                width: 18px;
+                height: 18px;
+                font-size: 0.65rem;
+            }
+
+            .step-connector {
+                width: 8px;
+            }
+
+            .top-actions {
+                gap: 5px;
+            }
+
+            .icon-btn {
+                padding: 7px 9px;
+                font-size: 0.85rem;
+            }
+
+            /* Bottom Sheet responsivo no celular para liberar a bancada 3D */
+            .side-panel-wrapper {
+                top: auto;
+                left: 10px;
+                right: 10px;
+                bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+                width: auto;
+                max-width: none;
+                transform: none;
+            }
+
+            .side-panel-wrapper.collapsed {
+                transform: none;
+            }
+
+            .side-panel-wrapper.collapsed .panel-body {
+                display: none;
+            }
+
+            .side-panel {
+                max-height: 42dvh;
+                border-radius: 14px;
+            }
+
+            .panel-header {
+                padding: 10px 12px;
+                cursor: pointer;
+            }
+
+            .panel-body {
+                padding: 11px 12px;
+                gap: 9px;
+            }
+
+            .stage-title {
+                font-size: 0.96rem;
+            }
+
+            .stage-objective {
+                font-size: 0.76rem;
+            }
+
+            .action-box {
+                padding: 9px 11px;
+            }
+
+            .action-box-text {
+                font-size: 0.8rem;
+            }
+
+            .science-text {
+                font-size: 0.74rem;
+            }
+
+            #feedback-toast {
+                bottom: auto;
+                top: calc(62px + env(safe-area-inset-top, 0px));
+                font-size: 0.78rem;
+                padding: 9px 13px;
+            }
+
+            #hover-tooltip {
+                display: none;
+            }
+        }
+
+        @media (max-width: 540px) {
+            .modal-backdrop {
+                padding: 10px;
+            }
+
+            .report-modal {
+                padding: 16px;
+                max-height: 90dvh;
+                border-radius: 14px;
+            }
+
+            .report-title {
+                font-size: 1.05rem;
+            }
+
+            .report-stats {
+                gap: 8px;
+            }
+
+            .stat-box {
+                padding: 9px 10px;
+            }
+
+            .stat-box .val {
+                font-size: 0.92rem;
+            }
+
+            .loci-table {
+                display: block;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                white-space: nowrap;
+                font-size: 0.72rem;
+            }
+
+            .loci-table th,
+            .loci-table td {
+                padding: 6px 7px;
+            }
+
+            .report-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Viewport 3D WebGL -->
+    <div id="canvas-container"></div>
+
+    <!-- Tooltip Flutuante de Hover 3D -->
+    <div id="hover-tooltip">
+        <span id="tooltip-title">Objeto</span>
+        <span id="tooltip-sub" class="tip-sub">Clique para interagir</span>
+    </div>
+
+    <!-- Barra Superior HUD -->
+    <header class="top-hud">
+        <div class="brand-badge glass-panel">
+            <div class="brand-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 15c6.667-6 13.333 0 20-6" />
+                    <path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993" />
+                    <path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993" />
+                    <path d="M17 6l-2.5-2.5" />
+                    <path d="M14 8l-1-1" />
+                    <path d="M7 18l2.5 2.5" />
+                    <path d="M3.5 14.5l.5.5" />
+                    <path d="M20 9l.5.5" />
+                    <path d="M6.5 12.5l1 1" />
+                    <path d="M16.5 10.5l1 1" />
+                    <path d="M10 16l1.5 1.5" />
+                </svg>
+            </div>
+            <div>
+                <div class="brand-title">BioForense 3D</div>
+                <div class="brand-sub">LAB MOLECULAR • DNA STR</div>
+            </div>
+        </div>
+
+        <nav class="stepper-bar glass-panel" id="stepper-bar" aria-label="Etapas da análise de DNA">
+            <button class="step-pill active unlocked" data-stage="1"><span class="step-num">1</span>Coleta</button>
+            <div class="step-connector" data-conn="1"></div>
+            <button class="step-pill" data-stage="2"><span class="step-num">2</span>Extração</button>
+            <div class="step-connector" data-conn="2"></div>
+            <button class="step-pill" data-stage="3"><span class="step-num">3</span>PCR</button>
+            <div class="step-connector" data-conn="3"></div>
+            <button class="step-pill" data-stage="4"><span class="step-num">4</span>Análise</button>
+            <div class="step-connector" data-conn="4"></div>
+            <button class="step-pill" data-stage="5"><span class="step-num">5</span>Comparação</button>
+        </nav>
+
+        <div class="top-actions">
+            <button id="btn-recenter" class="icon-btn glass-panel" title="Recentralizar câmera na estação atual">
+                <span>🎯</span><span class="btn-label">Câmera</span>
+            </button>
+            <button id="btn-mute" class="icon-btn glass-panel" title="Ativar ou silenciar áudio">
+                <span id="mute-icon">🔊</span><span class="btn-label">Áudio</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Painel Lateral Retrátil -->
+    <aside class="side-panel-wrapper" id="side-panel-wrapper">
+        <section class="side-panel glass-panel">
+            <div class="panel-header">
+                <div class="stage-tag">
+                    <span class="pulse-dot"></span>
+                    <span id="hud-stage-badge">ESTAÇÃO 1 / 5</span>
+                </div>
+                <button id="btn-collapse-panel" class="collapse-btn" title="Minimizar ou expandir painel">
+                    <span id="collapse-chevron">◀</span>
+                </button>
+            </div>
+
+            <div class="panel-body">
+                <div>
+                    <h1 class="stage-title" id="hud-stage-title">Coleta da Evidência Biológica</h1>
+                    <p class="stage-objective" id="hud-stage-objective">
+                        Coletar o vestígio biológico da lâmina forense com swab estéril e transferi-lo para o microtubo
+                        sem contaminação.
+                    </p>
+                </div>
+
+                <div class="action-box">
+                    <div class="action-box-label">
+                        <span>▸</span> AÇÃO NA BANCADA 3D
+                    </div>
+                    <div class="action-box-text" id="hud-instruction">
+                        Clique no swab estéril no suporte para coletar a mancha biológica na lâmina EV-01.
+                    </div>
+                </div>
+
+                <!-- Controles dinâmicos específicos de cada etapa -->
+                <div class="stage-controls" id="hud-dynamic-controls"></div>
+
+                <div class="science-card">
+                    <div class="science-title">
+                        <span>🧬</span> O que está acontecendo?
+                    </div>
+                    <p class="science-text" id="hud-science-text">
+                        Vestígios biológicos (como sangue ou saliva) contêm células nucleadas que armazenam o DNA
+                        genômico. O swab estéril preserva a integridade da amostra sob cadeia de custódia até a lise
+                        celular.
+                    </p>
+                </div>
+            </div>
+        </section>
+    </aside>
+
+    <!-- Dica discreta de navegação 3D -->
+    <div class="controls-hint glass-panel">
+        <span>🖱️ Arraste: Orbitar</span>
+        <span>•</span>
+        <span>🔍 Scroll: Zoom</span>
+        <span>•</span>
+        <span>👆 Clique nos itens iluminados</span>
+    </div>
+
+    <!-- Toast de Feedback Técnico -->
+    <div id="feedback-toast" role="status" aria-live="polite"></div>
+
+    <!-- Modal de Laudo Pericial Final -->
+    <div class="modal-backdrop" id="report-modal-backdrop">
+        <div class="report-modal">
+            <div class="report-header">
+                <div>
+                    <span class="report-badge">CORRESPONDÊNCIA CONFIRMADA • CODIS STR</span>
+                    <h2 class="report-title">Laudo Pericial de Genética Forense</h2>
+                </div>
+                <button id="btn-close-report" class="collapse-btn" title="Fechar visualização do laudo">✕</button>
+            </div>
+
+            <div class="report-stats">
+                <div class="stat-box">
+                    <div class="lbl">Perfil Compatível</div>
+                    <div class="val">Suspeito B</div>
+                </div>
+                <div class="stat-box">
+                    <div class="lbl">Loci STR Coincidentes</div>
+                    <div class="val">6 / 6 (100%)</div>
+                </div>
+                <div class="stat-box">
+                    <div class="lbl">Prob. de Acaso (RMP)</div>
+                    <div class="val">1 em 4,8 bilhões</div>
+                </div>
+                <div class="stat-box">
+                    <div class="lbl">Confiabilidade Estatística</div>
+                    <div class="val">&gt; 99,9999999%</div>
+                </div>
+            </div>
+
+            <table class="loci-table">
+                <thead>
+                    <tr>
+                        <th>Locus STR</th>
+                        <th>Evidência EV-01</th>
+                        <th>Suspeito B</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>FGA</td>
+                        <td>21 / 24 (380 pb)</td>
+                        <td>21 / 24 (380 pb)</td>
+                        <td><span class="match-chip">MATCH</span></td>
+                    </tr>
+                    <tr>
+                        <td>D3S1358</td>
+                        <td>15 / 17 (315 pb)</td>
+                        <td>15 / 17 (315 pb)</td>
+                        <td><span class="match-chip">MATCH</span></td>
+                    </tr>
+                    <tr>
+                        <td>vWA</td>
+                        <td>16 / 18 (265 pb)</td>
+                        <td>16 / 18 (265 pb)</td>
+                        <td><span class="match-chip">MATCH</span></td>
+                    </tr>
+                    <tr>
+                        <td>CSF1PO</td>
+                        <td>10 / 12 (220 pb)</td>
+                        <td>10 / 12 (220 pb)</td>
+                        <td><span class="match-chip">MATCH</span></td>
+                    </tr>
+                    <tr>
+                        <td>TH01</td>
+                        <td>7 / 9.3 (170 pb)</td>
+                        <td>7 / 9.3 (170 pb)</td>
+                        <td><span class="match-chip">MATCH</span></td>
+                    </tr>
+                    <tr>
+                        <td>TPOX</td>
+                        <td>8 / 11 (125 pb)</td>
+                        <td>8 / 11 (125 pb)</td>
+                        <td><span class="match-chip">MATCH</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.5; margin-bottom: 18px;">
+                <strong>Conclusão Pericial:</strong> Os perfis genéticos obtidos a partir da amostra biológica
+                <strong>EV-01</strong> e da amostra de referência do <strong>Suspeito B</strong> apresentam identidade
+                completa em todos os seis marcadores autossômicos STR analisados. Os perfis dos Suspeitos A e C foram
+                excluídos por divergência alélica.
+            </p>
+
+            <div class="report-actions">
+                <button id="btn-inspect-3d" class="btn-secondary" style="flex: 1;">Inspecionar Mesa 3D</button>
+                <button id="btn-restart-exp" class="btn-primary btn-emerald" style="flex: 1.4;">↻ Reiniciar
+                    Experimento</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =========================================================================
+       MOTOR 3D THREE.JS + SIMULAÇÃO FORENSE + ÁUDIO PROCEDURAL
+       ========================================================================= -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // =========================================================================
+        // 1. MOTOR DE ÁUDIO PROCEDURAL (WEB AUDIO API)
+        // =========================================================================
+        class ForensicAudio {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+                this.centrifugeNode = null;
+                this.electroNode = null;
+            }
+
+            ensureContext() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            setMuted(m) {
+                this.muted = m;
+                if (m) {
+                    this.stopCentrifuge();
+                    this.stopElectrophoresisHum();
+                }
+            }
+
+            playClick(freq = 720, duration = 0.055, gainVal = 0.12) {
+                if (this.muted) return;
+                this.ensureContext();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now);
+                osc.frequency.exponentialRampToValueAtTime(freq * 0.45, now + duration);
+                gain.gain.setValueAtTime(gainVal, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+                osc.connect(gain).connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + duration);
+            }
+
+            playPipette() {
+                this.playClick(980, 0.045, 0.11);
+                setTimeout(() => this.playClick(620, 0.06, 0.09), 90);
+            }
+
+            playSwab() {
+                if (this.muted) return;
+                this.ensureContext();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const bufferSize = Math.floor(this.ctx.sampleRate * 0.35);
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * Math.sin((i / bufferSize) * Math.PI);
+                }
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = 1400;
+                filter.Q.value = 1.8;
+                const gain = this.ctx.createGain();
+                gain.gain.value = 0.08;
+                noise.connect(filter).connect(gain).connect(this.ctx.destination);
+                noise.start(now);
+            }
+
+            playCentrifuge(durationSec = 4.2) {
+                if (this.muted) return;
+                this.ensureContext();
+                if (!this.ctx) return;
+                this.stopCentrifuge();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const osc2 = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                const filter = this.ctx.createBiquadFilter();
+
+                osc.type = 'sawtooth';
+                osc2.type = 'sine';
+                osc.frequency.setValueAtTime(95, now);
+                osc.frequency.exponentialRampToValueAtTime(460, now + durationSec * 0.42);
+                osc.frequency.setValueAtTime(460, now + durationSec * 0.68);
+                osc.frequency.exponentialRampToValueAtTime(80, now + durationSec);
+
+                osc2.frequency.setValueAtTime(190, now);
+                osc2.frequency.exponentialRampToValueAtTime(920, now + durationSec * 0.42);
+                osc2.frequency.setValueAtTime(920, now + durationSec * 0.68);
+                osc2.frequency.exponentialRampToValueAtTime(140, now + durationSec);
+
+                filter.type = 'lowpass';
+                filter.frequency.value = 850;
+
+                gain.gain.setValueAtTime(0.001, now);
+                gain.gain.linearRampToValueAtTime(0.085, now + 0.4);
+                gain.gain.setValueAtTime(0.085, now + durationSec * 0.72);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + durationSec);
+
+                osc.connect(filter);
+                osc2.connect(filter);
+                filter.connect(gain).connect(this.ctx.destination);
+
+                osc.start(now);
+                osc2.start(now);
+                osc.stop(now + durationSec + 0.05);
+                osc2.stop(now + durationSec + 0.05);
+                this.centrifugeNode = { osc, osc2 };
+            }
+
+            stopCentrifuge() {
+                if (this.centrifugeNode) {
+                    try {
+                        this.centrifugeNode.osc.stop();
+                        this.centrifugeNode.osc2.stop();
+                    } catch (_) { }
+                    this.centrifugeNode = null;
+                }
+            }
+
+            playThermalBeep(type = 'high') {
+                if (this.muted) return;
+                this.ensureContext();
+                if (!this.ctx) return;
+                const map = { high: 1046, mid: 784, low: 587 };
+                const freq = map[type] || 880;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, now);
+                gain.gain.setValueAtTime(0.09, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+                osc.connect(gain).connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+
+            startElectrophoresisHum(durationSec = 4.6) {
+                if (this.muted) return;
+                this.ensureContext();
+                if (!this.ctx) return;
+                this.stopElectrophoresisHum();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(120, now);
+                gain.gain.setValueAtTime(0.001, now);
+                gain.gain.linearRampToValueAtTime(0.045, now + 0.25);
+                gain.gain.setValueAtTime(0.045, now + durationSec - 0.35);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + durationSec);
+                osc.connect(gain).connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + durationSec + 0.05);
+                this.electroNode = osc;
+            }
+
+            stopElectrophoresisHum() {
+                if (this.electroNode) {
+                    try { this.electroNode.stop(); } catch (_) { }
+                    this.electroNode = null;
+                }
+            }
+
+            playUVToggle(on) {
+                this.playClick(on ? 1280 : 520, 0.08, 0.12);
+                if (on) setTimeout(() => this.playThermalBeep('mid'), 80);
+            }
+
+            playError() {
+                if (this.muted) return;
+                this.ensureContext();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                [240, 185].forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.14);
+                    gain.gain.setValueAtTime(0.08, now + idx * 0.14);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.14 + 0.18);
+                    osc.connect(gain).connect(this.ctx.destination);
+                    osc.start(now + idx * 0.14);
+                    osc.stop(now + idx * 0.14 + 0.2);
+                });
+            }
+
+            playSuccessChord() {
+                if (this.muted) return;
+                this.ensureContext();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    const start = now + idx * 0.075;
+                    osc.frequency.setValueAtTime(freq, start);
+                    gain.gain.setValueAtTime(0.11, start);
+                    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.65);
+                    osc.connect(gain).connect(this.ctx.destination);
+                    osc.start(start);
+                    osc.stop(start + 0.7);
+                });
+            }
+        }
+
+        const audio = new ForensicAudio();
+
+        // =========================================================================
+        // 2. DADOS CIENTÍFICOS CONSISTENTES (ELETROFORESE + PERFIL DE STRs)
+        // =========================================================================
+        // Valores normalizados de migração (0 = topo/poço, maior pb; 1 = base/ânodo, menor pb)
+        const STR_LOCI = [
+            { id: 'FGA', label: 'FGA', bp: 380 },
+            { id: 'D3S1358', label: 'D3S1358', bp: 315 },
+            { id: 'vWA', label: 'vWA', bp: 265 },
+            { id: 'CSF1PO', label: 'CSF1PO', bp: 220 },
+            { id: 'TH01', label: 'TH01', bp: 170 },
+            { id: 'TPOX', label: 'TPOX', bp: 125 }
+        ];
+
+        const LADDER_BANDS = [
+            { bp: '500 pb', pos: 0.12 },
+            { bp: '400 pb', pos: 0.24 },
+            { bp: '300 pb', pos: 0.40 },
+            { bp: '200 pb', pos: 0.60 },
+            { bp: '150 pb', pos: 0.75 },
+            { bp: '100 pb', pos: 0.89 }
+        ];
+
+        // Posições exatas das bandas STR para cada perfil (0.0 = topo perto do poço, 1.0 = base)
+        // Suspeito B possui 100% de correspondência com a Evidência EV-01
+        const DNA_PROFILES = {
+            evidence: {
+                name: 'Evidência (EV-01)',
+                short: 'EV-01',
+                bands: [0.22, 0.36, 0.48, 0.59, 0.73, 0.86]
+            },
+            A: {
+                name: 'Suspeito A',
+                short: 'Susp. A',
+                bands: [0.22, 0.31, 0.53, 0.64, 0.73, 0.86],
+                divergentLoci: ['D3S1358', 'vWA', 'CSF1PO']
+            },
+            B: {
+                name: 'Suspeito B',
+                short: 'Susp. B',
+                bands: [0.22, 0.36, 0.48, 0.59, 0.73, 0.86],
+                divergentLoci: []
+            },
+            C: {
+                name: 'Suspeito C',
+                short: 'Susp. C',
+                bands: [0.18, 0.36, 0.43, 0.59, 0.69, 0.91],
+                divergentLoci: ['FGA', 'vWA', 'TH01', 'TPOX']
+            }
+        };
+
+        // =========================================================================
+        // 3. UTILITÁRIOS PROCEDURAIS (CANVAS TEXTURES & HELPERS)
+        // =========================================================================
+        function createCanvasTexture(width, height, drawFn) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            drawFn(ctx, width, height);
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.colorSpace = THREE.SRGBColorSpace;
+            tex.anisotropy = 4;
+            tex.needsUpdate = true;
+            return { tex, canvas, ctx };
+        }
+
+        function easeInOutCubic(t) {
+            return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        }
+
+        // =========================================================================
+        // 4. CONFIGURAÇÃO DA CENA, CÂMERA, RENDERER E ILUMINAÇÃO
+        // =========================================================================
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0b1220);
+        scene.fog = new THREE.FogExp2(0x0b1220, 0.022);
+
+        const camera = new THREE.PerspectiveCamera(44, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(-12.2, 3.1, 4.9);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.065;
+        controls.maxPolarAngle = Math.PI * 0.48;
+        controls.minDistance = 1.6;
+        controls.maxDistance = 15;
+        controls.target.set(-12, 0.75, 0);
+
+        // Pausa transição automática se o usuário começar a manipular a câmera manualmente
+        let cameraTransition = {
+            active: false,
+            targetPos: new THREE.Vector3(-12.2, 3.1, 4.9),
+            targetLook: new THREE.Vector3(-12, 0.75, 0)
+        };
+        controls.addEventListener('start', () => {
+            cameraTransition.active = false;
+        });
+
+        // Posições ótimas de câmera para cada estação ao longo da bancada
+        const STATION_X = { 1: -12, 2: -6, 3: 0, 4: 6, 5: 12 };
+        const CAMERA_PRESETS = {
+            1: { pos: new THREE.Vector3(-12.1, 2.75, 4.35), look: new THREE.Vector3(-12.0, 0.65, 0.0) },
+            2: { pos: new THREE.Vector3(-5.8, 2.95, 4.85), look: new THREE.Vector3(-6.0, 0.85, 0.0) },
+            3: { pos: new THREE.Vector3(0.2, 2.95, 5.15), look: new THREE.Vector3(0.15, 1.15, 0.0) },
+            4: { pos: new THREE.Vector3(6.1, 3.05, 4.55), look: new THREE.Vector3(6.0, 0.55, 0.05) },
+            5: { pos: new THREE.Vector3(12.0, 2.25, 4.45), look: new THREE.Vector3(12.0, 1.45, -0.35) }
+        };
+
+        function focusStation(stageNum) {
+            const preset = CAMERA_PRESETS[stageNum];
+            if (!preset) return;
+            const aspect = window.innerWidth / Math.max(1, window.innerHeight);
+            cameraTransition.targetLook.copy(preset.look);
+            if (aspect < 0.85) {
+                // Em celulares retrato, afasta levemente a câmera para enquadrar toda a estação 3D
+                const pullFactor = Math.min(1.52, Math.max(1.12, 0.92 / aspect));
+                const offset = preset.pos.clone().sub(preset.look).multiplyScalar(pullFactor);
+                offset.y += 0.25;
+                cameraTransition.targetPos.copy(preset.look).add(offset);
+            } else {
+                cameraTransition.targetPos.copy(preset.pos);
+            }
+            cameraTransition.active = true;
+        }
+
+        // Iluminação Base (Controlada para transição UV suave na Etapa 4)
+        const ambientLight = new THREE.AmbientLight(0xcbe4ff, 0.55);
+        scene.add(ambientLight);
+
+        const hemiLight = new THREE.HemisphereLight(0xdbeafe, 0x0f172a, 0.65);
+        scene.add(hemiLight);
+
+        const mainDirLight = new THREE.DirectionalLight(0xffffff, 1.35);
+        mainDirLight.position.set(4, 12, 8);
+        mainDirLight.castShadow = true;
+        mainDirLight.shadow.mapSize.set(2048, 2048);
+        mainDirLight.shadow.camera.left = -20;
+        mainDirLight.shadow.camera.right = 20;
+        mainDirLight.shadow.camera.top = 8;
+        mainDirLight.shadow.camera.bottom = -8;
+        mainDirLight.shadow.camera.near = 1;
+        mainDirLight.shadow.camera.far = 30;
+        mainDirLight.shadow.bias = -0.0005;
+        scene.add(mainDirLight);
+
+        // Spots focados em cada uma das 5 estações
+        const stationLights = [];
+        Object.values(STATION_X).forEach((sx) => {
+            const spot = new THREE.SpotLight(0xe0f2fe, 2.2, 12, Math.PI / 4, 0.55, 1.2);
+            spot.position.set(sx, 5.2, 1.8);
+            spot.target.position.set(sx, 0, 0);
+            scene.add(spot);
+            scene.add(spot.target);
+            stationLights.push(spot);
+        });
+
+        // =========================================================================
+        // 5. MATERIAIS COMPARTILHADOS (REUTILIZAÇÃO PARA 60 FPS)
+        // =========================================================================
+        const MAT = {
+            labMetalDark: new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.38, metalness: 0.65 }),
+            labMetalLight: new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.25, metalness: 0.8 }),
+            labWhitePlastic: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.35, metalness: 0.08 }),
+            labSlateBody: new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.45, metalness: 0.25 }),
+            labAccentBlue: new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.32, metalness: 0.15 }),
+            labAccentCyan: new THREE.MeshStandardMaterial({ color: 0x06b6d4, roughness: 0.25, metalness: 0.2, emissive: 0x0891b2, emissiveIntensity: 0.35 }),
+            glassClear: new THREE.MeshPhysicalMaterial({
+                color: 0xe0f2fe,
+                roughness: 0.08,
+                metalness: 0.0,
+                transmission: 0.82,
+                transparent: true,
+                opacity: 0.55,
+                ior: 1.48,
+                thickness: 0.25
+            }),
+            glassAmber: new THREE.MeshPhysicalMaterial({
+                color: 0xd97706,
+                roughness: 0.12,
+                metalness: 0.05,
+                transmission: 0.62,
+                transparent: true,
+                opacity: 0.78,
+                ior: 1.5
+            }),
+            tubePlastic: new THREE.MeshPhysicalMaterial({
+                color: 0xf1f5f9,
+                roughness: 0.15,
+                metalness: 0.0,
+                transmission: 0.68,
+                transparent: true,
+                opacity: 0.62,
+                ior: 1.45
+            }),
+            bloodSample: new THREE.MeshPhysicalMaterial({
+                color: 0x881337,
+                roughness: 0.18,
+                metalness: 0.05,
+                clearcoat: 0.9,
+                emissive: 0x4c0519,
+                emissiveIntensity: 0.25
+            }),
+            reagentLiquid: new THREE.MeshPhysicalMaterial({
+                color: 0x38bdf8,
+                roughness: 0.1,
+                transmission: 0.6,
+                transparent: true,
+                opacity: 0.72,
+                emissive: 0x0284c7,
+                emissiveIntensity: 0.25
+            }),
+            loadingDye: new THREE.MeshStandardMaterial({
+                color: 0x2563eb,
+                roughness: 0.25,
+                emissive: 0x1d4ed8,
+                emissiveIntensity: 0.35
+            }),
+            blackRubber: new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.75, metalness: 0.1 }),
+            redPlastic: new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.35, metalness: 0.1 }),
+            yellowTip: new THREE.MeshPhysicalMaterial({
+                color: 0xfacc15,
+                roughness: 0.22,
+                transparent: true,
+                opacity: 0.82
+            })
+        };
+
+        // =========================================================================
+        // 6. AMBIENTE DO LABORATÓRIO (BANCADA EM ARDÓSIA + PAREDE + MARCADORES)
+        // =========================================================================
+        function buildLabEnvironment() {
+            const envGroup = new THREE.Group();
+
+            // Textura procedural da bancada de laboratório com grade sutil
+            const benchTex = createCanvasTexture(1024, 256, (ctx, w, h) => {
+                ctx.fillStyle = '#131d2f';
+                ctx.fillRect(0, 0, w, h);
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
+                ctx.lineWidth = 1;
+                for (let x = 0; x <= w; x += 32) {
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+                }
+                for (let y = 0; y <= h; y += 32) {
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+                }
+            }).tex;
+            benchTex.wrapS = THREE.RepeatWrapping;
+            benchTex.wrapT = THREE.RepeatWrapping;
+            benchTex.repeat.set(4, 1);
+
+            const benchTop = new THREE.Mesh(
+                new THREE.BoxGeometry(34, 0.22, 4.8),
+                new THREE.MeshStandardMaterial({ map: benchTex, roughness: 0.42, metalness: 0.22 })
+            );
+            benchTop.position.set(0, -0.11, 0);
+            benchTop.receiveShadow = true;
+            envGroup.add(benchTop);
+
+            // Friso luminoso frontal na borda da bancada
+            const frontTrim = new THREE.Mesh(
+                new THREE.BoxGeometry(34, 0.04, 0.06),
+                new THREE.MeshStandardMaterial({ color: 0x22d3ee, emissive: 0x06b6d4, emissiveIntensity: 0.75, roughness: 0.2 })
+            );
+            frontTrim.position.set(0, -0.02, 2.41);
+            envGroup.add(frontTrim);
+
+            // Estrutura inferior da bancada
+            const benchBase = new THREE.Mesh(
+                new THREE.BoxGeometry(33.4, 2.5, 4.2),
+                new THREE.MeshStandardMaterial({ color: 0x0c1322, roughness: 0.65, metalness: 0.2 })
+            );
+            benchBase.position.set(0, -1.47, -0.1);
+            envGroup.add(benchBase);
+
+            // Painel traseiro do laboratório com iluminação linear indireta
+            const backWall = new THREE.Mesh(
+                new THREE.PlaneGeometry(42, 10),
+                new THREE.MeshStandardMaterial({ color: 0x0d1526, roughness: 0.75, metalness: 0.1 })
+            );
+            backWall.position.set(0, 3.8, -2.6);
+            backWall.receiveShadow = true;
+            envGroup.add(backWall);
+
+            const ledStrip = new THREE.Mesh(
+                new THREE.BoxGeometry(33, 0.05, 0.05),
+                new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0ea5e9, emissiveIntensity: 1.2 })
+            );
+            ledStrip.position.set(0, 0.03, -2.35);
+            envGroup.add(ledStrip);
+
+            // Placas de identificação discretas na frente de cada estação
+            const stationTitles = [
+                '01 • COLETA',
+                '02 • EXTRAÇÃO',
+                '03 • PCR AMPLIFICAÇÃO',
+                '04 • ELETROFORESE',
+                '05 • COMPARAÇÃO STR'
+            ];
+            stationTitles.forEach((label, idx) => {
+                const sx = STATION_X[idx + 1];
+                const plateTex = createCanvasTexture(512, 96, (ctx, w, h) => {
+                    ctx.fillStyle = '#0f1a2e';
+                    ctx.fillRect(0, 0, w, h);
+                    ctx.strokeStyle = '#22d3ee';
+                    ctx.lineWidth = 4;
+                    ctx.strokeRect(4, 4, w - 8, h - 8);
+                    ctx.fillStyle = '#7dd3fc';
+                    ctx.font = 'bold 34px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(label, w / 2, h / 2);
+                }).tex;
+
+                const plate = new THREE.Mesh(
+                    new THREE.PlaneGeometry(1.9, 0.34),
+                    new THREE.MeshStandardMaterial({ map: plateTex, roughness: 0.4, emissive: 0x082f49, emissiveIntensity: 0.35 })
+                );
+                plate.position.set(sx, 0.01, 2.08);
+                plate.rotation.x = -Math.PI / 2;
+                envGroup.add(plate);
+
+                // Tapete antiestático sutil por estação
+                const matPad = new THREE.Mesh(
+                    new THREE.BoxGeometry(4.6, 0.015, 3.2),
+                    new THREE.MeshStandardMaterial({ color: 0x182438, roughness: 0.55, metalness: 0.1 })
+                );
+                matPad.position.set(sx, 0.008, 0);
+                matPad.receiveShadow = true;
+                envGroup.add(matPad);
+            });
+
+            scene.add(envGroup);
+        }
+
+        buildLabEnvironment();
+
+        // =========================================================================
+        // 7. SISTEMA DE INTERATIVIDADE (RAYCASTER + HIGHLIGHT + INDICADOR PULSANTE)
+        // =========================================================================
+        const interactables = []; // { id, object, label, hint, enabledFn, onClick }
+
+        function registerInteractable({ id, object, label, hint, enabledFn, onClick }) {
+            object.userData.interactId = id;
+            object.traverse((child) => {
+                if (child.isMesh) {
+                    child.userData.interactId = id;
+                }
+            });
+            interactables.push({ id, object, label, hint, enabledFn, onClick });
+        }
+
+        // Indicador visual 3D pulsante (anel ciano + seta suspensa)
+        const guideGroup = new THREE.Group();
+        const guideRing = new THREE.Mesh(
+            new THREE.TorusGeometry(0.42, 0.028, 12, 42),
+            new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.88 })
+        );
+        guideRing.rotation.x = Math.PI / 2;
+        guideGroup.add(guideRing);
+
+        const guideArrow = new THREE.Mesh(
+            new THREE.ConeGeometry(0.11, 0.24, 16),
+            new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.92 })
+        );
+        guideArrow.rotation.x = Math.PI;
+        guideArrow.position.y = 0.72;
+        guideGroup.add(guideArrow);
+        guideGroup.visible = false;
+        scene.add(guideGroup);
+
+        const guideTargetPos = new THREE.Vector3();
+        let guideArrowOffsetY = 0.9;
+        let guideRingRadius = 1.0;
+
+        function setGuideTarget(worldPos, radiusScale = 1.0, arrowHeight = 0.95) {
+            if (!worldPos) {
+                guideGroup.visible = false;
+                return;
+            }
+            guideTargetPos.copy(worldPos);
+            guideRingRadius = radiusScale;
+            guideArrowOffsetY = arrowHeight;
+            guideGroup.visible = true;
+        }
+
+        // =========================================================================
+        // 8. CONSTRUTORES PROCEDURAIS REUTILIZÁVEIS (MICROTUBO, MICROPIPETA, DNA)
+        // =========================================================================
+        function createMicrotube({ hasSample = false, liquidLevel = 0, closed = false } = {}) {
+            const group = new THREE.Group();
+
+            // Parte cônica inferior
+            const cone = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.11, 0.032, 0.28, 20, 1, false),
+                MAT.tubePlastic.clone()
+            );
+            cone.position.y = 0.14;
+            cone.castShadow = true;
+            group.add(cone);
+
+            // Corpo cilíndrico superior
+            const body = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.115, 0.11, 0.34, 20, 1, true),
+                MAT.tubePlastic.clone()
+            );
+            body.position.y = 0.45;
+            body.castShadow = true;
+            group.add(body);
+
+            // Aro superior
+            const rim = new THREE.Mesh(
+                new THREE.TorusGeometry(0.118, 0.014, 10, 24),
+                MAT.labWhitePlastic
+            );
+            rim.rotation.x = Math.PI / 2;
+            rim.position.y = 0.62;
+            group.add(rim);
+
+            // Líquido interno ajustável
+            const liquidMat = hasSample ? MAT.bloodSample.clone() : MAT.reagentLiquid.clone();
+            const liquid = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.092, 0.028, 0.25, 16),
+                liquidMat
+            );
+            liquid.position.y = 0.14;
+            liquid.scale.y = Math.max(0.001, liquidLevel);
+            liquid.visible = liquidLevel > 0.01;
+            group.add(liquid);
+
+            // Pellet de restos celulares (visível após centrifugação)
+            const pellet = new THREE.Mesh(
+                new THREE.SphereGeometry(0.042, 12, 10),
+                new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.6, emissive: 0x94a3b8, emissiveIntensity: 0.2 })
+            );
+            pellet.scale.set(1, 0.65, 1);
+            pellet.position.y = 0.055;
+            pellet.visible = false;
+            group.add(pellet);
+
+            // Sobrenadante aquoso purificado (azul-ciano translúcido)
+            const supernatant = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.095, 0.048, 0.32, 16),
+                new THREE.MeshPhysicalMaterial({
+                    color: 0x38bdf8,
+                    roughness: 0.08,
+                    transmission: 0.65,
+                    transparent: true,
+                    opacity: 0.72,
+                    emissive: 0x06b6d4,
+                    emissiveIntensity: 0.42
+                })
+            );
+            supernatant.position.y = 0.25;
+            supernatant.visible = false;
+            group.add(supernatant);
+
+            // Tampa articulada
+            const capPivot = new THREE.Group();
+            capPivot.position.set(0, 0.62, -0.115);
+            const capMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.12, 0.12, 0.045, 20),
+                MAT.tubePlastic.clone()
+            );
+            capMesh.position.set(0, 0.02, 0.115);
+            capPivot.add(capMesh);
+
+            const capTab = new THREE.Mesh(
+                new THREE.BoxGeometry(0.07, 0.025, 0.06),
+                MAT.labWhitePlastic
+            );
+            capTab.position.set(0, 0.02, 0.24);
+            capPivot.add(capTab);
+
+            capPivot.rotation.x = closed ? 0 : -1.85;
+            group.add(capPivot);
+
+            return { group, liquid, liquidMat, pellet, supernatant, capPivot };
+        }
+
+        function createTubeRack() {
+            const rack = new THREE.Group();
+            const base = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.06, 0.55), MAT.labAccentBlue);
+            base.position.y = 0.03;
+            base.receiveShadow = true;
+            base.castShadow = true;
+            rack.add(base);
+
+            const topPlate = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.05, 0.55), MAT.labAccentBlue);
+            topPlate.position.y = 0.34;
+            topPlate.castShadow = true;
+            rack.add(topPlate);
+
+            [[-0.42, -0.22], [0.42, -0.22], [-0.42, 0.22], [0.42, 0.22]].forEach(([px, pz]) => {
+                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.32, 10), MAT.labWhitePlastic);
+                post.position.set(px, 0.18, pz);
+                rack.add(post);
+            });
+            return rack;
+        }
+
+        function createMicropipette() {
+            const group = new THREE.Group();
+            // Corpo ergonômico
+            const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.048, 0.62, 16), MAT.labWhitePlastic);
+            handle.position.y = 0.85;
+            handle.castShadow = true;
+            group.add(handle);
+
+            // Faixa azul identificadora
+            const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.058, 0.18, 16), MAT.labAccentBlue);
+            grip.position.y = 0.98;
+            group.add(grip);
+
+            // Gancho de apoio para dedo
+            const hook = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.035, 0.14), MAT.labAccentBlue);
+            hook.position.set(0, 1.12, -0.08);
+            group.add(hook);
+
+            // Botão êmbolo superior
+            const plunger = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.14, 14), MAT.labAccentCyan);
+            plunger.position.y = 1.22;
+            group.add(plunger);
+
+            // Haste inferior
+            const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.018, 0.38, 14), MAT.labSlateBody);
+            shaft.position.y = 0.36;
+            group.add(shaft);
+
+            // Ponteira descartável amarela translúcida
+            const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.006, 0.26, 12), MAT.yellowTip);
+            tip.position.y = 0.06;
+            group.add(tip);
+
+            // Líquido dentro da ponteira
+            const tipLiquid = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.016, 0.005, 0.18, 10),
+                MAT.reagentLiquid.clone()
+            );
+            tipLiquid.position.y = 0.03;
+            tipLiquid.visible = false;
+            group.add(tipLiquid);
+
+            return { group, plunger, tipLiquid };
+        }
+
+        // Constrói uma dupla-hélice de DNA 3D modulável (para Etapa 2 e Etapa 3 PCR)
+        function createInteractiveDNAHelix(pairsCount = 14) {
+            const root = new THREE.Group();
+            const leftStrand = new THREE.Group();
+            const rightStrand = new THREE.Group();
+            const primersGroup = new THREE.Group();
+            const newLeftComplement = new THREE.Group();
+            const newRightComplement = new THREE.Group();
+
+            root.add(leftStrand, rightStrand, primersGroup, newLeftComplement, newRightComplement);
+
+            const radius = 0.32;
+            const heightStep = 0.12;
+            const baseColors = [0x38bdf8, 0xf43f5e, 0x10b981, 0xf59e0b];
+
+            const backboneMatL = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.65, roughness: 0.25 });
+            const backboneMatR = new THREE.MeshStandardMaterial({ color: 0x818cf8, emissive: 0x4f46e5, emissiveIntensity: 0.65, roughness: 0.25 });
+            const newBackboneMat = new THREE.MeshStandardMaterial({ color: 0x34d399, emissive: 0x10b981, emissiveIntensity: 0.85, roughness: 0.2 });
+
+            const sphereGeo = new THREE.SphereGeometry(0.042, 10, 10);
+            const barGeo = new THREE.CylinderGeometry(0.017, 0.017, radius, 8);
+            barGeo.rotateZ(Math.PI / 2);
+
+            const leftBaseBars = [];
+            const rightBaseBars = [];
+            const newPairsList = [];
+
+            for (let i = 0; i < pairsCount; i++) {
+                const angle = i * 0.52;
+                const y = (i - (pairsCount - 1) / 2) * heightStep;
+                const cx = Math.cos(angle) * radius;
+                const cz = Math.sin(angle) * radius;
+
+                // Nó esqueleto Esquerdo
+                const nodeL = new THREE.Mesh(sphereGeo, backboneMatL);
+                nodeL.position.set(cx, y, cz);
+                leftStrand.add(nodeL);
+
+                // Nó esqueleto Direito
+                const nodeR = new THREE.Mesh(sphereGeo, backboneMatR);
+                nodeR.position.set(-cx, y, -cz);
+                rightStrand.add(nodeR);
+
+                // Semi-base esquerda
+                const bColorA = baseColors[i % 4];
+                const bColorB = baseColors[(i + 2) % 4];
+                const barL = new THREE.Mesh(barGeo, new THREE.MeshStandardMaterial({ color: bColorA, emissive: bColorA, emissiveIntensity: 0.5 }));
+                barL.position.set(cx * 0.5, y, cz * 0.5);
+                barL.rotation.y = -angle;
+                leftStrand.add(barL);
+                leftBaseBars.push(barL);
+
+                // Semi-base direita
+                const barR = new THREE.Mesh(barGeo, new THREE.MeshStandardMaterial({ color: bColorB, emissive: bColorB, emissiveIntensity: 0.5 }));
+                barR.position.set(-cx * 0.5, y, -cz * 0.5);
+                barR.rotation.y = -angle;
+                rightStrand.add(barR);
+                rightBaseBars.push(barR);
+
+                // Fitas complementares recém-sintetizadas (Extensão 72°C)
+                const compNodeForL = new THREE.Mesh(sphereGeo, newBackboneMat);
+                compNodeForL.position.set(-cx, y, -cz);
+                const compBarForL = new THREE.Mesh(barGeo, newBackboneMat);
+                compBarForL.position.set(-cx * 0.5, y, -cz * 0.5);
+                compBarForL.rotation.y = -angle;
+                const pairL = new THREE.Group();
+                pairL.add(compNodeForL, compBarForL);
+                pairL.visible = false;
+                newLeftComplement.add(pairL);
+
+                const compNodeForR = new THREE.Mesh(sphereGeo, newBackboneMat);
+                compNodeForR.position.set(cx, y, cz);
+                const compBarForR = new THREE.Mesh(barGeo, newBackboneMat);
+                compBarForR.position.set(cx * 0.5, y, cz * 0.5);
+                compBarForR.rotation.y = -angle;
+                const pairR = new THREE.Group();
+                pairR.add(compNodeForR, compBarForR);
+                pairR.visible = false;
+                newRightComplement.add(pairR);
+
+                newPairsList.push({ pairL, pairR });
+            }
+
+            // Primers (pequenos fragmentos brilhantes ciano/amarelo que acoplam no Anelamento 58°C)
+            const primerMat = new THREE.MeshStandardMaterial({ color: 0x22d3ee, emissive: 0x06b6d4, emissiveIntensity: 1.2 });
+            const primerA = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.24, 6, 12), primerMat);
+            primerA.position.set(-0.65, -0.52, 0.25);
+            const primerB = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.24, 6, 12), primerMat);
+            primerB.position.set(0.65, 0.52, -0.25);
+            primersGroup.add(primerA, primerB);
+            primersGroup.visible = false;
+
+            return {
+                root,
+                leftStrand,
+                rightStrand,
+                primersGroup,
+                primerA,
+                primerB,
+                newLeftComplement,
+                newRightComplement,
+                newPairsList,
+                backboneMatL,
+                backboneMatR
+            };
+        }
+
+        // =========================================================================
+        // 9. ESTAÇÃO 1: COLETA DE EVIDÊNCIA BIOLÓGICA (x = -12)
+        // =========================================================================
+        const st1 = new THREE.Group();
+        st1.position.set(STATION_X[1], 0, 0);
+        scene.add(st1);
+
+        // Lâmina / placa de evidência EV-01
+        const slideBase = new THREE.Mesh(
+            new THREE.BoxGeometry(1.45, 0.06, 0.95),
+            new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.3 })
+        );
+        slideBase.position.set(-0.65, 0.04, 0.25);
+        slideBase.receiveShadow = true;
+        slideBase.castShadow = true;
+        st1.add(slideBase);
+
+        const glassSlide = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.035, 0.65), MAT.glassClear);
+        glassSlide.position.set(-0.65, 0.09, 0.25);
+        st1.add(glassSlide);
+
+        // Etiqueta forense EV-01
+        const evLabelTex = createCanvasTexture(256, 128, (ctx, w, h) => {
+            ctx.fillStyle = '#fef08a';
+            ctx.fillRect(0, 0, w, h);
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 6;
+            ctx.strokeRect(4, 4, w - 8, h - 8);
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 46px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('EV-01', w / 2, 62);
+            ctx.font = 'bold 22px sans-serif';
+            ctx.fillText('EVIDÊNCIA', w / 2, 102);
+        }).tex;
+        const evLabel = new THREE.Mesh(
+            new THREE.PlaneGeometry(0.42, 0.21),
+            new THREE.MeshStandardMaterial({ map: evLabelTex, roughness: 0.5 })
+        );
+        evLabel.rotation.x = -Math.PI / 2;
+        evLabel.position.set(-1.02, 0.112, 0.25);
+        st1.add(evLabel);
+
+        // Mancha biológica estilizada
+        const stainGroup = new THREE.Group();
+        stainGroup.position.set(-0.46, 0.112, 0.24);
+        const stainMain = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.19, 0.012, 24), MAT.bloodSample);
+        const stainDrop1 = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.085, 0.012, 16), MAT.bloodSample);
+        stainDrop1.position.set(0.16, 0, 0.08);
+        const stainDrop2 = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.012, 16), MAT.bloodSample);
+        stainDrop2.position.set(-0.14, 0, -0.11);
+        stainGroup.add(stainMain, stainDrop1, stainDrop2);
+        st1.add(stainGroup);
+
+        // Suporte do Swab
+        const swabStand = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.12, 20), MAT.labMetalDark);
+        swabStand.position.set(0.25, 0.06, -0.45);
+        swabStand.castShadow = true;
+        st1.add(swabStand);
+
+        // Swab Estéril interativo
+        const swabGroup = new THREE.Group();
+        const swabStick = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.016, 0.016, 1.15, 12),
+            MAT.labWhitePlastic
+        );
+        swabStick.position.y = 0.58;
+        swabStick.castShadow = true;
+        swabGroup.add(swabStick);
+
+        const swabTipMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.85 });
+        const swabTip = new THREE.Mesh(new THREE.CapsuleGeometry(0.042, 0.11, 8, 14), swabTipMat);
+        swabTip.position.y = 0.04;
+        swabGroup.add(swabTip);
+
+        const SWAB_HOME_POS = new THREE.Vector3(0.25, 0.14, -0.45);
+        const SWAB_HOME_ROT = new THREE.Euler(0.15, 0, -0.12);
+        swabGroup.position.copy(SWAB_HOME_POS);
+        swabGroup.rotation.copy(SWAB_HOME_ROT);
+        st1.add(swabGroup);
+
+        // Estante e Microtubo Eppendorf aberto
+        const st1Rack = createTubeRack();
+        st1Rack.position.set(0.92, 0, 0.2);
+        st1.add(st1Rack);
+
+        const st1Tube = createMicrotube({ hasSample: true, liquidLevel: 0, closed: false });
+        st1Tube.group.position.set(0.92, 0.14, 0.2);
+        st1.add(st1Tube.group);
+
+        // =========================================================================
+        // 10. ESTAÇÃO 2: EXTRAÇÃO E PURIFICAÇÃO DE DNA (x = -6)
+        // =========================================================================
+        const st2 = new THREE.Group();
+        st2.position.set(STATION_X[2], 0, 0);
+        scene.add(st2);
+
+        // Estante com Microtubo da amostra
+        const st2Rack = createTubeRack();
+        st2Rack.position.set(-1.25, 0, 0.45);
+        st2.add(st2Rack);
+
+        const st2Tube = createMicrotube({ hasSample: true, liquidLevel: 0.22, closed: true });
+        const ST2_TUBE_HOME = new THREE.Vector3(-1.25, 0.14, 0.45);
+        st2Tube.group.position.copy(ST2_TUBE_HOME);
+        st2.add(st2Tube.group);
+
+        // Frasco de Reagente: Tampão de Lise + Proteinase K
+        const reagentGroup = new THREE.Group();
+        reagentGroup.position.set(-0.35, 0, -0.55);
+        const bottleBody = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.65, 24), MAT.glassAmber);
+        bottleBody.position.y = 0.33;
+        bottleBody.castShadow = true;
+        reagentGroup.add(bottleBody);
+
+        const bottleNeck = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.16, 18), MAT.glassAmber);
+        bottleNeck.position.y = 0.72;
+        reagentGroup.add(bottleNeck);
+
+        const bottleCap = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.08, 18), MAT.labAccentCyan);
+        bottleCap.position.y = 0.83;
+        reagentGroup.add(bottleCap);
+
+        const bottleLiquid = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.42, 20), MAT.reagentLiquid);
+        bottleLiquid.position.y = 0.24;
+        reagentGroup.add(bottleLiquid);
+
+        const reagentLabelTex = createCanvasTexture(512, 256, (ctx, w, h) => {
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, w, h);
+            ctx.fillStyle = '#0284c7';
+            ctx.fillRect(0, 0, w, 58);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 30px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('REAGENTE DE EXTRAÇÃO', w / 2, 38);
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 34px monospace';
+            ctx.fillText('Tampão de Lise', w / 2, 128);
+            ctx.fillStyle = '#0369a1';
+            ctx.font = 'bold 30px monospace';
+            ctx.fillText('+ Proteinase K', w / 2, 178);
+            ctx.fillStyle = '#475569';
+            ctx.font = '20px sans-serif';
+            ctx.fillText('pH 8.0 • 20 mg/mL', w / 2, 224);
+        }).tex;
+
+        const bottleLabel = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.265, 0.265, 0.36, 24, 1, true, -Math.PI * 0.38, Math.PI * 0.76),
+            new THREE.MeshStandardMaterial({ map: reagentLabelTex, roughness: 0.45 })
+        );
+        bottleLabel.position.y = 0.34;
+        reagentGroup.add(bottleLabel);
+        st2.add(reagentGroup);
+
+        // Suporte e Micropipeta 3D da Estação 2
+        const pipStand2 = new THREE.Group();
+        pipStand2.position.set(-0.32, 0, 0.62);
+        const psBase = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.05, 0.36), MAT.labMetalDark);
+        psBase.position.y = 0.025;
+        const psPost = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.15, 12), MAT.labMetalLight);
+        psPost.position.set(0, 0.58, -0.1);
+        const psArm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 0.2), MAT.labMetalDark);
+        psArm.position.set(0, 1.08, -0.02);
+        pipStand2.add(psBase, psPost, psArm);
+        st2.add(pipStand2);
+
+        const st2Pipette = createMicropipette();
+        const ST2_PIP_HOME = new THREE.Vector3(-0.32, 0.16, 0.62);
+        st2Pipette.group.position.copy(ST2_PIP_HOME);
+        st2.add(st2Pipette.group);
+
+        // Microcentrífuga de Bancada (Tampa transparente articulada, rotor, visor digital RPM)
+        const centrifugeGroup = new THREE.Group();
+        centrifugeGroup.position.set(0.95, 0, 0.05);
+        st2.add(centrifugeGroup);
+
+        const cfBase = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.78, 0.58, 32), MAT.labWhitePlastic);
+        cfBase.position.y = 0.29;
+        cfBase.castShadow = true;
+        cfBase.receiveShadow = true;
+        centrifugeGroup.add(cfBase);
+
+        const cfFrontPanel = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.36, 0.32), MAT.labMetalDark);
+        cfFrontPanel.position.set(0, 0.22, 0.62);
+        cfFrontPanel.rotation.x = -0.35;
+        centrifugeGroup.add(cfFrontPanel);
+
+        // Visor digital RPM (CanvasTexture dinâmica)
+        const cfDisplayObj = createCanvasTexture(256, 128, () => { });
+        function updateCentrifugeDisplay(rpm, statusText = 'PRONTO') {
+            const { ctx, canvas, tex } = cfDisplayObj;
+            ctx.fillStyle = '#04121f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#0ea5e9';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(3, 3, canvas.width - 6, canvas.height - 6);
+            ctx.fillStyle = rpm > 100 ? '#34d399' : '#38bdf8';
+            ctx.font = 'bold 46px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${Math.round(rpm).toLocaleString('pt-BR')}`, canvas.width / 2, 62);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'bold 20px monospace';
+            ctx.fillText(`RPM  •  ${statusText}`, canvas.width / 2, 102);
+            tex.needsUpdate = true;
+        }
+        updateCentrifugeDisplay(0, 'PRONTO');
+
+        const cfScreen = new THREE.Mesh(
+            new THREE.PlaneGeometry(0.54, 0.24),
+            new THREE.MeshBasicMaterial({ map: cfDisplayObj.tex })
+        );
+        cfScreen.position.set(0, 0.25, 0.785);
+        cfScreen.rotation.x = -0.35;
+        centrifugeGroup.add(cfScreen);
+
+        // Câmara interna + Rotor giratório com furos
+        const cfChamber = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.52, 0.52, 0.16, 28),
+            MAT.labMetalDark
+        );
+        cfChamber.position.y = 0.54;
+        centrifugeGroup.add(cfChamber);
+
+        const cfRotor = new THREE.Group();
+        cfRotor.position.y = 0.58;
+        const rotorDisc = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.47, 0.12, 24), MAT.labSlateBody);
+        cfRotor.add(rotorDisc);
+        const rotorHub = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.18, 16), MAT.labAccentCyan);
+        rotorHub.position.y = 0.04;
+        cfRotor.add(rotorHub);
+        for (let i = 0; i < 8; i++) {
+            const a = (i / 8) * Math.PI * 2;
+            const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.13, 12), MAT.blackRubber);
+            hole.position.set(Math.cos(a) * 0.29, 0.01, Math.sin(a) * 0.29);
+            cfRotor.add(hole);
+        }
+        centrifugeGroup.add(cfRotor);
+
+        // Tampa transparente articulada da centrífuga
+        const cfLidPivot = new THREE.Group();
+        cfLidPivot.position.set(0, 0.62, -0.58);
+        const cfLidDome = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.56, 0.64, 0.14, 30),
+            MAT.glassClear
+        );
+        cfLidDome.position.set(0, 0.06, 0.58);
+        const cfLidRing = new THREE.Mesh(
+            new THREE.TorusGeometry(0.61, 0.025, 10, 32),
+            MAT.labAccentBlue
+        );
+        cfLidRing.rotation.x = Math.PI / 2;
+        cfLidRing.position.set(0, 0.01, 0.58);
+        cfLidPivot.add(cfLidDome, cfLidRing);
+        centrifugeGroup.add(cfLidPivot);
+
+        // Holograma de Lise Celular (Estação 2 - ativa após centrifugação)
+        const lysisHoloGroup = new THREE.Group();
+        lysisHoloGroup.position.set(-0.95, 1.48, -0.85);
+        lysisHoloGroup.visible = false;
+        st2.add(lysisHoloGroup);
+
+        // Base projetora holográfica
+        const lysisPad = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.36, 0.42, 0.06, 24),
+            MAT.labMetalDark
+        );
+        lysisPad.position.set(-0.95, 0.03, -0.85);
+        st2.add(lysisPad);
+
+        const lysisCellSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.48, 24, 20),
+            new THREE.MeshPhysicalMaterial({
+                color: 0x38bdf8,
+                emissive: 0x0284c7,
+                emissiveIntensity: 0.45,
+                transparent: true,
+                opacity: 0.34,
+                roughness: 0.1,
+                wireframe: false
+            })
+        );
+        lysisHoloGroup.add(lysisCellSphere);
+
+        // InstancedMesh para fragmentos da membrana celular rompendo
+        const MEMBRANE_COUNT = 72;
+        const membraneInstanced = new THREE.InstancedMesh(
+            new THREE.IcosahedronGeometry(0.045, 0),
+            new THREE.MeshStandardMaterial({ color: 0x7dd3fc, emissive: 0x0ea5e9, emissiveIntensity: 0.8, transparent: true, opacity: 0.85 }),
+            MEMBRANE_COUNT
+        );
+        const membraneDirs = [];
+        for (let i = 0; i < MEMBRANE_COUNT; i++) {
+            const phi = Math.acos(1 - 2 * (i + 0.5) / MEMBRANE_COUNT);
+            const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+            membraneDirs.push(new THREE.Vector3(
+                Math.sin(phi) * Math.cos(theta),
+                Math.cos(phi),
+                Math.sin(phi) * Math.sin(theta)
+            ));
+        }
+        lysisHoloGroup.add(membraneInstanced);
+
+        const lysisDNA = createInteractiveDNAHelix(10);
+        lysisDNA.root.scale.setScalar(0.58);
+        lysisHoloGroup.add(lysisDNA.root);
+
+        // =========================================================================
+        // 11. ESTAÇÃO 3: PCR — AMPLIFICAÇÃO TÉRMICA (x = 0)
+        // =========================================================================
+        const st3 = new THREE.Group();
+        st3.position.set(STATION_X[3], 0, 0);
+        scene.add(st3);
+
+        // Microtubo aguardando inserção no termociclador
+        const st3Rack = createTubeRack();
+        st3Rack.position.set(-1.35, 0, 0.55);
+        st3.add(st3Rack);
+
+        const st3Tube = createMicrotube({ hasSample: false, liquidLevel: 0.55, closed: true });
+        st3Tube.liquidMat.color.setHex(0x38bdf8);
+        const ST3_TUBE_HOME = new THREE.Vector3(-1.35, 0.14, 0.55);
+        st3Tube.group.position.copy(ST3_TUBE_HOME);
+        st3.add(st3Tube.group);
+
+        // Termociclador 3D detalhado
+        const pcrMachine = new THREE.Group();
+        pcrMachine.position.set(-0.25, 0, 0.05);
+        st3.add(pcrMachine);
+
+        const pcrChassis = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.55, 1.45), MAT.labWhitePlastic);
+        pcrChassis.position.y = 0.275;
+        pcrChassis.castShadow = true;
+        pcrChassis.receiveShadow = true;
+        pcrMachine.add(pcrChassis);
+
+        const pcrBezel = new THREE.Mesh(new THREE.BoxGeometry(1.48, 0.42, 0.36), MAT.labMetalDark);
+        pcrBezel.position.set(0, 0.26, 0.66);
+        pcrBezel.rotation.x = -0.32;
+        pcrMachine.add(pcrBezel);
+
+        // Bloco térmico metálico com poços
+        const thermalBlockMat = new THREE.MeshStandardMaterial({
+            color: 0x94a3b8,
+            roughness: 0.22,
+            metalness: 0.85,
+            emissive: 0x000000,
+            emissiveIntensity: 0.0
+        });
+        const thermalBlock = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.16, 0.68), thermalBlockMat);
+        thermalBlock.position.set(0, 0.58, -0.08);
+        pcrMachine.add(thermalBlock);
+
+        for (let r = 0; r < 3; r++) {
+            for (let c = 0; c < 4; c++) {
+                const well = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.17, 12), MAT.blackRubber);
+                well.position.set(-0.27 + c * 0.18, 0.585, -0.24 + r * 0.16);
+                pcrMachine.add(well);
+            }
+        }
+
+        // Tampa articulada térmica
+        const pcrLidPivot = new THREE.Group();
+        pcrLidPivot.position.set(0, 0.64, -0.62);
+        const pcrLidBody = new THREE.Mesh(new THREE.BoxGeometry(1.38, 0.18, 1.05), MAT.labSlateBody);
+        pcrLidBody.position.set(0, 0.09, 0.52);
+        pcrLidBody.castShadow = true;
+        const pcrLidHandle = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.06, 0.1), MAT.labAccentCyan);
+        pcrLidHandle.position.set(0, 0.11, 1.04);
+        pcrLidPivot.add(pcrLidBody, pcrLidHandle);
+        pcrLidPivot.rotation.x = -0.95; // Começa aberta para receber o tubo
+        pcrMachine.add(pcrLidPivot);
+
+        // LED indicador térmico no equipamento
+        const pcrLedMat = new THREE.MeshStandardMaterial({ color: 0x22d3ee, emissive: 0x22d3ee, emissiveIntensity: 1.5 });
+        const pcrLed = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 12), pcrLedMat);
+        pcrLed.position.set(0.58, 0.34, 0.81);
+        pcrMachine.add(pcrLed);
+
+        // Visor digital dinâmico do Termociclador
+        const pcrDisplayObj = createCanvasTexture(512, 224, () => { });
+        function updatePCRDisplay(tempC, phaseLabel, cycle, copiesText = '2¹ = 2 cópias', accent = '#38bdf8') {
+            const { ctx, canvas, tex } = pcrDisplayObj;
+            ctx.fillStyle = '#040d19';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = accent;
+            ctx.lineWidth = 6;
+            ctx.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
+
+            ctx.fillStyle = accent;
+            ctx.font = 'bold 66px monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText(`${tempC}°C`, 26, 84);
+
+            ctx.fillStyle = '#e2e8f0';
+            ctx.font = 'bold 28px monospace';
+            ctx.textAlign = 'right';
+            ctx.fillText(`CICLO ${cycle}/30`, canvas.width - 26, 60);
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'bold 22px sans-serif';
+            ctx.fillText(copiesText, canvas.width - 26, 98);
+
+            ctx.fillStyle = 'rgba(255,255,255,0.08)';
+            ctx.fillRect(22, 128, canvas.width - 44, 68);
+            ctx.fillStyle = accent;
+            ctx.font = 'bold 30px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(phaseLabel, canvas.width / 2, 172);
+            tex.needsUpdate = true;
+        }
+        updatePCRDisplay(25, 'INSIRA O MICROTUBO', 0, '1 molécula molde', '#38bdf8');
+
+        const pcrScreen = new THREE.Mesh(
+            new THREE.PlaneGeometry(1.06, 0.34),
+            new THREE.MeshBasicMaterial({ map: pcrDisplayObj.tex })
+        );
+        pcrScreen.position.set(-0.08, 0.28, 0.848);
+        pcrScreen.rotation.x = -0.32;
+        pcrMachine.add(pcrScreen);
+
+        // Projetor Holográfico de DNA ao lado do Termociclador
+        const holoBase = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.72, 0.1, 32), MAT.labMetalDark);
+        holoBase.position.set(1.42, 0.05, -0.15);
+        st3.add(holoBase);
+
+        const holoRingMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.75 });
+        const holoRing = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.025, 10, 40), holoRingMat);
+        holoRing.rotation.x = Math.PI / 2;
+        holoRing.position.set(1.42, 0.11, -0.15);
+        st3.add(holoRing);
+
+        const holoBeamMat = new THREE.MeshBasicMaterial({
+            color: 0x06b6d4,
+            transparent: true,
+            opacity: 0.12,
+            side: THREE.DoubleSide,
+            depthWrite: false
+        });
+        const holoBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.45, 2.2, 24, 1, true), holoBeamMat);
+        holoBeam.position.set(1.42, 1.22, -0.15);
+        st3.add(holoBeam);
+
+        const pcrDNA = createInteractiveDNAHelix(14);
+        pcrDNA.root.position.set(1.42, 1.38, -0.15);
+        st3.add(pcrDNA.root);
+
+        // InstancedMesh para nuvem de cópias exponenciais de DNA (até 30 ciclos)
+        const PCR_CLOUD_MAX = 96;
+        const pcrCloudMesh = new THREE.InstancedMesh(
+            new THREE.CapsuleGeometry(0.028, 0.14, 4, 8),
+            new THREE.MeshStandardMaterial({ color: 0x34d399, emissive: 0x10b981, emissiveIntensity: 1.15 }),
+            PCR_CLOUD_MAX
+        );
+        pcrCloudMesh.position.set(1.42, 1.38, -0.15);
+        pcrCloudMesh.count = 0;
+        const pcrCloudData = [];
+        for (let i = 0; i < PCR_CLOUD_MAX; i++) {
+            const angle = (i / PCR_CLOUD_MAX) * Math.PI * 10;
+            const rad = 0.48 + (i % 5) * 0.14;
+            const y = ((i / PCR_CLOUD_MAX) - 0.5) * 1.75;
+            pcrCloudData.push({ angle, rad, y, speed: 0.55 + (i % 4) * 0.22 });
+        }
+        st3.add(pcrCloudMesh);
+
+        // =========================================================================
+        // 12. ESTAÇÃO 4: ANÁLISE — ELETROFORESE EM GEL DE AGAROSE (x = +6)
+        // =========================================================================
+        const st4 = new THREE.Group();
+        st4.position.set(STATION_X[4], 0, 0);
+        scene.add(st4);
+
+        // Base do Transiluminador UV sob a cuba
+        const uvTable = new THREE.Mesh(new THREE.BoxGeometry(2.15, 0.16, 1.48), MAT.labMetalDark);
+        uvTable.position.set(-0.35, 0.08, 0.12);
+        uvTable.castShadow = true;
+        uvTable.receiveShadow = true;
+        st4.add(uvTable);
+
+        const uvPlateMat = new THREE.MeshStandardMaterial({
+            color: 0x1e1b4b,
+            emissive: 0x4c1d95,
+            emissiveIntensity: 0.05,
+            roughness: 0.15
+        });
+        const uvPlate = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.03, 1.12), uvPlateMat);
+        uvPlate.position.set(-0.35, 0.165, 0.12);
+        st4.add(uvPlate);
+
+        // Luz UV dedicada (acende quando Transiluminador UV é ativado)
+        const uvPointLight = new THREE.PointLight(0x7c3aed, 0, 5.5, 1.6);
+        uvPointLight.position.set(-0.35, 0.72, 0.12);
+        st4.add(uvPointLight);
+
+        // Botão físico UV na mesa do transiluminador
+        const uvSwitchGroup = new THREE.Group();
+        uvSwitchGroup.position.set(-1.18, 0.17, 0.72);
+        const uvBtnCapMat = new THREE.MeshStandardMaterial({
+            color: 0x8b5cf6,
+            emissive: 0x6d28d9,
+            emissiveIntensity: 0.7,
+            roughness: 0.3
+        });
+        const uvBtnCap = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.095, 0.06, 20), uvBtnCapMat);
+        uvSwitchGroup.add(uvBtnCap);
+        st4.add(uvSwitchGroup);
+
+        // Cuba de Eletroforese translúcida
+        const tankGroup = new THREE.Group();
+        tankGroup.position.set(-0.35, 0.18, 0.12);
+        st4.add(tankGroup);
+
+        // Paredes translúcidas da cuba
+        const tankWallMat = MAT.glassClear;
+        const wallFront = new THREE.Mesh(new THREE.BoxGeometry(1.78, 0.34, 0.04), tankWallMat);
+        wallFront.position.set(0, 0.17, 0.56);
+        const wallBack = wallFront.clone();
+        wallBack.position.z = -0.56;
+        const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.34, 1.12), tankWallMat);
+        wallLeft.position.set(-0.87, 0.17, 0);
+        const wallRight = wallLeft.clone();
+        wallRight.position.x = 0.87;
+        tankGroup.add(wallFront, wallBack, wallLeft, wallRight);
+
+        // Tampão TBE submergindo o gel
+        const bufferMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(1.7, 0.18, 1.06),
+            new THREE.MeshPhysicalMaterial({
+                color: 0xbae6fd,
+                transparent: true,
+                opacity: 0.26,
+                roughness: 0.05,
+                transmission: 0.8
+            })
+        );
+        bufferMesh.position.y = 0.1;
+        tankGroup.add(bufferMesh);
+
+        // Bloco de Gel de Agarose (1.36 largura no eixo X: da esquerda/cátodo '-' para direita/ânodo '+')
+        const gelMat = new THREE.MeshPhysicalMaterial({
+            color: 0xdbeafe,
+            roughness: 0.14,
+            transmission: 0.72,
+            transparent: true,
+            opacity: 0.54,
+            ior: 1.38
+        });
+        const gelBlock = new THREE.Mesh(new THREE.BoxGeometry(1.36, 0.11, 0.92), gelMat);
+        gelBlock.position.set(0, 0.085, 0);
+        tankGroup.add(gelBlock);
+
+        // Eletrodos: Cátodo Preto (-) à esquerda e Ânodo Vermelho (+) à direita
+        const cathodeWire = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.96, 10), MAT.blackRubber);
+        cathodeWire.rotation.x = Math.PI / 2;
+        cathodeWire.position.set(-0.78, 0.11, 0);
+        tankGroup.add(cathodeWire);
+
+        const cathodePost = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.38, 14), MAT.blackRubber);
+        cathodePost.position.set(-0.78, 0.25, -0.46);
+        tankGroup.add(cathodePost);
+
+        const anodeWire = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.96, 10), MAT.redPlastic);
+        anodeWire.rotation.x = Math.PI / 2;
+        anodeWire.position.set(0.78, 0.11, 0);
+        tankGroup.add(anodeWire);
+
+        const anodePost = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.38, 14), MAT.redPlastic);
+        anodePost.position.set(0.78, 0.25, -0.46);
+        tankGroup.add(anodePost);
+
+        // 5 Poços (Wells) no gel: 0=Ladder, 1=EV-01, 2=Susp A, 3=Susp B, 4=Susp C
+        const LANE_Z = [-0.32, -0.16, 0.0, 0.16, 0.32];
+        const WELL_X = -0.54;
+        const wellFillMeshes = [];
+        const gelBands = []; // { mesh, mat, startX, targetX }
+
+        const laneBandConfigs = [
+            LADDER_BANDS.map((b) => b.pos),
+            DNA_PROFILES.evidence.bands,
+            DNA_PROFILES.A.bands,
+            DNA_PROFILES.B.bands,
+            DNA_PROFILES.C.bands
+        ];
+
+        LANE_Z.forEach((lz, laneIdx) => {
+            // Cavidade do poço
+            const wellRim = new THREE.Mesh(
+                new THREE.BoxGeometry(0.055, 0.03, 0.11),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 })
+            );
+            wellRim.position.set(WELL_X, 0.132, lz);
+            tankGroup.add(wellRim);
+
+            // Corante de carregamento dentro do poço
+            const fill = new THREE.Mesh(
+                new THREE.BoxGeometry(0.045, 0.035, 0.095),
+                MAT.loadingDye.clone()
+            );
+            fill.position.set(WELL_X, 0.134, lz);
+            fill.visible = false;
+            tankGroup.add(fill);
+            wellFillMeshes.push(fill);
+
+            // Bandas de DNA que migrarão da esquerda (-0.50) para direita (+0.58)
+            laneBandConfigs[laneIdx].forEach((normPos) => {
+                const isLadder = laneIdx === 0;
+                const bandMat = new THREE.MeshStandardMaterial({
+                    color: isLadder ? 0x93c5fd : 0x3b82f6,
+                    emissive: isLadder ? 0x38bdf8 : 0x2dd4bf,
+                    emissiveIntensity: 0.15,
+                    transparent: true,
+                    opacity: 0.0
+                });
+                const bandMesh = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.024, 0.105), bandMat);
+                bandMesh.position.set(WELL_X + 0.04, 0.118, lz);
+                tankGroup.add(bandMesh);
+                gelBands.push({
+                    mesh: bandMesh,
+                    mat: bandMat,
+                    isLadder,
+                    startX: WELL_X + 0.04,
+                    targetX: WELL_X + 0.08 + normPos * 1.06
+                });
+            });
+        });
+
+        // InstancedMesh de Bolhas subindo nos eletrodos quando a tensão está ligada
+        const BUBBLE_COUNT = 80;
+        const bubbleInstanced = new THREE.InstancedMesh(
+            new THREE.SphereGeometry(0.015, 8, 8),
+            new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.72 }),
+            BUBBLE_COUNT
+        );
+        bubbleInstanced.visible = false;
+        const bubbleData = [];
+        for (let i = 0; i < BUBBLE_COUNT; i++) {
+            bubbleData.push({
+                x: i % 2 === 0 ? -0.78 : 0.78,
+                z: (Math.random() - 0.5) * 0.88,
+                y: 0.08 + Math.random() * 0.16,
+                speed: 0.14 + Math.random() * 0.18
+            });
+        }
+        tankGroup.add(bubbleInstanced);
+
+        // Micropipeta da Estação 4 (para aplicar amostras nos poços)
+        const st4Pipette = createMicropipette();
+        const ST4_PIP_HOME = new THREE.Vector3(-1.62, 0.18, -0.32);
+        st4Pipette.group.position.copy(ST4_PIP_HOME);
+        st4Pipette.tipLiquid.material = MAT.loadingDye.clone();
+        st4Pipette.tipLiquid.visible = true;
+        st4.add(st4Pipette.group);
+
+        const pipStand4 = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.08, 18), MAT.labMetalDark);
+        pipStand4.position.set(-1.62, 0.04, -0.32);
+        st4.add(pipStand4);
+
+        // Fonte de Energia Digital da Eletroforese
+        const powerSupply = new THREE.Group();
+        powerSupply.position.set(1.38, 0, -0.15);
+        st4.add(powerSupply);
+
+        const psBox = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.56, 0.78), MAT.labSlateBody);
+        psBox.position.y = 0.28;
+        psBox.castShadow = true;
+        powerSupply.add(psBox);
+
+        const psDisplayObj = createCanvasTexture(256, 128, () => { });
+        function updatePowerDisplay(volts, timeStr, isOn) {
+            const { ctx, canvas, tex } = psDisplayObj;
+            ctx.fillStyle = '#04101d';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = isOn ? '#10b981' : '#38bdf8';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+            ctx.fillStyle = isOn ? '#34d399' : '#64748b';
+            ctx.font = 'bold 48px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${volts} V`, canvas.width / 2, 60);
+            ctx.fillStyle = '#cbd5e1';
+            ctx.font = 'bold 20px monospace';
+            ctx.fillText(isOn ? `RUN • ${timeStr}` : 'STANDBY', canvas.width / 2, 102);
+            tex.needsUpdate = true;
+        }
+        updatePowerDisplay(0, '00:00', false);
+
+        const psScreen = new THREE.Mesh(
+            new THREE.PlaneGeometry(0.68, 0.3),
+            new THREE.MeshBasicMaterial({ map: psDisplayObj.tex })
+        );
+        psScreen.position.set(0, 0.34, 0.395);
+        powerSupply.add(psScreen);
+
+        // Cabos conectando a fonte aos eletrodos (TubeGeometry)
+        const blackCableCurve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(1.12, 0.16, 0.22),
+            new THREE.Vector3(0.45, 0.18, -0.78),
+            new THREE.Vector3(-1.13, 0.58, -0.34)
+        ]);
+        const blackCable = new THREE.Mesh(new THREE.TubeGeometry(blackCableCurve, 24, 0.018, 8, false), MAT.blackRubber);
+        st4.add(blackCable);
+
+        const redCableCurve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(1.56, 0.16, 0.22),
+            new THREE.Vector3(0.95, 0.24, -0.58),
+            new THREE.Vector3(0.43, 0.58, -0.34)
+        ]);
+        const redCable = new THREE.Mesh(new THREE.TubeGeometry(redCableCurve, 24, 0.018, 8, false), MAT.redPlastic);
+        st4.add(redCable);
+
+        // =========================================================================
+        // 13. ESTAÇÃO 5: COMPARAÇÃO FORENSE — MESA DE LUZ STR (x = +12)
+        // =========================================================================
+        const st5 = new THREE.Group();
+        st5.position.set(STATION_X[5], 0, 0);
+        scene.add(st5);
+
+        // Console / Mesa de Luz Forense inclinada em 3D
+        const consoleBase = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.16, 1.35), MAT.labMetalDark);
+        consoleBase.position.set(0, 0.08, -0.2);
+        consoleBase.castShadow = true;
+        st5.add(consoleBase);
+
+        const panelPivot = new THREE.Group();
+        panelPivot.position.set(0, 1.48, -0.45);
+        panelPivot.rotation.x = -0.18;
+        st5.add(panelPivot);
+
+        const panelFrame = new THREE.Mesh(new THREE.BoxGeometry(3.75, 2.55, 0.14), MAT.labMetalDark);
+        panelFrame.castShadow = true;
+        panelPivot.add(panelFrame);
+
+        const panelBackGlass = new THREE.Mesh(
+            new THREE.PlaneGeometry(3.55, 2.35),
+            new THREE.MeshStandardMaterial({
+                color: 0x050c18,
+                emissive: 0x081a30,
+                emissiveIntensity: 0.55,
+                roughness: 0.15
+            })
+        );
+        panelBackGlass.position.z = 0.075;
+        panelPivot.add(panelBackGlass);
+
+        // Textura de fundo com cabeçalhos, régua Ladder e rótulos dos 6 loci STR
+        const strBgTex = createCanvasTexture(1024, 680, (ctx, w, h) => {
+            ctx.fillStyle = '#06101f';
+            ctx.fillRect(0, 0, w, h);
+
+            // Linhas sutis horizontais para cada locus STR
+            const topY = 120;
+            const usableH = 500;
+            STR_LOCI.forEach((locus, idx) => {
+                const y = topY + DNA_PROFILES.evidence.bands[idx] * usableH;
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.14)';
+                ctx.setLineDash([6, 6]);
+                ctx.beginPath();
+                ctx.moveTo(130, y);
+                ctx.lineTo(w - 30, y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Rótulo do Locus à esquerda
+                ctx.fillStyle = '#38bdf8';
+                ctx.font = 'bold 20px monospace';
+                ctx.textAlign = 'right';
+                ctx.fillText(locus.label, 122, y + 6);
+            });
+
+            // Régua Ladder (pares de bases)
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'bold 17px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('LADDER', 202, 62);
+            LADDER_BANDS.forEach((b) => {
+                const y = topY + b.pos * usableH;
+                ctx.fillStyle = '#60a5fa';
+                ctx.fillRect(162, y - 4, 80, 8);
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '14px monospace';
+                ctx.textAlign = 'left';
+                ctx.fillText(b.bp, 248, y + 5);
+            });
+
+            // Cabeçalhos das 4 colunas principais
+            const cols = [
+                { name: 'EVIDÊNCIA', sub: 'EV-01', x: 390, color: '#22d3ee' },
+                { name: 'SUSPEITO A', sub: 'REF-A', x: 565, color: '#cbd5e1' },
+                { name: 'SUSPEITO B', sub: 'REF-B', x: 740, color: '#cbd5e1' },
+                { name: 'SUSPEITO C', sub: 'REF-C', x: 915, color: '#cbd5e1' }
+            ];
+            cols.forEach((col) => {
+                ctx.fillStyle = col.color;
+                ctx.font = 'bold 21px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(col.name, col.x, 54);
+                ctx.fillStyle = '#64748b';
+                ctx.font = 'bold 15px monospace';
+                ctx.fillText(col.sub, col.x, 78);
+            });
+        }).tex;
+
+        const strBackdropPlane = new THREE.Mesh(
+            new THREE.PlaneGeometry(3.52, 2.32),
+            new THREE.MeshBasicMaterial({ map: strBgTex })
+        );
+        strBackdropPlane.position.z = 0.082;
+        panelPivot.add(strBackdropPlane);
+
+        // Mapeamento de coordenadas do painel 3D para colunas e bandas STR
+        // Largura útil = 3.52 (-1.76 a +1.76), Altura útil = 2.32 (-1.16 a +1.16)
+        const STR_COL_X = {
+            evidence: -0.42,
+            A: 0.18,
+            B: 0.78,
+            C: 1.38
+        };
+
+        function normBandToPanelY(normPos) {
+            // topY = 120 / 680 -> y = +0.75; usableH = 500 / 680 -> span = 1.70
+            return 0.75 - normPos * 1.70;
+        }
+
+        // Colunas 3D clicáveis + Bandas Fluorescentes 3D
+        const suspectColumnMeshes = {};
+        const suspectBandGroups = {};
+
+        ['evidence', 'A', 'B', 'C'].forEach((key) => {
+            const colX = STR_COL_X[key];
+            const isEv = key === 'evidence';
+
+            const colHitMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(0.48, 1.88, 0.03),
+                new THREE.MeshBasicMaterial({
+                    color: isEv ? 0x06b6d4 : 0x1e293b,
+                    transparent: true,
+                    opacity: isEv ? 0.14 : 0.08
+                })
+            );
+            colHitMesh.position.set(colX, -0.1, 0.095);
+            panelPivot.add(colHitMesh);
+            suspectColumnMeshes[key] = colHitMesh;
+
+            const bandsArr = [];
+            DNA_PROFILES[key].bands.forEach((normPos) => {
+                const bMat = new THREE.MeshStandardMaterial({
+                    color: isEv ? 0x22d3ee : 0x38bdf8,
+                    emissive: isEv ? 0x06b6d4 : 0x0ea5e9,
+                    emissiveIntensity: 1.45,
+                    roughness: 0.2
+                });
+                const bMesh = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.042, 0.025), bMat);
+                bMesh.position.set(colX, normBandToPanelY(normPos), 0.112);
+                panelPivot.add(bMesh);
+                bandsArr.push({ mesh: bMesh, mat: bMat, normPos });
+            });
+            suspectBandGroups[key] = bandsArr;
+        });
+
+        // Coluna Translúcida Deslizável (Overlay da Evidência para alinhamento visual)
+        const evidenceOverlayGroup = new THREE.Group();
+        evidenceOverlayGroup.position.set(STR_COL_X.evidence, 0, 0.145);
+        panelPivot.add(evidenceOverlayGroup);
+
+        const overlayGlass = new THREE.Mesh(
+            new THREE.PlaneGeometry(0.46, 1.92),
+            new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.13, side: THREE.DoubleSide })
+        );
+        overlayGlass.position.y = -0.1;
+        evidenceOverlayGroup.add(overlayGlass);
+
+        // Moldura luminosa do overlay
+        const overlayBorderGeo = new THREE.EdgesGeometry(new THREE.PlaneGeometry(0.46, 1.92));
+        const overlayBorder = new THREE.LineSegments(
+            overlayBorderGeo,
+            new THREE.LineBasicMaterial({ color: 0x22d3ee })
+        );
+        overlayBorder.position.y = -0.1;
+        evidenceOverlayGroup.add(overlayBorder);
+
+        // Bandas guia do overlay + linhas horizontais finas
+        DNA_PROFILES.evidence.bands.forEach((normPos) => {
+            const y = normBandToPanelY(normPos);
+            const ovBand = new THREE.Mesh(
+                new THREE.BoxGeometry(0.38, 0.026, 0.014),
+                new THREE.MeshBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0.92 })
+            );
+            ovBand.position.set(0, y, 0.008);
+            evidenceOverlayGroup.add(ovBand);
+        });
+
+        // Linhas conectoras verdes brilhantes (exibidas quando Suspeito B é confirmado!)
+        const matchLinesGroup = new THREE.Group();
+        matchLinesGroup.visible = false;
+        DNA_PROFILES.evidence.bands.forEach((normPos) => {
+            const y = normBandToPanelY(normPos);
+            const len = STR_COL_X.B - STR_COL_X.evidence;
+            const conn = new THREE.Mesh(
+                new THREE.BoxGeometry(len, 0.014, 0.014),
+                new THREE.MeshBasicMaterial({ color: 0x34d399 })
+            );
+            conn.position.set((STR_COL_X.evidence + STR_COL_X.B) / 2, y, 0.13);
+            matchLinesGroup.add(conn);
+        });
+        panelPivot.add(matchLinesGroup);
+
+        // =========================================================================
+        // 14. ESTADO GLOBAL DA SIMULAÇÃO E MÁQUINA DE ANIMAÇÕES
+        // =========================================================================
+        const state = {
+            stage: 1,
+            maxUnlockedStage: 1,
+            busy: false,
+
+            // Subestados por estação
+            st1SwabCollected: false,
+            st1Transferred: false,
+
+            st2Pipetted: false,
+            st2Centrifuged: false,
+
+            st3TubeInserted: false,
+            st3Step: 0, // 0=inserir tubo, 1=desnaturação, 2=anelamento, 3=extensão, 4=acelerar 30 ciclos, 5=concluído
+            st3Cycle: 0,
+            st3DnaSeparation: 0, // 0..1
+            st3PrimerProgress: 0, // 0..1
+            st3ExtensionProgress: 0, // 0..1
+            st3ThermalColor: new THREE.Color(0x38bdf8),
+
+            st4WellsLoaded: false,
+            st4PowerOn: false,
+            st4MigrationProgress: 0, // 0..1
+            st4MigrationDone: false,
+            st4UVActive: false,
+
+            st5OverlayValue: 0, // 0 (Evidência), 1 (A), 2 (B), 3 (C)
+            st5Solved: false
+        };
+
+        const activeTweens = [];
+
+        function addTween(duration, onUpdate, onComplete) {
+            activeTweens.push({ elapsed: 0, duration, onUpdate, onComplete });
+        }
+
+        function clearTweens() {
+            activeTweens.length = 0;
+        }
+
+        // =========================================================================
+        // 15. AÇÕES INTERATIVAS DE CADA ETAPA (LÓGICA + ANIMAÇÕES 3D)
+        // =========================================================================
+
+        // --- ETAPA 1: COLETA ---
+        function actionSwabCollect() {
+            if (state.busy || state.stage !== 1 || state.st1SwabCollected) return;
+            state.busy = true;
+            audio.playSwab();
+
+            const stainPos = new THREE.Vector3(-0.46, 0.16, 0.24);
+            const startPos = swabGroup.position.clone();
+            const startRot = swabGroup.rotation.clone();
+
+            // 1. Mover swab até a lâmina EV-01
+            addTween(0.65, (t) => {
+                const e = easeInOutCubic(t);
+                swabGroup.position.lerpVectors(startPos, new THREE.Vector3(stainPos.x, stainPos.y + 0.08, stainPos.z), e);
+                swabGroup.rotation.set(
+                    THREE.MathUtils.lerp(startRot.x, 0.35, e),
+                    0,
+                    THREE.MathUtils.lerp(startRot.z, -0.35, e)
+                );
+            }, () => {
+                // 2. Esfregar em movimento circular sobre a mancha biológica
+                audio.playSwab();
+                addTween(1.15, (t) => {
+                    const angle = t * Math.PI * 6;
+                    swabGroup.position.set(
+                        stainPos.x + Math.cos(angle) * 0.09,
+                        stainPos.y + 0.04,
+                        stainPos.z + Math.sin(angle) * 0.07
+                    );
+                    swabTipMat.color.lerpColors(new THREE.Color(0xf8fafc), new THREE.Color(0x9f1239), t);
+                }, () => {
+                    // 3. Elevar swab pronto para transferência
+                    addTween(0.45, (t) => {
+                        const e = easeInOutCubic(t);
+                        swabGroup.position.lerpVectors(swabGroup.position, new THREE.Vector3(0.2, 1.05, 0.2), e);
+                        swabGroup.rotation.set(0.05, 0, 0);
+                    }, () => {
+                        state.st1SwabCollected = true;
+                        state.busy = false;
+                        showToast('Amostra biológica coletada na ponta do swab estéril.', 'success');
+                        refreshUIAndGuide();
+                    });
+                });
+            });
+        }
+
+        function actionTransferToTube() {
+            if (state.busy || state.stage !== 1 || !state.st1SwabCollected || state.st1Transferred) return;
+            state.busy = true;
+            audio.playClick(640);
+
+            const tubeTop = new THREE.Vector3(0.92, 0.92, 0.2);
+            const tubeInside = new THREE.Vector3(0.92, 0.38, 0.2);
+            const startPos = swabGroup.position.clone();
+
+            // 1. Alinhar swab acima do microtubo
+            addTween(0.5, (t) => {
+                swabGroup.position.lerpVectors(startPos, tubeTop, easeInOutCubic(t));
+            }, () => {
+                // 2. Mergulhar swab dentro do tubo
+                audio.playSwab();
+                addTween(0.65, (t) => {
+                    swabGroup.position.lerpVectors(tubeTop, tubeInside, easeInOutCubic(t));
+                }, () => {
+                    // Aparece amostra biológica no fundo do microtubo
+                    st1Tube.liquid.visible = true;
+                    st1Tube.liquid.scale.y = 0.35;
+                    // 3. Retirar swab de volta ao suporte e fechar tampa do tubo
+                    addTween(0.75, (t) => {
+                        const e = easeInOutCubic(t);
+                        swabGroup.position.lerpVectors(tubeInside, SWAB_HOME_POS, e);
+                        swabGroup.rotation.set(
+                            THREE.MathUtils.lerp(0.05, SWAB_HOME_ROT.x, e),
+                            0,
+                            THREE.MathUtils.lerp(0, SWAB_HOME_ROT.z, e)
+                        );
+                        st1Tube.capPivot.rotation.x = THREE.MathUtils.lerp(-1.85, 0, e);
+                    }, () => {
+                        audio.playClick(1080, 0.06, 0.14);
+                        state.st1Transferred = true;
+                        state.maxUnlockedStage = Math.max(state.maxUnlockedStage, 2);
+                        state.busy = false;
+                        showToast('Amostra transferida e microtubo lacrado! Avançando para Extração...', 'success');
+                        refreshUIAndGuide();
+                        setTimeout(() => {
+                            if (state.stage === 1 && state.st1Transferred) goToStage(2);
+                        }, 1250);
+                    });
+                });
+            });
+        }
+
+        // --- ETAPA 2: EXTRAÇÃO E PURIFICAÇÃO ---
+        function actionPipetteLysisBuffer() {
+            if (state.busy || state.stage !== 2 || state.st2Pipetted) return;
+            state.busy = true;
+            audio.playPipette();
+
+            const startPos = st2Pipette.group.position.clone();
+            const bottleHover = new THREE.Vector3(-0.35, 1.15, -0.55);
+            const bottleDip = new THREE.Vector3(-0.35, 0.72, -0.55);
+            const tubeHover = new THREE.Vector3(-1.25, 1.05, 0.45);
+            const tubeDip = new THREE.Vector3(-1.25, 0.78, 0.45);
+
+            // 1. Abrir tampa do frasco e mover pipeta para o Tampão de Lise
+            addTween(0.55, (t) => {
+                const e = easeInOutCubic(t);
+                st2Pipette.group.position.lerpVectors(startPos, bottleHover, e);
+                bottleCap.position.y = THREE.MathUtils.lerp(0.83, 1.15, e);
+                bottleCap.position.x = THREE.MathUtils.lerp(0, 0.28, e);
+            }, () => {
+                // 2. Aspirar Tampão de Lise + Proteinase K
+                addTween(0.65, (t) => {
+                    const e = easeInOutCubic(t);
+                    st2Pipette.group.position.lerpVectors(bottleHover, bottleDip, e);
+                    st2Pipette.plunger.position.y = THREE.MathUtils.lerp(1.22, 1.14, e);
+                }, () => {
+                    audio.playPipette();
+                    st2Pipette.tipLiquid.visible = true;
+                    // 3. Mover para o microtubo e abrir tampa do microtubo
+                    addTween(0.75, (t) => {
+                        const e = easeInOutCubic(t);
+                        st2Pipette.group.position.lerpVectors(bottleDip, tubeHover, e);
+                        st2Tube.capPivot.rotation.x = THREE.MathUtils.lerp(0, -1.85, e);
+                        st2Pipette.plunger.position.y = THREE.MathUtils.lerp(1.14, 1.22, e);
+                    }, () => {
+                        // 4. Dispensar reagente no microtubo (nível de líquido sobe)
+                        addTween(0.85, (t) => {
+                            const e = easeInOutCubic(t);
+                            st2Pipette.group.position.lerpVectors(tubeHover, tubeDip, Math.min(1, e * 2));
+                            st2Pipette.plunger.position.y = THREE.MathUtils.lerp(1.22, 1.12, e);
+                            st2Tube.liquid.visible = true;
+                            st2Tube.liquid.scale.y = THREE.MathUtils.lerp(0.22, 1.25, e);
+                            st2Tube.liquidMat.color.lerpColors(new THREE.Color(0x881337), new THREE.Color(0x0ea5e9), e * 0.72);
+                        }, () => {
+                            audio.playPipette();
+                            st2Pipette.tipLiquid.visible = false;
+                            // 5. Retornar pipeta ao suporte e fechar tampas
+                            addTween(0.65, (t) => {
+                                const e = easeInOutCubic(t);
+                                st2Pipette.group.position.lerpVectors(tubeDip, ST2_PIP_HOME, e);
+                                st2Pipette.plunger.position.y = THREE.MathUtils.lerp(1.12, 1.22, e);
+                                st2Tube.capPivot.rotation.x = THREE.MathUtils.lerp(-1.85, 0, e);
+                                bottleCap.position.y = THREE.MathUtils.lerp(1.15, 0.83, e);
+                                bottleCap.position.x = THREE.MathUtils.lerp(0.28, 0, e);
+                            }, () => {
+                                state.st2Pipetted = true;
+                                state.busy = false;
+                                showToast('Tampão de Lise + Proteinase K adicionados! Agora centrifugue a amostra.', 'success');
+                                refreshUIAndGuide();
+                            });
+                        });
+                    });
+                });
+            });
+        }
+
+        function actionRunCentrifuge() {
+            if (state.busy || state.stage !== 2 || !state.st2Pipetted || state.st2Centrifuged) return;
+            state.busy = true;
+            audio.playClick(540);
+
+            const cfSlotPos = new THREE.Vector3(0.95 + 0.29, 0.54, 0.05);
+
+            // 1. Abrir tampa da centrífuga e mover tubo para o rotor
+            addTween(0.7, (t) => {
+                const e = easeInOutCubic(t);
+                cfLidPivot.rotation.x = THREE.MathUtils.lerp(0, -1.28, e);
+            }, () => {
+                addTween(0.75, (t) => {
+                    const e = easeInOutCubic(t);
+                    const mid = new THREE.Vector3(-0.15, 1.45, 0.25);
+                    if (e < 0.5) {
+                        st2Tube.group.position.lerpVectors(ST2_TUBE_HOME, mid, e * 2);
+                    } else {
+                        st2Tube.group.position.lerpVectors(mid, cfSlotPos, (e - 0.5) * 2);
+                    }
+                }, () => {
+                    // 2. Fechar tampa e iniciar centrifugação a 14.000 RPM
+                    addTween(0.45, (t) => {
+                        cfLidPivot.rotation.x = THREE.MathUtils.lerp(-1.28, 0, easeInOutCubic(t));
+                    }, () => {
+                        audio.playCentrifuge(4.0);
+                        const origCfX = centrifugeGroup.position.x;
+
+                        addTween(4.0, (t) => {
+                            let rpm = 0;
+                            if (t < 0.35) {
+                                rpm = 14000 * easeInOutCubic(t / 0.35);
+                            } else if (t < 0.72) {
+                                rpm = 14000;
+                            } else {
+                                rpm = 14000 * (1 - easeInOutCubic((t - 0.72) / 0.28));
+                            }
+                            cfRotor.rotation.y += (rpm / 14000) * 0.65;
+                            // Posiciona tubo girando junto ao rotor
+                            const a = -cfRotor.rotation.y;
+                            st2Tube.group.position.set(
+                                0.95 + Math.cos(a) * 0.29,
+                                0.54,
+                                0.05 + Math.sin(a) * 0.29
+                            );
+                            // Vibração sutil da centrífuga
+                            const vib = (rpm / 14000) * 0.009;
+                            centrifugeGroup.position.x = origCfX + Math.sin(t * 140) * vib;
+                            updateCentrifugeDisplay(rpm, rpm > 200 ? 'CENTRIFUG.' : 'FINALIZANDO');
+                        }, () => {
+                            centrifugeGroup.position.x = origCfX;
+                            updateCentrifugeDisplay(0, 'CONCLUÍDO');
+                            audio.playThermalBeep('high');
+
+                            // 3. Abrir tampa, retornar tubo à estante exibindo separação de fases + holograma de lise
+                            addTween(0.5, (t) => {
+                                cfLidPivot.rotation.x = THREE.MathUtils.lerp(0, -1.2, easeInOutCubic(t));
+                            }, () => {
+                                // Exibe separação de fases: pellet branco + sobrenadante aquoso com DNA
+                                st2Tube.liquid.visible = false;
+                                st2Tube.pellet.visible = true;
+                                st2Tube.supernatant.visible = true;
+
+                                const curPos = st2Tube.group.position.clone();
+                                addTween(0.8, (t) => {
+                                    const e = easeInOutCubic(t);
+                                    st2Tube.group.position.lerpVectors(curPos, ST2_TUBE_HOME, e);
+                                    cfLidPivot.rotation.x = THREE.MathUtils.lerp(-1.2, 0, e);
+                                }, () => {
+                                    lysisHoloGroup.visible = true;
+                                    state.st2Centrifuged = true;
+                                    state.maxUnlockedStage = Math.max(state.maxUnlockedStage, 3);
+                                    state.busy = false;
+                                    showToast('Separação concluída! Pellet celular no fundo e DNA purificado no sobrenadante.', 'success');
+                                    refreshUIAndGuide();
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        }
+
+        // --- ETAPA 3: PCR (AMPLIFICAÇÃO) ---
+        function actionPCRNextStep() {
+            if (state.busy || state.stage !== 3) return;
+
+            // Passo 0: Inserir tubo no termociclador
+            if (!state.st3TubeInserted) {
+                state.busy = true;
+                audio.playClick(680);
+                const blockPos = new THREE.Vector3(-0.25, 0.56, 0.0);
+                const startPos = st3Tube.group.position.clone();
+
+                addTween(0.75, (t) => {
+                    const e = easeInOutCubic(t);
+                    const mid = new THREE.Vector3(-0.8, 1.32, 0.3);
+                    if (e < 0.5) {
+                        st3Tube.group.position.lerpVectors(startPos, mid, e * 2);
+                    } else {
+                        st3Tube.group.position.lerpVectors(mid, blockPos, (e - 0.5) * 2);
+                    }
+                }, () => {
+                    addTween(0.55, (t) => {
+                        pcrLidPivot.rotation.x = THREE.MathUtils.lerp(-0.95, 0, easeInOutCubic(t));
+                    }, () => {
+                        audio.playThermalBeep('mid');
+                        state.st3TubeInserted = true;
+                        state.st3Step = 1;
+                        updatePCRDisplay(25, 'PRONTO P/ DESNATURAÇÃO', 1, '1 cópia inicial', '#38bdf8');
+                        state.busy = false;
+                        refreshUIAndGuide();
+                    });
+                });
+                return;
+            }
+
+            // Passo 1: 95 °C — Desnaturação (Fitas se separam)
+            if (state.st3Step === 1) {
+                state.busy = true;
+                audio.playThermalBeep('high');
+                state.st3Cycle = 1;
+                state.st3ThermalColor.setHex(0xf97316);
+                pcrLedMat.color.setHex(0xf97316);
+                pcrLedMat.emissive.setHex(0xea580c);
+                holoRingMat.color.setHex(0xf97316);
+                holoBeamMat.color.setHex(0xf97316);
+
+                addTween(1.5, (t) => {
+                    const e = easeInOutCubic(t);
+                    const temp = Math.round(THREE.MathUtils.lerp(25, 95, e));
+                    state.st3DnaSeparation = e;
+                    thermalBlockMat.emissive.setRGB(0.65 * e, 0.14 * e, 0.02);
+                    thermalBlockMat.emissiveIntensity = 1.0;
+                    updatePCRDisplay(temp, '95°C • DESNATURAÇÃO', 1, 'Separando fitas...', '#fb923c');
+                }, () => {
+                    state.st3Step = 2;
+                    state.busy = false;
+                    refreshUIAndGuide();
+                });
+                return;
+            }
+
+            // Passo 2: 58 °C — Anelamento (Primers acoplam às fitas simples)
+            if (state.st3Step === 2) {
+                state.busy = true;
+                audio.playThermalBeep('mid');
+                state.st3ThermalColor.setHex(0x22d3ee);
+                pcrLedMat.color.setHex(0x22d3ee);
+                pcrLedMat.emissive.setHex(0x06b6d4);
+                holoRingMat.color.setHex(0x22d3ee);
+                holoBeamMat.color.setHex(0x06b6d4);
+                pcrDNA.primersGroup.visible = true;
+
+                addTween(1.5, (t) => {
+                    const e = easeInOutCubic(t);
+                    const temp = Math.round(THREE.MathUtils.lerp(95, 58, e));
+                    state.st3PrimerProgress = e;
+                    thermalBlockMat.emissive.setRGB(0.05, 0.35 * e, 0.65 * e);
+                    updatePCRDisplay(temp, '58°C • ANELAMENTO', 1, 'Acoplando primers...', '#22d3ee');
+                }, () => {
+                    state.st3Step = 3;
+                    state.busy = false;
+                    refreshUIAndGuide();
+                });
+                return;
+            }
+
+            // Passo 3: 72 °C — Extensão (Taq polimerase sintetiza novas fitas complementares)
+            if (state.st3Step === 3) {
+                state.busy = true;
+                audio.playThermalBeep('low');
+                state.st3ThermalColor.setHex(0x10b981);
+                pcrLedMat.color.setHex(0x10b981);
+                pcrLedMat.emissive.setHex(0x059669);
+                holoRingMat.color.setHex(0x10b981);
+                holoBeamMat.color.setHex(0x10b981);
+
+                addTween(1.8, (t) => {
+                    const e = easeInOutCubic(t);
+                    const temp = Math.round(THREE.MathUtils.lerp(58, 72, e));
+                    state.st3ExtensionProgress = e;
+                    thermalBlockMat.emissive.setRGB(0.04, 0.55 * e, 0.32 * e);
+                    updatePCRDisplay(temp, '72°C • EXTENSÃO', 1, '2¹ = 2 cópias', '#34d399');
+                }, () => {
+                    state.st3Step = 4;
+                    state.busy = false;
+                    showToast('Ciclo 1 completo: 1 dupla-hélice originou 2 cópias idênticas!', 'success');
+                    refreshUIAndGuide();
+                });
+                return;
+            }
+
+            // Passo 4: Acelerar exponencialmente até 30 ciclos (2^30 = 1.073.741.824 cópias)
+            if (state.st3Step === 4) {
+                state.busy = true;
+                let lastBeepCycle = 1;
+
+                addTween(3.6, (t) => {
+                    const cyc = Math.min(30, Math.max(1, Math.round(1 + t * 29)));
+                    state.st3Cycle = cyc;
+                    const copies = Math.pow(2, cyc);
+                    const copiesFmt = copies >= 1e9
+                        ? `${(copies / 1e9).toFixed(2)} bi cópias`
+                        : copies >= 1e6
+                            ? `${(copies / 1e6).toFixed(1)} mi cópias`
+                            : `${copies.toLocaleString('pt-BR')} cópias`;
+
+                    // Alternância visual rápida das temperaturas durante os ciclos
+                    const phaseMod = Math.floor(t * 24) % 3;
+                    const phaseInfo = [
+                        { temp: 95, label: 'DESNATURAÇÃO', color: '#fb923c', hex: 0xf97316 },
+                        { temp: 58, label: 'ANELAMENTO', color: '#22d3ee', hex: 0x22d3ee },
+                        { temp: 72, label: 'EXTENSÃO', color: '#34d399', hex: 0x10b981 }
+                    ][phaseMod];
+
+                    if (cyc !== lastBeepCycle && cyc % 4 === 0) {
+                        lastBeepCycle = cyc;
+                        audio.playThermalBeep(phaseMod === 0 ? 'high' : phaseMod === 1 ? 'mid' : 'low');
+                    }
+
+                    holoRingMat.color.setHex(phaseInfo.hex);
+                    pcrLedMat.color.setHex(phaseInfo.hex);
+                    pcrLedMat.emissive.setHex(phaseInfo.hex);
+                    pcrCloudMesh.count = Math.min(PCR_CLOUD_MAX, Math.floor(t * PCR_CLOUD_MAX));
+
+                    updatePCRDisplay(phaseInfo.temp, phaseInfo.label, cyc, copiesFmt, phaseInfo.color);
+                    updatePCRTelemetryDOM(cyc, copies);
+                }, () => {
+                    state.st3Cycle = 30;
+                    state.st3Step = 5;
+                    pcrCloudMesh.count = PCR_CLOUD_MAX;
+                    holoRingMat.color.setHex(0x10b981);
+                    pcrLedMat.color.setHex(0x10b981);
+                    pcrLedMat.emissive.setHex(0x10b981);
+                    updatePCRDisplay(4, 'PCR CONCLUÍDO (HOLD)', 30, '1,07 bi cópias', '#34d399');
+                    updatePCRTelemetryDOM(30, Math.pow(2, 30));
+                    audio.playSuccessChord();
+                    state.maxUnlockedStage = Math.max(state.maxUnlockedStage, 4);
+                    state.busy = false;
+                    showToast('Amplificação exponencial concluída: 1.073.741.824 cópias dos loci STR!', 'success');
+                    refreshUIAndGuide();
+                });
+            }
+        }
+
+        function updatePCRTelemetryDOM(cycle, copies) {
+            const cycEl = document.getElementById('pcr-cycle-val');
+            const copEl = document.getElementById('pcr-copies-val');
+            if (cycEl) cycEl.textContent = `${cycle} / 30`;
+            if (copEl) copEl.textContent = copies.toLocaleString('pt-BR');
+        }
+
+        // --- ETAPA 4: ANÁLISE (ELETROFORESE EM GEL) ---
+        function actionLoadGelWells() {
+            if (state.busy || state.stage !== 4 || state.st4WellsLoaded) return;
+            state.busy = true;
+            audio.playPipette();
+
+            let currentWell = 0;
+            const loadNextWell = () => {
+                if (currentWell >= LANE_Z.length) {
+                    addTween(0.45, (t) => {
+                        st4Pipette.group.position.lerpVectors(st4Pipette.group.position, ST4_PIP_HOME, easeInOutCubic(t));
+                    }, () => {
+                        state.st4WellsLoaded = true;
+                        state.busy = false;
+                        showToast('Ladder e amostras de DNA carregados nos 5 poços do gel!', 'success');
+                        refreshUIAndGuide();
+                    });
+                    return;
+                }
+
+                const targetPos = new THREE.Vector3(-0.35 + WELL_X, 0.39, 0.12 + LANE_Z[currentWell]);
+                const startPos = st4Pipette.group.position.clone();
+                const wellIdx = currentWell;
+
+                addTween(0.36, (t) => {
+                    const e = easeInOutCubic(t);
+                    st4Pipette.group.position.lerpVectors(startPos, targetPos, e);
+                    st4Pipette.plunger.position.y = THREE.MathUtils.lerp(1.22, 1.13, e);
+                }, () => {
+                    audio.playPipette();
+                    wellFillMeshes[wellIdx].visible = true;
+                    st4Pipette.plunger.position.y = 1.22;
+                    currentWell++;
+                    loadNextWell();
+                });
+            };
+
+            loadNextWell();
+        }
+
+        function actionRunElectrophoresis() {
+            if (state.busy || state.stage !== 4 || !state.st4WellsLoaded || state.st4MigrationDone) return;
+            state.busy = true;
+            state.st4PowerOn = true;
+            bubbleInstanced.visible = true;
+            audio.playClick(820);
+            audio.startElectrophoresisHum(4.5);
+
+            addTween(4.5, (t) => {
+                const e = easeInOutCubic(t);
+                state.st4MigrationProgress = e;
+                const mins = Math.floor(e * 45);
+                const secs = Math.floor((e * 45 - mins) * 60);
+                const timeStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                updatePowerDisplay(120, timeStr, true);
+
+                gelBands.forEach((b) => {
+                    b.mesh.position.x = THREE.MathUtils.lerp(b.startX, b.targetX, e);
+                    b.mat.opacity = Math.min(0.45, e * 0.7);
+                });
+            }, () => {
+                state.st4PowerOn = false;
+                state.st4MigrationDone = true;
+                bubbleInstanced.visible = false;
+                updatePowerDisplay(0, '45:00 FIM', false);
+                audio.playThermalBeep('high');
+                state.busy = false;
+                showToast('Corrida eletroforética finalizada! Ative a Luz UV para revelar as bandas de DNA.', 'success');
+                refreshUIAndGuide();
+            });
+        }
+
+        function actionToggleUV(forceState = null) {
+            if (state.stage !== 4 || !state.st4MigrationDone) return;
+            state.st4UVActive = forceState !== null ? forceState : !state.st4UVActive;
+            audio.playUVToggle(state.st4UVActive);
+
+            if (state.st4UVActive) {
+                state.maxUnlockedStage = Math.max(state.maxUnlockedStage, 5);
+                showToast('Transiluminador UV ativado! Bandas fluorescentes de DNA reveladas (SYBR Safe).', 'success');
+            }
+            refreshUIAndGuide();
+        }
+
+        // --- ETAPA 5: COMPARAÇÃO FORENSE (STR) ---
+        function setOverlaySlider(val) {
+            state.st5OverlayValue = val;
+            // Mapeia 0 -> Evidência, 1 -> A, 2 -> B, 3 -> C com interpolação contínua
+            const xs = [STR_COL_X.evidence, STR_COL_X.A, STR_COL_X.B, STR_COL_X.C];
+            const idx = Math.floor(val);
+            const frac = val - idx;
+            const xA = xs[Math.min(3, idx)];
+            const xB = xs[Math.min(3, idx + 1)];
+            evidenceOverlayGroup.position.x = THREE.MathUtils.lerp(xA, xB, frac);
+
+            const targetBadge = document.getElementById('slider-target-label');
+            if (targetBadge) {
+                if (val < 0.45) targetBadge.textContent = 'Posição: Evidência';
+                else if (val < 1.45) targetBadge.textContent = 'Sobre: Suspeito A';
+                else if (val < 2.45) targetBadge.textContent = 'Sobre: Suspeito B';
+                else targetBadge.textContent = 'Sobre: Suspeito C';
+            }
+        }
+
+        function snapOverlayToColumn(colKey) {
+            const map = { evidence: 0, A: 1, B: 2, C: 3 };
+            const targetVal = map[colKey] ?? 0;
+            const startVal = state.st5OverlayValue;
+            audio.playClick(760, 0.04, 0.08);
+            addTween(0.32, (t) => {
+                const v = THREE.MathUtils.lerp(startVal, targetVal, easeInOutCubic(t));
+                setOverlaySlider(v);
+                const slider = document.getElementById('str-overlay-slider');
+                if (slider) slider.value = v.toFixed(2);
+            });
+        }
+
+        function evaluateSuspectChoice(suspectKey) {
+            if (state.stage !== 5) return;
+            snapOverlayToColumn(suspectKey);
+
+            if (suspectKey === 'B') {
+                state.st5Solved = true;
+                audio.playSuccessChord();
+
+                // Destaca bandas coincidentes em verde esmeralda brilhante + linhas conectoras
+                ['evidence', 'B'].forEach((k) => {
+                    suspectBandGroups[k].forEach((b) => {
+                        b.mat.color.setHex(0x34d399);
+                        b.mat.emissive.setHex(0x10b981);
+                        b.mat.emissiveIntensity = 2.4;
+                    });
+                });
+                matchLinesGroup.visible = true;
+                refreshUIAndGuide();
+                showToast('Correspondência 100% confirmada nos 6 loci STR com o Suspeito B!', 'success');
+                setTimeout(() => openReportModal(), 700);
+            } else {
+                audio.playError();
+                const div = DNA_PROFILES[suspectKey].divergentLoci.join(', ');
+                showToast(
+                    `Exclusão Forense (Suspeito ${suspectKey}): divergência alélica detectada nos loci ${div}. Alinhe a coluna de Evidência para encontrar 100% de correspondência.`,
+                    'error',
+                    5600
+                );
+                const btn = document.querySelector(`.suspect-choice-btn[data-suspect="${suspectKey}"]`);
+                if (btn) {
+                    btn.classList.add('wrong');
+                    setTimeout(() => btn.classList.remove('wrong'), 1800);
+                }
+            }
+        }
+
+        // =========================================================================
+        // 16. REGISTRO DE OBJETOS INTERATIVOS 3D (RAYCASTER)
+        // =========================================================================
+        registerInteractable({
+            id: 'st1-swab',
+            object: swabGroup,
+            label: 'Swab Estéril',
+            hint: 'Clique para coletar a mancha biológica na lâmina EV-01',
+            enabledFn: () => state.stage === 1 && !state.st1SwabCollected && !state.busy,
+            onClick: actionSwabCollect
+        });
+
+        registerInteractable({
+            id: 'st1-tube',
+            object: st1Tube.group,
+            label: 'Microtubo Eppendorf (Aberto)',
+            hint: 'Clique para transferir a amostra do swab e lacrar o tubo',
+            enabledFn: () => state.stage === 1 && state.st1SwabCollected && !state.st1Transferred && !state.busy,
+            onClick: actionTransferToTube
+        });
+
+        registerInteractable({
+            id: 'st2-pipette',
+            object: st2Pipette.group,
+            label: 'Micropipeta (Tampão de Lise)',
+            hint: 'Clique para aspirar Tampão de Lise + Proteinase K e dispensar no tubo',
+            enabledFn: () => state.stage === 2 && !state.st2Pipetted && !state.busy,
+            onClick: actionPipetteLysisBuffer
+        });
+
+        registerInteractable({
+            id: 'st2-reagent',
+            object: reagentGroup,
+            label: 'Tampão de Lise + Proteinase K',
+            hint: 'Clique para iniciar a pipetagem do reagente',
+            enabledFn: () => state.stage === 2 && !state.st2Pipetted && !state.busy,
+            onClick: actionPipetteLysisBuffer
+        });
+
+        registerInteractable({
+            id: 'st2-centrifuge',
+            object: centrifugeGroup,
+            label: 'Microcentrífuga de Bancada',
+            hint: 'Clique para inserir o microtubo e centrifugar a 14.000 RPM',
+            enabledFn: () => state.stage === 2 && state.st2Pipetted && !state.st2Centrifuged && !state.busy,
+            onClick: actionRunCentrifuge
+        });
+
+        registerInteractable({
+            id: 'st3-tube',
+            object: st3Tube.group,
+            label: 'Microtubo com DNA Purificado',
+            hint: 'Clique para inserir no bloco térmico do Termociclador',
+            enabledFn: () => state.stage === 3 && !state.st3TubeInserted && !state.busy,
+            onClick: actionPCRNextStep
+        });
+
+        registerInteractable({
+            id: 'st3-pcr',
+            object: pcrMachine,
+            label: 'Termociclador PCR',
+            hint: 'Clique para executar a próxima etapa do ciclo térmico',
+            enabledFn: () => state.stage === 3 && state.st3Step < 5 && !state.busy,
+            onClick: actionPCRNextStep
+        });
+
+        registerInteractable({
+            id: 'st4-pipette',
+            object: st4Pipette.group,
+            label: 'Micropipeta (Carregamento de Gel)',
+            hint: 'Clique para aplicar o Ladder e as amostras nos poços do gel',
+            enabledFn: () => state.stage === 4 && !state.st4WellsLoaded && !state.busy,
+            onClick: actionLoadGelWells
+        });
+
+        registerInteractable({
+            id: 'st4-gel',
+            object: gelBlock,
+            label: 'Gel de Agarose (Poços)',
+            hint: 'Clique para carregar as amostras de DNA nos poços',
+            enabledFn: () => state.stage === 4 && !state.st4WellsLoaded && !state.busy,
+            onClick: actionLoadGelWells
+        });
+
+        registerInteractable({
+            id: 'st4-power',
+            object: powerSupply,
+            label: 'Fonte de Energia (120 V)',
+            hint: 'Clique para ligar a corrente elétrica e iniciar a migração do DNA',
+            enabledFn: () => state.stage === 4 && state.st4WellsLoaded && !state.st4MigrationDone && !state.busy,
+            onClick: actionRunElectrophoresis
+        });
+
+        registerInteractable({
+            id: 'st4-uv',
+            object: uvSwitchGroup,
+            label: 'Botão Transiluminador UV',
+            hint: 'Clique para ligar/desligar a Luz UV fluorescente',
+            enabledFn: () => state.stage === 4 && state.st4MigrationDone && !state.busy,
+            onClick: () => actionToggleUV()
+        });
+
+        ['A', 'B', 'C'].forEach((key) => {
+            registerInteractable({
+                id: `st5-col-${key}`,
+                object: suspectColumnMeshes[key],
+                label: `Perfil STR — Suspeito ${key}`,
+                hint: 'Clique para sobrepor a coluna da Evidência sobre este perfil',
+                enabledFn: () => state.stage === 5,
+                onClick: () => snapOverlayToColumn(key)
+            });
+        });
+
+        // =========================================================================
+        // 17. EVENTOS DE MOUSE / TOUCH + RAYCASTER HOVER E CLIQUE
+        // =========================================================================
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+        let hoveredItem = null;
+        let pointerDownPos = { x: 0, y: 0 };
+
+        const tooltipEl = document.getElementById('hover-tooltip');
+        const tooltipTitle = document.getElementById('tooltip-title');
+        const tooltipSub = document.getElementById('tooltip-sub');
+
+        function getHitInteractable(clientX, clientY) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+            pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(pointer, camera);
+
+            const enabledObjects = interactables
+                .filter((it) => it.enabledFn())
+                .map((it) => it.object);
+
+            if (enabledObjects.length === 0) return null;
+            const hits = raycaster.intersectObjects(enabledObjects, true);
+            if (hits.length === 0) return null;
+
+            const hitId = hits[0].object.userData.interactId;
+            return interactables.find((it) => it.id === hitId) || null;
+        }
+
+        function setHoverHighlight(item, active) {
+            if (!item) return;
+            item.object.traverse((child) => {
+                if (child.isMesh && child.material && child.material.emissive) {
+                    if (active) {
+                        if (child.userData.origEmissiveHex === undefined) {
+                            child.userData.origEmissiveHex = child.material.emissive.getHex();
+                            child.userData.origEmissiveInt = child.material.emissiveIntensity;
+                        }
+                        child.material.emissive.setHex(0x22d3ee);
+                        child.material.emissiveIntensity = Math.max(0.45, child.userData.origEmissiveInt + 0.35);
+                    } else if (child.userData.origEmissiveHex !== undefined) {
+                        child.material.emissive.setHex(child.userData.origEmissiveHex);
+                        child.material.emissiveIntensity = child.userData.origEmissiveInt;
+                        delete child.userData.origEmissiveHex;
+                        delete child.userData.origEmissiveInt;
+                    }
+                }
+            });
+        }
+
+        renderer.domElement.addEventListener('pointermove', (e) => {
+            if (e.pointerType === 'touch') return;
+            const hit = getHitInteractable(e.clientX, e.clientY);
+            if (hit !== hoveredItem) {
+                setHoverHighlight(hoveredItem, false);
+                hoveredItem = hit;
+                setHoverHighlight(hoveredItem, true);
+            }
+
+            if (hoveredItem) {
+                renderer.domElement.style.cursor = 'pointer';
+                tooltipTitle.textContent = hoveredItem.label;
+                tooltipSub.textContent = hoveredItem.hint;
+                tooltipEl.style.left = `${e.clientX}px`;
+                tooltipEl.style.top = `${e.clientY}px`;
+                tooltipEl.classList.add('visible');
+            } else {
+                renderer.domElement.style.cursor = 'grab';
+                tooltipEl.classList.remove('visible');
+            }
+        });
+
+        renderer.domElement.addEventListener('pointerdown', (e) => {
+            pointerDownPos.x = e.clientX;
+            pointerDownPos.y = e.clientY;
+        });
+
+        renderer.domElement.addEventListener('pointerup', (e) => {
+            const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+            const tapLimit = e.pointerType === 'touch' ? 14 : 7;
+            if (dist > tapLimit) return; // Ignora arrastes do OrbitControls
+            const hit = getHitInteractable(e.clientX, e.clientY);
+            if (hit && hit.enabledFn()) {
+                setHoverHighlight(hit, false);
+                hoveredItem = null;
+                tooltipEl.classList.remove('visible');
+                hit.onClick();
+            }
+        });
+
+        // =========================================================================
+        // 18. ATUALIZAÇÃO DO HUD, BARRA DE PROGRESSO E INDICADOR 3D
+        // =========================================================================
+        const hudStageBadge = document.getElementById('hud-stage-badge');
+        const hudStageTitle = document.getElementById('hud-stage-title');
+        const hudStageObjective = document.getElementById('hud-stage-objective');
+        const hudInstruction = document.getElementById('hud-instruction');
+        const hudScienceText = document.getElementById('hud-science-text');
+        const hudControls = document.getElementById('hud-dynamic-controls');
+
+        let toastTimer = null;
+        function showToast(msg, type = 'info', duration = 3600) {
+            const toast = document.getElementById('feedback-toast');
+            toast.textContent = msg;
+            toast.className = `show ${type}`;
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.remove('show');
+            }, duration);
+        }
+
+        function goToStage(stageNum) {
+            if (stageNum > state.maxUnlockedStage || state.busy) return;
+            state.stage = stageNum;
+            audio.playClick(660, 0.045, 0.07);
+            focusStation(stageNum);
+            refreshUIAndGuide();
+        }
+
+        function refreshUIAndGuide() {
+            // Atualiza barra superior de progresso
+            document.querySelectorAll('.step-pill').forEach((pill) => {
+                const s = Number(pill.dataset.stage);
+                const numSpan = pill.querySelector('.step-num');
+                pill.classList.toggle('active', s === state.stage);
+                pill.classList.toggle('unlocked', s <= state.maxUnlockedStage);
+                const isCompleted = s < state.maxUnlockedStage || (s === 5 && state.st5Solved);
+                pill.classList.toggle('completed', isCompleted);
+                numSpan.textContent = isCompleted && s !== state.stage ? '✓' : String(s);
+            });
+
+            document.querySelectorAll('.step-connector').forEach((conn) => {
+                const c = Number(conn.dataset.conn);
+                conn.classList.toggle('done', c < state.maxUnlockedStage);
+            });
+
+            hudStageBadge.textContent = `ESTAÇÃO ${state.stage} / 5`;
+            hudControls.innerHTML = '';
+
+            // --- ETAPA 1 ---
+            if (state.stage === 1) {
+                hudStageTitle.textContent = '1. Coleta da Evidência Biológica';
+                hudStageObjective.textContent = 'Recolher o vestígio biológico da lâmina EV-01 com swab estéril e armazená-lo no microtubo.';
+                hudScienceText.textContent = 'Vestígios como sangue ou saliva preservam leucócitos e células epiteliais ricas em DNA nuclear. O uso de swab estéril e microtubo lacrado evita contaminação cruzada na cadeia de custódia.';
+
+                if (!state.st1SwabCollected) {
+                    hudInstruction.textContent = 'Clique no swab estéril no suporte para esfregá-lo sobre a mancha biológica na lâmina EV-01.';
+                    setGuideTarget(new THREE.Vector3(STATION_X[1] + 0.25, 0.08, -0.45), 0.72, 1.35);
+                } else if (!state.st1Transferred) {
+                    hudInstruction.textContent = 'Agora clique no microtubo aberto na estante para transferir a amostra e fechar a tampa.';
+                    setGuideTarget(new THREE.Vector3(STATION_X[1] + 0.92, 0.08, 0.2), 0.85, 0.98);
+                } else {
+                    hudInstruction.textContent = 'Coleta finalizada com sucesso! Prossiga para a estação de Extração.';
+                    setGuideTarget(null);
+                    hudControls.innerHTML = `<button class="btn-primary btn-emerald" id="btn-go-st2">Avançar para Extração →</button>`;
+                    document.getElementById('btn-go-st2').addEventListener('click', () => goToStage(2));
+                }
+            }
+
+            // --- ETAPA 2 ---
+            else if (state.stage === 2) {
+                hudStageTitle.textContent = '2. Extração e Purificação do DNA';
+                hudStageObjective.textContent = 'Romper as membranas celulares (lise) e separar o DNA purificado dos detritos celulares por centrifugação.';
+                hudScienceText.textContent = 'O Tampão de Lise (com detergentes como SDS) dissolve a bicamada lipídica, enquanto a Proteinase K digere histonas e proteínas associadas. A centrifugação a 14.000 RPM sedimenta restos celulares no pellet, deixando o DNA solúvel no sobrenadante.';
+
+                if (!state.st2Pipetted) {
+                    hudInstruction.textContent = 'Clique na micropipeta (ou no frasco âmbar) para aspirar Tampão de Lise + Proteinase K e dispensar no microtubo.';
+                    setGuideTarget(new THREE.Vector3(STATION_X[2] - 0.32, 0.08, 0.62), 0.8, 1.48);
+                } else if (!state.st2Centrifuged) {
+                    hudInstruction.textContent = 'Clique na microcentrífuga de bancada para inserir o tubo e iniciar a rotação a 14.000 RPM.';
+                    setGuideTarget(new THREE.Vector3(STATION_X[2] + 0.95, 0.08, 0.05), 1.9, 1.15);
+                } else {
+                    hudInstruction.textContent = 'DNA extraído e purificado! Observe a separação de fases no tubo e o holograma da lise celular.';
+                    setGuideTarget(null);
+                    hudControls.innerHTML = `<button class="btn-primary btn-emerald" id="btn-go-st3">Prosseguir para PCR (Amplificação) →</button>`;
+                    document.getElementById('btn-go-st3').addEventListener('click', () => goToStage(3));
+                }
+            }
+
+            // --- ETAPA 3 ---
+            else if (state.stage === 3) {
+                hudStageTitle.textContent = '3. PCR — Amplificação de Loci STR';
+                hudStageObjective.textContent = 'Multiplicar exponencialmente regiões específicas do DNA (STRs) usando ciclos térmicos no termociclador.';
+                hudScienceText.textContent = 'A Reação em Cadeia da Polimerase (PCR) replica o DNA alvo em três temperaturas: Desnaturação (95 °C) abre a dupla-hélice; Anelamento (58 °C) liga os primers; Extensão (72 °C) permite à Taq polimerase sintetizar novas fitas (2ⁿ cópias).';
+
+                const copiesNow = state.st3Cycle === 0 ? 1 : Math.pow(2, state.st3Cycle);
+                let btnLabel = '';
+                if (!state.st3TubeInserted) {
+                    hudInstruction.textContent = 'Clique no microtubo (ou no termociclador) para inserir a amostra no bloco térmico e fechar a tampa.';
+                    btnLabel = 'Inserir Tubo no Termociclador';
+                    setGuideTarget(new THREE.Vector3(STATION_X[3] - 1.35, 0.08, 0.55), 0.85, 0.98);
+                } else if (state.st3Step === 1) {
+                    hudInstruction.textContent = 'Inicie o Ciclo 1: aqueça o bloco a 95 °C (Desnaturação) para separar as duas fitas da dupla-hélice.';
+                    btnLabel = '🔥 1. Desnaturação (95 °C)';
+                    setGuideTarget(new THREE.Vector3(STATION_X[3] - 0.25, 0.08, 0.05), 2.1, 1.25);
+                } else if (state.st3Step === 2) {
+                    hudInstruction.textContent = 'Resfrie para 58 °C (Anelamento) para que os primers fluorescentes se acoplem às fitas simples.';
+                    btnLabel = '❄️ 2. Anelamento (58 °C)';
+                    setGuideTarget(new THREE.Vector3(STATION_X[3] - 0.25, 0.08, 0.05), 2.1, 1.25);
+                } else if (state.st3Step === 3) {
+                    hudInstruction.textContent = 'Ajuste para 72 °C (Extensão) para que a Taq polimerase sintetize as fitas complementares.';
+                    btnLabel = '🧬 3. Extensão (72 °C)';
+                    setGuideTarget(new THREE.Vector3(STATION_X[3] - 0.25, 0.08, 0.05), 2.1, 1.25);
+                } else if (state.st3Step === 4) {
+                    hudInstruction.textContent = 'Agora acelere a amplificação exponencial até completar os 30 ciclos térmicos (2³⁰ cópias).';
+                    btnLabel = '⚡ Acelerar até 30 Ciclos (2³⁰)';
+                    setGuideTarget(new THREE.Vector3(STATION_X[3] - 0.25, 0.08, 0.05), 2.1, 1.25);
+                } else {
+                    hudInstruction.textContent = 'Amplificação concluída! Mais de 1 bilhão de cópias dos marcadores STR prontas para separação em gel.';
+                    setGuideTarget(null);
+                }
+
+                hudControls.innerHTML = `
+          <div class="telemetry-grid">
+            <div class="telemetry-card">
+              <div class="telemetry-label">Ciclo Atual</div>
+              <div class="telemetry-value" id="pcr-cycle-val">${state.st3Cycle} / 30</div>
+            </div>
+            <div class="telemetry-card">
+              <div class="telemetry-label">Cópias (2ⁿ)</div>
+              <div class="telemetry-value" id="pcr-copies-val">${copiesNow.toLocaleString('pt-BR')}</div>
+            </div>
+          </div>
+          ${state.st3Step < 5
+                        ? `<button class="btn-primary" id="btn-pcr-step" ${state.busy ? 'disabled' : ''}>${btnLabel}</button>`
+                        : `<button class="btn-primary btn-emerald" id="btn-go-st4">Prosseguir para Eletroforese →</button>`
+                    }
+        `;
+                const pcrBtn = document.getElementById('btn-pcr-step');
+                if (pcrBtn) pcrBtn.addEventListener('click', actionPCRNextStep);
+                const go4 = document.getElementById('btn-go-st4');
+                if (go4) go4.addEventListener('click', () => goToStage(4));
+            }
+
+            // --- ETAPA 4 ---
+            else if (state.stage === 4) {
+                hudStageTitle.textContent = '4. Análise — Eletroforese em Gel';
+                hudStageObjective.textContent = 'Separar os fragmentos de DNA amplificados por tamanho (pares de bases) sob campo elétrico e revelá-los sob Luz UV.';
+                hudScienceText.textContent = 'Como o esqueleto açúcar-fosfato do DNA tem carga negativa, os fragmentos migram do cátodo (−) ao ânodo (+) através da malha de agarose. Fragmentos menores vencem menos atrito e avançam mais rápido.';
+
+                if (!state.st4WellsLoaded) {
+                    hudInstruction.textContent = 'Clique na micropipeta (ou nos poços do gel) para carregar o marcador Ladder e as amostras amplificadas.';
+                    setGuideTarget(new THREE.Vector3(STATION_X[4] - 1.62, 0.08, -0.32), 0.78, 1.48);
+                    hudControls.innerHTML = `<button class="btn-primary" id="btn-load-gel">Aplicar DNA nos Poços do Gel</button>`;
+                    document.getElementById('btn-load-gel').addEventListener('click', actionLoadGelWells);
+                } else if (!state.st4MigrationDone) {
+                    hudInstruction.textContent = 'Clique na fonte de energia digital (à direita da cuba) para aplicar 120 V e iniciar a migração.';
+                    setGuideTarget(new THREE.Vector3(STATION_X[4] + 1.38, 0.08, -0.15), 1.45, 0.92);
+                    hudControls.innerHTML = `<button class="btn-primary" id="btn-run-electro" ${state.busy ? 'disabled' : ''}>⚡ Ligar Fonte (120 V)</button>`;
+                    document.getElementById('btn-run-electro').addEventListener('click', actionRunElectrophoresis);
+                } else {
+                    hudInstruction.textContent = state.st4UVActive
+                        ? 'Luz UV ativa! As bandas de DNA brilham em fluorescência verde-ciano. Avance para a Comparação Forense.'
+                        : 'Corrida concluída! Ative a Luz UV (Transiluminador) no botão abaixo ou no botão roxo da mesa.';
+                    setGuideTarget(state.st4UVActive ? null : new THREE.Vector3(STATION_X[4] - 1.18, 0.16, 0.72), 0.52, 0.55);
+
+                    hudControls.innerHTML = `
+            <button class="btn-primary btn-uv ${state.st4UVActive ? 'uv-active' : ''}" id="btn-toggle-uv">
+              ${state.st4UVActive ? '💡 Desligar Luz UV' : '🟣 Ativar Luz UV (Transiluminador)'}
+            </button>
+            ${state.st4UVActive ? `<button class="btn-primary btn-emerald" id="btn-go-st5">Prosseguir para Comparação STR →</button>` : ''}
+          `;
+                    document.getElementById('btn-toggle-uv').addEventListener('click', () => actionToggleUV());
+                    const go5 = document.getElementById('btn-go-st5');
+                    if (go5) go5.addEventListener('click', () => goToStage(5));
+                }
+            }
+
+            // --- ETAPA 5 ---
+            else if (state.stage === 5) {
+                hudStageTitle.textContent = '5. Comparação Forense (Perfil STR)';
+                hudStageObjective.textContent = 'Comparar o padrão de bandas dos 6 loci STR da amostra EV-01 com os perfis de referência dos Suspeitos A, B e C.';
+                hudScienceText.textContent = 'Short Tandem Repeats (STRs) são repetições curtas em tandem altamente polimórficas. Para confirmação positiva de identidade forense, todas as bandas alélicas da evidência precisam coincidir exatamente com o perfil de referência.';
+                setGuideTarget(null);
+
+                hudInstruction.textContent = state.st5Solved
+                    ? 'Identificação positiva concluída! O perfil do Suspeito B coincide em 100% dos 6 loci STR analisados.'
+                    : 'Deslize o controle abaixo (ou clique nas colunas em 3D) para sobrepor a Evidência EV-01 sobre os suspeitos e emita seu parecer.';
+
+                hudControls.innerHTML = `
+          <div class="slider-card">
+            <div class="slider-header">
+              <span>Sobrepor Evidência EV-01</span>
+              <span class="slider-target-badge" id="slider-target-label">Posição: Evidência</span>
+            </div>
+            <input type="range" id="str-overlay-slider" class="forensic-slider" min="0" max="3" step="0.02" value="${state.st5OverlayValue.toFixed(2)}" />
+            <div class="slider-ticks">
+              <span>EV-01</span><span>Susp. A</span><span>Susp. B</span><span>Susp. C</span>
+            </div>
+          </div>
+          <div style="font-size:0.74rem; color:#94a3b8; font-weight:600; margin-top:2px;">Emitir Parecer Pericial:</div>
+          <div class="suspect-btn-group">
+            <button class="suspect-choice-btn" data-suspect="A">Suspeito A</button>
+            <button class="suspect-choice-btn ${state.st5Solved ? 'correct' : ''}" data-suspect="B">Suspeito B</button>
+            <button class="suspect-choice-btn" data-suspect="C">Suspeito C</button>
+          </div>
+          ${state.st5Solved
+                        ? `<button class="btn-primary btn-emerald" id="btn-open-report">📄 Ver Laudo Pericial Final</button>`
+                        : ''
+                    }
+        `;
+
+                const slider = document.getElementById('str-overlay-slider');
+                slider.addEventListener('input', (e) => setOverlaySlider(parseFloat(e.target.value)));
+                setOverlaySlider(state.st5OverlayValue);
+
+                document.querySelectorAll('.suspect-choice-btn').forEach((btn) => {
+                    btn.addEventListener('click', () => evaluateSuspectChoice(btn.dataset.suspect));
+                });
+
+                const openRep = document.getElementById('btn-open-report');
+                if (openRep) openRep.addEventListener('click', openReportModal);
+            }
+        }
+
+        // =========================================================================
+        // 19. MODAL DE LAUDO E REINICIALIZAÇÃO COMPLETA DO EXPERIMENTO
+        // =========================================================================
+        const reportBackdrop = document.getElementById('report-modal-backdrop');
+        function openReportModal() {
+            reportBackdrop.classList.add('open');
+        }
+        function closeReportModal() {
+            reportBackdrop.classList.remove('open');
+        }
+
+        function resetExperiment() {
+            closeReportModal();
+            clearTweens();
+            audio.stopCentrifuge();
+            audio.stopElectrophoresisHum();
+            audio.playClick(880);
+
+            // Reseta estado lógico
+            Object.assign(state, {
+                stage: 1,
+                maxUnlockedStage: 1,
+                busy: false,
+                st1SwabCollected: false,
+                st1Transferred: false,
+                st2Pipetted: false,
+                st2Centrifuged: false,
+                st3TubeInserted: false,
+                st3Step: 0,
+                st3Cycle: 0,
+                st3DnaSeparation: 0,
+                st3PrimerProgress: 0,
+                st3ExtensionProgress: 0,
+                st4WellsLoaded: false,
+                st4PowerOn: false,
+                st4MigrationProgress: 0,
+                st4MigrationDone: false,
+                st4UVActive: false,
+                st5OverlayValue: 0,
+                st5Solved: false
+            });
+
+            // Reseta Estação 1
+            swabGroup.position.copy(SWAB_HOME_POS);
+            swabGroup.rotation.copy(SWAB_HOME_ROT);
+            swabTipMat.color.setHex(0xf8fafc);
+            st1Tube.liquid.visible = false;
+            st1Tube.liquid.scale.y = 0.001;
+            st1Tube.capPivot.rotation.x = -1.85;
+
+            // Reseta Estação 2
+            st2Tube.group.position.copy(ST2_TUBE_HOME);
+            st2Tube.capPivot.rotation.x = 0;
+            st2Tube.liquid.visible = true;
+            st2Tube.liquid.scale.y = 0.22;
+            st2Tube.liquidMat.color.setHex(0x881337);
+            st2Tube.pellet.visible = false;
+            st2Tube.supernatant.visible = false;
+            st2Pipette.group.position.copy(ST2_PIP_HOME);
+            st2Pipette.tipLiquid.visible = false;
+            bottleCap.position.set(0, 0.83, 0);
+            cfLidPivot.rotation.x = 0;
+            updateCentrifugeDisplay(0, 'PRONTO');
+            lysisHoloGroup.visible = false;
+
+            // Reseta Estação 3
+            st3Tube.group.position.copy(ST3_TUBE_HOME);
+            pcrLidPivot.rotation.x = -0.95;
+            thermalBlockMat.emissive.setHex(0x000000);
+            pcrLedMat.color.setHex(0x22d3ee);
+            pcrLedMat.emissive.setHex(0x22d3ee);
+            holoRingMat.color.setHex(0x22d3ee);
+            holoBeamMat.color.setHex(0x06b6d4);
+            pcrDNA.primersGroup.visible = false;
+            pcrDNA.newPairsList.forEach(({ pairL, pairR }) => {
+                pairL.visible = false;
+                pairR.visible = false;
+            });
+            pcrCloudMesh.count = 0;
+            updatePCRDisplay(25, 'INSIRA O MICROTUBO', 0, '1 molécula molde', '#38bdf8');
+
+            // Reseta Estação 4
+            st4Pipette.group.position.copy(ST4_PIP_HOME);
+            wellFillMeshes.forEach((f) => { f.visible = false; });
+            gelBands.forEach((b) => {
+                b.mesh.position.x = b.startX;
+                b.mat.opacity = 0;
+                b.mat.emissiveIntensity = 0.15;
+            });
+            bubbleInstanced.visible = false;
+            updatePowerDisplay(0, '00:00', false);
+
+            // Reseta Estação 5
+            setOverlaySlider(0);
+            matchLinesGroup.visible = false;
+            ['evidence', 'A', 'B', 'C'].forEach((k) => {
+                const isEv = k === 'evidence';
+                suspectBandGroups[k].forEach((b) => {
+                    b.mat.color.setHex(isEv ? 0x22d3ee : 0x38bdf8);
+                    b.mat.emissive.setHex(isEv ? 0x06b6d4 : 0x0ea5e9);
+                    b.mat.emissiveIntensity = 1.45;
+                });
+            });
+
+            focusStation(1);
+            refreshUIAndGuide();
+            showToast('Experimento reiniciado! Pronto para uma nova análise forense.', 'info');
+        }
+
+        // Bind de botões da interface
+        document.querySelectorAll('.step-pill').forEach((pill) => {
+            pill.addEventListener('click', () => {
+                const s = Number(pill.dataset.stage);
+                if (s <= state.maxUnlockedStage) goToStage(s);
+            });
+        });
+
+        document.getElementById('btn-recenter').addEventListener('click', () => {
+            audio.playClick(740, 0.04, 0.07);
+            focusStation(state.stage);
+        });
+
+        document.getElementById('btn-mute').addEventListener('click', () => {
+            const nextMuted = !audio.muted;
+            audio.setMuted(nextMuted);
+            document.getElementById('mute-icon').textContent = nextMuted ? '🔇' : '🔊';
+            if (!nextMuted) audio.playClick(880, 0.04, 0.08);
+        });
+
+        function syncCollapseChevron() {
+            const wrap = document.getElementById('side-panel-wrapper');
+            const collapsed = wrap.classList.contains('collapsed');
+            const isMobile = window.innerWidth <= 768;
+            document.getElementById('collapse-chevron').textContent = isMobile
+                ? (collapsed ? '▲' : '▼')
+                : (collapsed ? '▶' : '◀');
+        }
+
+        function toggleSidePanel() {
+            const wrap = document.getElementById('side-panel-wrapper');
+            wrap.classList.toggle('collapsed');
+            syncCollapseChevron();
+        }
+
+        document.getElementById('btn-collapse-panel').addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleSidePanel();
+        });
+
+        document.querySelector('.panel-header').addEventListener('click', () => {
+            if (window.innerWidth <= 768) {
+                toggleSidePanel();
+            }
+        });
+
+        document.getElementById('btn-close-report').addEventListener('click', closeReportModal);
+        document.getElementById('btn-inspect-3d').addEventListener('click', closeReportModal);
+        document.getElementById('btn-restart-exp').addEventListener('click', resetExperiment);
+
+        // =========================================================================
+        // 20. LOOP DE ANIMAÇÃO (60 FPS ESTÁVEIS) + RESIZE RESPONSIVO
+        // =========================================================================
+        const clock = new THREE.Clock();
+        const dummyObj = new THREE.Object3D();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = Math.min(clock.getDelta(), 0.05);
+            const elapsed = clock.getElapsedTime();
+
+            // 1. Atualiza Tweens Ativos
+            for (let i = activeTweens.length - 1; i >= 0; i--) {
+                const tw = activeTweens[i];
+                tw.elapsed += dt;
+                const progress = Math.min(1, tw.elapsed / tw.duration);
+                tw.onUpdate(progress);
+                if (progress >= 1) {
+                    activeTweens.splice(i, 1);
+                    if (tw.onComplete) tw.onComplete();
+                }
+            }
+
+            // 2. Transição suave de Câmera (Lerp) mantendo OrbitControls ativo
+            if (cameraTransition.active) {
+                const lerpAlpha = 1 - Math.exp(-5.2 * dt);
+                camera.position.lerp(cameraTransition.targetPos, lerpAlpha);
+                controls.target.lerp(cameraTransition.targetLook, lerpAlpha);
+                if (
+                    camera.position.distanceTo(cameraTransition.targetPos) < 0.025 &&
+                    controls.target.distanceTo(cameraTransition.targetLook) < 0.025
+                ) {
+                    cameraTransition.active = false;
+                }
+            }
+            controls.update();
+
+            // 3. Indicador visual pulsante 3D
+            if (guideGroup.visible) {
+                guideGroup.position.copy(guideTargetPos);
+                const pulse = 1 + Math.sin(elapsed * 4.5) * 0.12;
+                guideRing.scale.setScalar(guideRingRadius * pulse);
+                guideArrow.position.y = guideArrowOffsetY + Math.sin(elapsed * 5.2) * 0.09;
+                guideArrow.rotation.y = elapsed * 2.2;
+            }
+
+            // 4. Animação contínua do Holograma de Lise Celular (Estação 2)
+            if (lysisHoloGroup.visible) {
+                const cycle = (elapsed * 0.45) % 1; // 0..1 membrana rompe e libera DNA
+                lysisDNA.root.rotation.y = elapsed * 1.1;
+                lysisCellSphere.scale.setScalar(1 + cycle * 0.25);
+                lysisCellSphere.material.opacity = Math.max(0.02, 0.38 * (1 - cycle));
+
+                for (let i = 0; i < MEMBRANE_COUNT; i++) {
+                    const dir = membraneDirs[i];
+                    const dist = 0.48 + cycle * 0.55;
+                    dummyObj.position.set(dir.x * dist, dir.y * dist, dir.z * dist);
+                    dummyObj.rotation.set(elapsed + i, elapsed * 0.7, 0);
+                    const sc = Math.max(0.01, (1 - cycle) * 1.1);
+                    dummyObj.scale.setScalar(sc);
+                    dummyObj.updateMatrix();
+                    membraneInstanced.setMatrixAt(i, dummyObj.matrix);
+                }
+                membraneInstanced.instanceMatrix.needsUpdate = true;
+            }
+
+            // 5. Animação do DNA Holográfico na Estação 3 (PCR)
+            pcrDNA.root.rotation.y = elapsed * 0.55;
+            const sep = state.st3DnaSeparation * 0.42;
+            pcrDNA.leftStrand.position.x = -sep;
+            pcrDNA.rightStrand.position.x = sep;
+            pcrDNA.newLeftComplement.position.x = -sep;
+            pcrDNA.newRightComplement.position.x = sep;
+
+            if (pcrDNA.primersGroup.visible) {
+                const pProg = state.st3PrimerProgress;
+                pcrDNA.primerA.position.set(
+                    THREE.MathUtils.lerp(-0.95, -sep - 0.12, pProg),
+                    THREE.MathUtils.lerp(-0.95, -0.58, pProg),
+                    0.12
+                );
+                pcrDNA.primerB.position.set(
+                    THREE.MathUtils.lerp(0.95, sep + 0.12, pProg),
+                    THREE.MathUtils.lerp(0.95, 0.58, pProg),
+                    -0.12
+                );
+            }
+
+            if (state.st3ExtensionProgress > 0) {
+                const activeCount = Math.floor(state.st3ExtensionProgress * pcrDNA.newPairsList.length);
+                pcrDNA.newPairsList.forEach(({ pairL, pairR }, idx) => {
+                    const visible = idx < activeCount;
+                    pairL.visible = visible;
+                    pairR.visible = visible;
+                });
+            }
+
+            if (pcrCloudMesh.count > 0) {
+                for (let i = 0; i < pcrCloudMesh.count; i++) {
+                    const d = pcrCloudData[i];
+                    const a = d.angle + elapsed * d.speed;
+                    dummyObj.position.set(Math.cos(a) * d.rad, d.y + Math.sin(elapsed * 1.5 + i) * 0.05, Math.sin(a) * d.rad);
+                    dummyObj.rotation.set(a, elapsed * 0.8, 0.4);
+                    dummyObj.scale.setScalar(1);
+                    dummyObj.updateMatrix();
+                    pcrCloudMesh.setMatrixAt(i, dummyObj.matrix);
+                }
+                pcrCloudMesh.instanceMatrix.needsUpdate = true;
+            }
+
+            // 6. Bolhas dos eletrodos (InstancedMesh) + Transição de Iluminação UV (Estação 4)
+            if (bubbleInstanced.visible) {
+                for (let i = 0; i < BUBBLE_COUNT; i++) {
+                    const b = bubbleData[i];
+                    b.y += b.speed * dt;
+                    if (b.y > 0.25) b.y = 0.07;
+                    dummyObj.position.set(b.x + Math.sin(elapsed * 6 + i) * 0.012, b.y, b.z);
+                    dummyObj.scale.setScalar(0.75 + Math.sin(elapsed * 8 + i) * 0.25);
+                    dummyObj.updateMatrix();
+                    bubbleInstanced.setMatrixAt(i, dummyObj.matrix);
+                }
+                bubbleInstanced.instanceMatrix.needsUpdate = true;
+            }
+
+            const uvTarget = (state.stage === 4 && state.st4UVActive) ? 1 : 0;
+            const uvLerp = 1 - Math.exp(-5 * dt);
+            ambientLight.intensity = THREE.MathUtils.lerp(ambientLight.intensity, uvTarget ? 0.1 : 0.55, uvLerp);
+            hemiLight.intensity = THREE.MathUtils.lerp(hemiLight.intensity, uvTarget ? 0.1 : 0.65, uvLerp);
+            mainDirLight.intensity = THREE.MathUtils.lerp(mainDirLight.intensity, uvTarget ? 0.14 : 1.35, uvLerp);
+            stationLights.forEach((s) => {
+                s.intensity = THREE.MathUtils.lerp(s.intensity, uvTarget ? 0.18 : 2.2, uvLerp);
+            });
+            uvPointLight.intensity = THREE.MathUtils.lerp(uvPointLight.intensity, uvTarget ? 6.5 : 0, uvLerp);
+            uvPlateMat.emissiveIntensity = THREE.MathUtils.lerp(uvPlateMat.emissiveIntensity, uvTarget ? 1.85 : 0.05, uvLerp);
+
+            if (state.st4MigrationDone) {
+                gelBands.forEach((b) => {
+                    const targetOp = uvTarget ? 0.98 : 0.42;
+                    const targetEm = uvTarget ? 2.6 : 0.15;
+                    b.mat.opacity = THREE.MathUtils.lerp(b.mat.opacity, targetOp, uvLerp);
+                    b.mat.emissiveIntensity = THREE.MathUtils.lerp(b.mat.emissiveIntensity, targetEm, uvLerp);
+                    if (uvTarget) {
+                        b.mat.color.setHex(b.isLadder ? 0x38bdf8 : 0x2dd4bf);
+                        b.mat.emissive.setHex(b.isLadder ? 0x0ea5e9 : 0x10b981);
+                    } else {
+                        b.mat.color.setHex(0x3b82f6);
+                        b.mat.emissive.setHex(0x1d4ed8);
+                    }
+                });
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Responsividade da janela e rotação de tela
+        function handlePcrResize() {
+            camera.aspect = window.innerWidth / Math.max(1, window.innerHeight);
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            syncCollapseChevron();
+        }
+        window.addEventListener('resize', handlePcrResize);
+        window.addEventListener('orientationchange', () => setTimeout(handlePcrResize, 120));
+
+        // Inicialização após carregamento completo
+        window.addEventListener('load', () => {
+            refreshUIAndGuide();
+            syncCollapseChevron();
+            focusStation(1);
+            animate();
+        });
+    </script>
+    <script src="./ecosystem-nav.js" defer data-page="pcr.html" data-theme="dark" data-pos="pcr"></script>
+</body>
+
+</html>

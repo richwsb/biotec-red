@@ -1,0 +1,3041 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>ARQUIVO CONFIDENCIAL — Jogo de Investigação Criminal</title>
+    <style>
+        :root {
+            --desk-bg: #12100e;
+            --desk-light: #241e19;
+            --panel-dark: #1c1815;
+            --panel-border: #3a3128;
+            --manila: #e6d7b8;
+            --manila-dark: #d1be96;
+            --paper: #f7f2e4;
+            --paper-alt: #efe7d3;
+            --ink: #1e1a16;
+            --ink-muted: #574e44;
+            --stamp-red: #9e1b1b;
+            --stamp-red-bright: #c92a2a;
+            --gold: #c99e32;
+            --gold-soft: #e4c56c;
+            --green-solved: #1f6b43;
+            --shadow-heavy: 0 14px 35px rgba(0, 0, 0, 0.65);
+            --shadow-card: 0 4px 14px rgba(0, 0, 0, 0.35);
+            --font-mono: 'Courier New', Courier, 'Lucida Console', monospace;
+            --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background:
+                radial-gradient(circle at 25% 10%, rgba(201, 158, 50, 0.12), transparent 42%),
+                radial-gradient(circle at 80% 85%, rgba(158, 27, 27, 0.10), transparent 45%),
+                repeating-linear-gradient(45deg,
+                    rgba(255, 255, 255, 0.012) 0px,
+                    rgba(255, 255, 255, 0.012) 2px,
+                    transparent 2px,
+                    transparent 6px),
+                var(--desk-bg);
+            color: #ede6d6;
+            font-family: var(--font-sans);
+            min-height: 100vh;
+            line-height: 1.55;
+            overflow-x: hidden;
+        }
+
+        /* ===== TOP BAR ===== */
+        .topbar {
+            background: linear-gradient(180deg, #1a1512 0%, #110e0c 100%);
+            border-bottom: 2px solid var(--panel-border);
+            padding: 0.75rem 1.25rem;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .brand-badge {
+            width: 38px;
+            height: 38px;
+            border: 2px solid var(--gold);
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: var(--gold);
+            font-family: var(--font-mono);
+            font-weight: bold;
+            font-size: 0.95rem;
+            background: rgba(201, 158, 50, 0.08);
+            flex-shrink: 0;
+        }
+
+        .brand h1 {
+            font-family: var(--font-mono);
+            font-size: 1.05rem;
+            letter-spacing: 1.5px;
+            color: #f4ebd7;
+            text-transform: uppercase;
+        }
+
+        .brand small {
+            display: block;
+            font-size: 0.72rem;
+            color: #a89b87;
+            font-family: var(--font-mono);
+            letter-spacing: 0.5px;
+        }
+
+        .topbar-controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            font-weight: bold;
+            padding: 0.5rem 0.85rem;
+            border-radius: 4px;
+            border: 1px solid var(--panel-border);
+            background: #25201b;
+            color: #ede6d6;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: #332b23;
+            border-color: var(--gold);
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .btn-gold {
+            background: linear-gradient(180deg, #b68a24, #8f6914);
+            color: #120f0c;
+            border-color: var(--gold-soft);
+        }
+
+        .btn-gold:hover:not(:disabled) {
+            background: linear-gradient(180deg, #cfa135, #a3791a);
+            color: #0e0b08;
+        }
+
+        .btn-danger {
+            background: linear-gradient(180deg, #9e1b1b, #751212);
+            border-color: #d44b4b;
+            color: #fff5f5;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: linear-gradient(180deg, #b82222, #8a1616);
+        }
+
+        .btn-paper {
+            background: var(--paper-alt);
+            color: var(--ink);
+            border: 1px solid #b8a582;
+        }
+
+        .btn-paper:hover:not(:disabled) {
+            background: #fff9ec;
+            border-color: var(--stamp-red);
+        }
+
+        /* ===== CASE SELECTOR BAR ===== */
+        .case-selector-bar {
+            max-width: 1240px;
+            margin: 1rem auto 0;
+            padding: 0 1rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+            gap: 0.85rem;
+        }
+
+        .case-folder-btn {
+            position: relative;
+            text-align: left;
+            background: linear-gradient(135deg, #2b241d 0%, #1e1914 100%);
+            border: 1px solid #453a2f;
+            border-top: 4px solid #6b5a47;
+            border-radius: 6px;
+            padding: 0.85rem 1rem;
+            color: #ede6d6;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .case-folder-btn:hover {
+            border-color: var(--gold);
+            transform: translateY(-2px);
+        }
+
+        .case-folder-btn.active {
+            background: linear-gradient(135deg, var(--manila) 0%, var(--manila-dark) 100%);
+            color: var(--ink);
+            border-color: var(--gold);
+            border-top: 4px solid var(--stamp-red);
+            box-shadow: var(--shadow-card);
+        }
+
+        .case-folder-meta {
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            opacity: 0.8;
+            letter-spacing: 0.8px;
+        }
+
+        .case-folder-title {
+            font-weight: 700;
+            font-size: 0.98rem;
+            margin-top: 0.15rem;
+        }
+
+        .stamp-pill {
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            font-weight: 900;
+            padding: 0.22rem 0.5rem;
+            border: 2px solid currentColor;
+            border-radius: 3px;
+            text-transform: uppercase;
+            transform: rotate(-4deg);
+            white-space: nowrap;
+            letter-spacing: 0.8px;
+        }
+
+        .stamp-open {
+            color: var(--stamp-red-bright);
+        }
+
+        .case-folder-btn.active .stamp-open {
+            color: var(--stamp-red);
+        }
+
+        .stamp-solved {
+            color: #39b574;
+        }
+
+        .case-folder-btn.active .stamp-solved {
+            color: var(--green-solved);
+        }
+
+        /* ===== MAIN LAYOUT ===== */
+        .workspace {
+            max-width: 1240px;
+            margin: 1rem auto 2.5rem;
+            padding: 0 1rem;
+        }
+
+        /* Folder Tabs */
+        .nav-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            padding-left: 0.5rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .tab-btn {
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+            font-weight: 700;
+            padding: 0.65rem 1.05rem;
+            background: #332a21;
+            color: #c8bba6;
+            border: 1px solid #4d4033;
+            border-bottom: none;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            text-transform: uppercase;
+        }
+
+        .tab-btn:hover {
+            background: #463a2e;
+            color: #fff;
+        }
+
+        .tab-btn.active {
+            background: var(--manila);
+            color: var(--ink);
+            border-color: #bfa97e;
+            padding-bottom: 0.78rem;
+            margin-bottom: -2px;
+            box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.25);
+        }
+
+        .tab-count {
+            background: rgba(0, 0, 0, 0.22);
+            padding: 0.08rem 0.4rem;
+            border-radius: 999px;
+            font-size: 0.72rem;
+        }
+
+        .tab-btn.active .tab-count {
+            background: var(--stamp-red);
+            color: #fff;
+        }
+
+        /* Manila Dossier Sheet */
+        .dossier-folder {
+            background: linear-gradient(180deg, var(--manila) 0%, #ddcca8 100%);
+            color: var(--ink);
+            border: 1px solid #b8a378;
+            border-radius: 0 8px 8px 8px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-heavy);
+            position: relative;
+            min-height: 540px;
+        }
+
+        .dossier-folder::before {
+            content: "CONFIDENCIAL";
+            position: absolute;
+            top: 1.15rem;
+            right: 1.5rem;
+            font-family: var(--font-mono);
+            font-weight: 900;
+            font-size: 1rem;
+            letter-spacing: 3px;
+            color: rgba(158, 27, 27, 0.22);
+            border: 3px solid rgba(158, 27, 27, 0.22);
+            padding: 0.2rem 0.65rem;
+            transform: rotate(7deg);
+            pointer-events: none;
+            user-select: none;
+        }
+
+        /* Inner Paper Cards */
+        .paper-sheet {
+            background: var(--paper);
+            border: 1px solid #cbb994;
+            border-radius: 4px;
+            padding: 1.25rem;
+            box-shadow: 2px 4px 12px rgba(30, 22, 12, 0.16);
+            position: relative;
+        }
+
+        .paper-clip {
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            width: 18px;
+            height: 36px;
+            border: 3px solid #757a80;
+            border-radius: 10px;
+            background: transparent;
+            box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.25);
+            pointer-events: none;
+        }
+
+        .paper-clip::after {
+            content: "";
+            position: absolute;
+            top: 5px;
+            left: 3px;
+            right: 3px;
+            bottom: 5px;
+            border: 2px solid #595e63;
+            border-radius: 6px;
+        }
+
+        .section-title {
+            font-family: var(--font-mono);
+            font-size: 1.15rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 2px solid var(--ink);
+            padding-bottom: 0.4rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .mono-label {
+            font-family: var(--font-mono);
+            font-size: 0.76rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--ink-muted);
+            font-weight: 700;
+        }
+
+        /* ===== CRIME SCENE TAB ===== */
+        .scene-grid {
+            display: grid;
+            grid-template-columns: 1.05fr 1fr;
+            gap: 1.25rem;
+            align-items: start;
+        }
+
+        .dossier-meta-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.7rem;
+            margin-bottom: 1rem;
+        }
+
+        .meta-box {
+            background: var(--paper-alt);
+            border-left: 3px solid var(--stamp-red);
+            padding: 0.55rem 0.75rem;
+            border-radius: 0 3px 3px 0;
+        }
+
+        .meta-box strong {
+            display: block;
+            font-size: 0.92rem;
+            color: var(--ink);
+            margin-top: 0.1rem;
+        }
+
+        .floorplan-container {
+            background: #1a2126;
+            border: 2px solid #3c4a54;
+            border-radius: 6px;
+            padding: 0.75rem;
+            color: #d9e6ee;
+            box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.6);
+        }
+
+        .floorplan-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: #8db3c7;
+            margin-bottom: 0.5rem;
+            border-bottom: 1px dashed #3a505e;
+            padding-bottom: 0.35rem;
+        }
+
+        .floorplan-svg {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 4px;
+        }
+
+        .hotspot {
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+
+        .hotspot:hover circle.pulse-ring {
+            stroke-width: 3;
+            fill: rgba(201, 158, 50, 0.35);
+        }
+
+        .hotspot-info {
+            margin-top: 0.75rem;
+            background: rgba(12, 18, 22, 0.85);
+            border-left: 3px solid var(--gold);
+            padding: 0.65rem 0.85rem;
+            border-radius: 0 4px 4px 0;
+            font-size: 0.86rem;
+            min-height: 76px;
+        }
+
+        .hotspot-info h4 {
+            font-family: var(--font-mono);
+            color: var(--gold-soft);
+            font-size: 0.82rem;
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+        }
+
+        /* ===== SUSPECTS TAB ===== */
+        .suspects-layout {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 1.25rem;
+            align-items: start;
+        }
+
+        .suspect-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .suspect-card-mini {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: var(--paper);
+            border: 1px solid #c5b38c;
+            border-radius: 5px;
+            padding: 0.65rem;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.15s ease;
+            position: relative;
+        }
+
+        .suspect-card-mini:hover {
+            background: #fffaf0;
+            border-color: var(--ink);
+        }
+
+        .suspect-card-mini.active {
+            background: #fffdf7;
+            border: 2px solid var(--stamp-red);
+            box-shadow: 0 4px 10px rgba(158, 27, 27, 0.18);
+        }
+
+        .portrait-thumb {
+            width: 54px;
+            height: 54px;
+            border-radius: 4px;
+            border: 1px solid #7c6f5c;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: #2b2622;
+        }
+
+        .suspect-mini-name {
+            font-weight: 700;
+            font-size: 0.92rem;
+            color: var(--ink);
+        }
+
+        .suspect-mini-role {
+            font-size: 0.76rem;
+            color: var(--ink-muted);
+        }
+
+        .cracked-badge {
+            display: inline-block;
+            margin-top: 0.2rem;
+            font-family: var(--font-mono);
+            font-size: 0.64rem;
+            font-weight: 700;
+            background: var(--stamp-red);
+            color: #fff;
+            padding: 0.08rem 0.35rem;
+            border-radius: 2px;
+            text-transform: uppercase;
+        }
+
+        .interrogation-header {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            border-bottom: 1px dashed #b7a47d;
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .portrait-large {
+            width: 96px;
+            height: 96px;
+            border: 3px solid #fff;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+            border-radius: 3px;
+            background: #231f1c;
+            transform: rotate(-2deg);
+            flex-shrink: 0;
+        }
+
+        .quote-box {
+            background: var(--paper-alt);
+            border-left: 4px solid var(--ink);
+            padding: 0.85rem 1rem;
+            margin: 0.75rem 0 1rem;
+            font-style: italic;
+            font-size: 0.94rem;
+        }
+
+        .alibi-tag {
+            background: #e9dec5;
+            border: 1px solid #bfab82;
+            padding: 0.6rem 0.85rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            font-size: 0.88rem;
+        }
+
+        .questions-box,
+        .confront-box {
+            margin-top: 1rem;
+            padding-top: 0.9rem;
+            border-top: 1px solid #d5c5a2;
+        }
+
+        .question-btn {
+            display: block;
+            width: 100%;
+            text-align: left;
+            background: #efe6d0;
+            border: 1px solid #c3b088;
+            border-radius: 4px;
+            padding: 0.6rem 0.85rem;
+            margin-bottom: 0.5rem;
+            font-family: var(--font-sans);
+            font-size: 0.88rem;
+            color: var(--ink);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .question-btn:hover {
+            background: #e6d7b7;
+            border-color: var(--ink);
+        }
+
+        .question-btn.asked {
+            border-left: 4px solid var(--green-solved);
+            background: #f5efe0;
+        }
+
+        .answer-log {
+            background: #221d18;
+            color: #f2ead9;
+            border-radius: 5px;
+            padding: 0.9rem 1rem;
+            margin-top: 0.75rem;
+            font-size: 0.9rem;
+            border-left: 4px solid var(--gold);
+        }
+
+        .answer-log.breakthrough {
+            border-left-color: var(--stamp-red-bright);
+            background: #2b1616;
+        }
+
+        .confront-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        select.dossier-select {
+            flex: 1;
+            min-width: 0;
+            width: 100%;
+            padding: 0.55rem 0.75rem;
+            border: 1px solid #9d8963;
+            border-radius: 4px;
+            background: #fffdf7;
+            color: var(--ink);
+            font-family: var(--font-sans);
+            font-size: 0.88rem;
+        }
+
+        /* ===== EVIDENCE TAB ===== */
+        .evidence-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
+            gap: 1rem;
+        }
+
+        .evidence-card {
+            background: var(--paper);
+            border: 1px solid #c8b68e;
+            border-radius: 5px;
+            padding: 1rem;
+            box-shadow: 2px 3px 8px rgba(0, 0, 0, 0.12);
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+            position: relative;
+            transition: transform 0.15s ease;
+        }
+
+        .evidence-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .evidence-card.secret-unlocked {
+            border: 2px solid var(--stamp-red);
+            background: #fffaf0;
+        }
+
+        .evidence-top {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+        }
+
+        .evidence-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 5px;
+            background: #28221c;
+            color: var(--gold-soft);
+            display: grid;
+            place-items: center;
+            flex-shrink: 0;
+        }
+
+        .evidence-code {
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--stamp-red);
+            text-transform: uppercase;
+        }
+
+        .evidence-title {
+            font-weight: 700;
+            font-size: 0.96rem;
+            line-height: 1.25;
+        }
+
+        .evidence-doc {
+            background: #f0e8d5;
+            border: 1px dashed #b9a67d;
+            padding: 0.65rem 0.75rem;
+            font-family: var(--font-mono);
+            font-size: 0.79rem;
+            color: #29221a;
+            white-space: pre-line;
+            border-radius: 3px;
+        }
+
+        .evidence-desc {
+            font-size: 0.87rem;
+            color: #362f28;
+        }
+
+        /* ===== TIMELINE TAB ===== */
+        .timeline-banner {
+            background: #2c1616;
+            color: #ffdede;
+            border: 1px solid #8a2626;
+            border-radius: 5px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1.15rem;
+            font-family: var(--font-mono);
+            font-size: 0.84rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .timeline-list {
+            position: relative;
+            padding-left: 1.75rem;
+        }
+
+        .timeline-list::before {
+            content: "";
+            position: absolute;
+            left: 7px;
+            top: 6px;
+            bottom: 6px;
+            width: 3px;
+            background: #7c6b53;
+        }
+
+        .timeline-item {
+            position: relative;
+            background: var(--paper);
+            border: 1px solid #cab790;
+            border-radius: 5px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .timeline-item::before {
+            content: "";
+            position: absolute;
+            left: -1.62rem;
+            top: 1rem;
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            background: var(--ink);
+            border: 2px solid var(--manila);
+        }
+
+        .timeline-item.crime-window {
+            border-left: 5px solid var(--stamp-red);
+            background: #fff4f2;
+        }
+
+        .timeline-item.crime-window::before {
+            background: var(--stamp-red);
+            box-shadow: 0 0 0 3px rgba(158, 27, 27, 0.25);
+        }
+
+        .timeline-item.unlocked-event {
+            border-left: 5px solid var(--gold);
+            background: #fffcf0;
+        }
+
+        .timeline-time {
+            font-family: var(--font-mono);
+            font-weight: 900;
+            font-size: 0.88rem;
+            color: var(--stamp-red);
+            margin-right: 0.5rem;
+        }
+
+        .timeline-source {
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            background: #e4d6b7;
+            padding: 0.12rem 0.45rem;
+            border-radius: 3px;
+            color: var(--ink-muted);
+        }
+
+        /* ===== ACCUSATION TAB ===== */
+        .accusation-form {
+            max-width: 780px;
+            margin: 0 auto;
+        }
+
+        .accusation-step {
+            background: var(--paper);
+            border: 1px solid #c5b38c;
+            border-radius: 6px;
+            padding: 1rem 1.15rem;
+            margin-bottom: 1rem;
+        }
+
+        .accusation-step label {
+            display: block;
+            font-family: var(--font-mono);
+            font-weight: 700;
+            font-size: 0.86rem;
+            text-transform: uppercase;
+            margin-bottom: 0.55rem;
+            color: var(--ink);
+        }
+
+        .radio-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+            gap: 0.55rem;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            background: var(--paper-alt);
+            border: 1px solid #c6b58f;
+            padding: 0.65rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.88rem;
+            transition: all 0.15s ease;
+        }
+
+        .radio-option:hover {
+            background: #fffaf0;
+            border-color: var(--ink);
+        }
+
+        .radio-option input {
+            margin-top: 0.22rem;
+            accent-color: var(--stamp-red);
+        }
+
+        /* ===== RESULT REPORT ===== */
+        .result-box {
+            background: var(--paper);
+            border: 2px solid var(--ink);
+            border-radius: 6px;
+            padding: 1.5rem;
+            margin-top: 1.25rem;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.22);
+        }
+
+        .verdict-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            border-bottom: 2px solid var(--ink);
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .big-stamp {
+            font-family: var(--font-mono);
+            font-size: 1.25rem;
+            font-weight: 900;
+            padding: 0.35rem 0.9rem;
+            border: 4px solid currentColor;
+            border-radius: 5px;
+            transform: rotate(-3deg);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .big-stamp.success {
+            color: var(--green-solved);
+        }
+
+        .big-stamp.fail {
+            color: var(--stamp-red);
+        }
+
+        .score-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.75rem;
+            margin: 1rem 0;
+        }
+
+        .score-card {
+            background: var(--paper-alt);
+            border: 1px solid #c4b28a;
+            padding: 0.75rem;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .score-card .val {
+            font-family: var(--font-mono);
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: var(--ink);
+        }
+
+        .checklist-result {
+            list-style: none;
+            margin: 1rem 0;
+        }
+
+        .checklist-result li {
+            padding: 0.45rem 0.7rem;
+            margin-bottom: 0.4rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .checklist-result li.ok {
+            background: #dff2e7;
+            border-left: 4px solid var(--green-solved);
+        }
+
+        .checklist-result li.err {
+            background: #f9e0e0;
+            border-left: 4px solid var(--stamp-red);
+        }
+
+        /* ===== NOTEBOOK DRAWER & HINT MODAL ===== */
+        .drawer-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            z-index: 90;
+            display: none;
+        }
+
+        .drawer-backdrop.open {
+            display: block;
+        }
+
+        .notebook-drawer {
+            position: fixed;
+            top: 0;
+            right: -100%;
+            width: min(400px, 94vw);
+            height: 100vh;
+            height: 100dvh;
+            background: #f5ecd6;
+            color: var(--ink);
+            z-index: 100;
+            box-shadow: -8px 0 30px rgba(0, 0, 0, 0.65);
+            transition: right 0.25s ease;
+            display: flex;
+            flex-direction: column;
+            border-left: 6px solid #593a24;
+        }
+
+        .notebook-drawer.open {
+            right: 0;
+        }
+
+        .notebook-header {
+            background: #2b2119;
+            color: #f3e8d2;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: var(--font-mono);
+        }
+
+        .notebook-body {
+            padding: 1rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .notebook-textarea {
+            flex: 1;
+            width: 100%;
+            resize: none;
+            border: 1px solid #c7b58e;
+            border-radius: 4px;
+            padding: 0.85rem;
+            font-family: var(--font-mono);
+            font-size: 0.88rem;
+            line-height: 1.65;
+            color: #1f1b17;
+            background:
+                repeating-linear-gradient(to bottom,
+                    #fffdf6 0px,
+                    #fffdf6 25px,
+                    #e3d7bd 26px);
+        }
+
+        .modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.95);
+            width: min(560px, 92vw);
+            max-height: 85vh;
+            overflow-y: auto;
+            background: var(--paper);
+            color: var(--ink);
+            border: 3px solid var(--ink);
+            border-radius: 6px;
+            padding: 1.35rem;
+            z-index: 110;
+            box-shadow: 0 18px 45px rgba(0, 0, 0, 0.75);
+            display: none;
+        }
+
+        .modal.open {
+            display: block;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .hint-card {
+            background: var(--paper-alt);
+            border-left: 4px solid var(--gold);
+            padding: 0.75rem 0.9rem;
+            margin-bottom: 0.65rem;
+            border-radius: 0 4px 4px 0;
+            font-size: 0.9rem;
+        }
+
+        /* ===== TOAST ===== */
+        .toast {
+            position: fixed;
+            bottom: 1.25rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(120%);
+            background: #1d1713;
+            color: #f6ecd7;
+            border: 2px solid var(--gold);
+            padding: 0.75rem 1.25rem;
+            border-radius: 5px;
+            font-family: var(--font-mono);
+            font-size: 0.84rem;
+            z-index: 150;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
+            transition: transform 0.28s ease;
+            max-width: 92vw;
+            text-align: center;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 860px) {
+
+            .scene-grid,
+            .suspects-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .dossier-folder {
+                padding: 1rem;
+            }
+
+            .dossier-folder::before {
+                font-size: 0.75rem;
+                top: 0.65rem;
+                right: 0.75rem;
+            }
+
+            .tab-btn {
+                font-size: 0.74rem;
+                padding: 0.55rem 0.72rem;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .topbar {
+                padding: 0.55rem 0.75rem;
+                gap: 0.5rem;
+            }
+
+            .brand {
+                gap: 0.55rem;
+            }
+
+            .brand-badge {
+                width: 32px;
+                height: 32px;
+                font-size: 0.8rem;
+            }
+
+            .brand h1 {
+                font-size: 0.9rem;
+                letter-spacing: 0.8px;
+            }
+
+            .brand small {
+                font-size: 0.64rem;
+            }
+
+            .topbar-controls {
+                width: 100%;
+                gap: 0.35rem;
+            }
+
+            .topbar-controls .btn {
+                flex: 1 1 auto;
+                justify-content: center;
+                padding: 0.44rem 0.5rem;
+                font-size: 0.68rem;
+                letter-spacing: 0.2px;
+            }
+
+            .case-selector-bar {
+                padding: 0 0.65rem;
+                margin-top: 0.75rem;
+                gap: 0.55rem;
+            }
+
+            .case-folder-btn {
+                padding: 0.7rem 0.8rem;
+            }
+
+            .case-folder-title {
+                font-size: 0.88rem;
+            }
+
+            .workspace {
+                margin: 0.75rem auto 0;
+                padding: 0 0.65rem 5.25rem;
+            }
+
+            .nav-tabs {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                padding-left: 0;
+                gap: 0.25rem;
+            }
+
+            .nav-tabs::-webkit-scrollbar {
+                display: none;
+            }
+
+            .tab-btn {
+                flex-shrink: 0;
+                white-space: nowrap;
+                font-size: 0.72rem;
+                padding: 0.55rem 0.75rem;
+            }
+
+            .dossier-folder {
+                border-radius: 0 0 8px 8px;
+                padding: 0.85rem;
+                min-height: auto;
+            }
+
+            .dossier-folder::before {
+                display: none;
+            }
+
+            .paper-sheet {
+                padding: 0.9rem;
+            }
+
+            .section-title {
+                font-size: 0.98rem;
+            }
+
+            .suspect-list {
+                flex-direction: row;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 0.35rem;
+                gap: 0.5rem;
+            }
+
+            .suspect-card-mini {
+                min-width: 215px;
+                flex-shrink: 0;
+                padding: 0.55rem;
+            }
+
+            .portrait-thumb {
+                width: 44px;
+                height: 44px;
+            }
+
+            .portrait-large {
+                width: 72px;
+                height: 72px;
+            }
+
+            .confront-controls {
+                flex-direction: column;
+            }
+
+            .confront-controls .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .timeline-list {
+                padding-left: 1.35rem;
+            }
+
+            .timeline-item {
+                padding: 0.65rem 0.8rem;
+            }
+
+            .timeline-item::before {
+                left: -1.24rem;
+                width: 11px;
+                height: 11px;
+            }
+
+            .result-box {
+                padding: 1rem;
+            }
+
+            .big-stamp {
+                font-size: 1rem;
+                padding: 0.28rem 0.65rem;
+            }
+
+            .modal {
+                width: calc(100vw - 20px);
+                max-height: 88dvh;
+                padding: 1rem;
+            }
+
+            .toast {
+                bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+                font-size: 0.78rem;
+                padding: 0.6rem 0.95rem;
+            }
+        }
+
+        @media (max-width: 520px) {
+            .dossier-meta-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- TOP HEADER -->
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-badge">DP</div>
+            <div>
+                <h1>Arquivo Confidencial</h1>
+                <small>Divisão de Homicídios &bull; Dossiê Interativo</small>
+            </div>
+        </div>
+        <div class="topbar-controls">
+            <button class="btn" id="btn-hint" title="Pedir dica progressiva ao legista">
+                <span>&#128269;</span> Dica ao Legista (<span id="hint-counter">0/3</span>)
+            </button>
+            <button class="btn btn-gold" id="btn-notebook">
+                <span>&#128221;</span> Caderno
+            </button>
+            <button class="btn" id="btn-sound" title="Ativar/Desativar efeitos sonoros">
+                <span id="sound-icon">&#128266;</span> <span id="sound-label">Som: ON</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- CASE SELECTOR -->
+    <section class="case-selector-bar" id="case-selector" aria-label="Seleção de Casos"></section>
+
+    <!-- MAIN WORKSPACE -->
+    <main class="workspace">
+        <nav class="nav-tabs" id="nav-tabs" role="tablist">
+            <button class="tab-btn active" data-tab="scene">Cena do Crime</button>
+            <button class="tab-btn" data-tab="suspects">Suspeitos <span class="tab-count"
+                    id="count-suspects">0</span></button>
+            <button class="tab-btn" data-tab="evidence">Evidências <span class="tab-count"
+                    id="count-evidence">0</span></button>
+            <button class="tab-btn" data-tab="timeline">Linha do Tempo</button>
+            <button class="tab-btn" data-tab="accuse">Quadro de Acusação</button>
+        </nav>
+
+        <section class="dossier-folder" id="dossier-content"></section>
+    </main>
+
+    <!-- NOTEBOOK DRAWER -->
+    <div class="drawer-backdrop" id="backdrop"></div>
+    <aside class="notebook-drawer" id="notebook-drawer" aria-label="Caderno de Anotações">
+        <div class="notebook-header">
+            <div>
+                <strong>CADERNO DO DETETIVE</strong>
+                <div style="font-size:0.72rem; opacity:0.75;" id="notebook-case-label">Caso Atual</div>
+            </div>
+            <button class="btn" id="btn-close-notebook">Fechar &times;</button>
+        </div>
+        <div class="notebook-body">
+            <p style="font-size:0.8rem; color:var(--ink-muted);">
+                Anote contradições, horários e hipóteses. Tudo é salvo automaticamente neste navegador.
+            </p>
+            <textarea class="notebook-textarea" id="notebook-textarea"
+                placeholder="Ex.: Fulano diz que não saiu às 21h30, mas o registro mostra..."></textarea>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-family:var(--font-mono); font-size:0.74rem; color:var(--green-solved);"
+                    id="notebook-status">Salvo automaticamente</span>
+                <button class="btn btn-paper" id="btn-clear-notes">Limpar Notas</button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- HINT MODAL -->
+    <div class="modal" id="hint-modal" role="dialog" aria-modal="true" aria-labelledby="hint-modal-title">
+        <div
+            style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--ink); padding-bottom:0.6rem; margin-bottom:1rem;">
+            <h2 id="hint-modal-title" style="font-family:var(--font-mono); font-size:1.05rem;">CONSULTA AO LEGISTA CHEFE
+            </h2>
+            <button class="btn btn-paper" id="btn-close-hint">&times;</button>
+        </div>
+        <p style="font-size:0.86rem; margin-bottom:0.9rem; color:var(--ink-muted);">
+            Cada nível de dica solicitado desconta pontos da sua avaliação final de detetive (Nível 1: -10 pts | Nível
+            2: -15 pts | Nível 3: -25 pts).
+        </p>
+        <div id="hint-list"></div>
+        <div style="margin-top:1rem; display:flex; justify-content:flex-end; gap:0.5rem;">
+            <button class="btn btn-danger" id="btn-unlock-hint">Solicitar Próxima Dica</button>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        /* =========================================================================
+           1. DADOS NARRATIVOS DOS CASOS (Modular & Fácil de Expandir)
+           ========================================================================= */
+        const CASES = [
+            {
+                id: "caso-01",
+                code: "DOSSIÊ #01-482",
+                title: "O Último Brinde do Antiquário",
+                difficulty: "Dificuldade: Moderada",
+                victim: "Arthur Vasconcelos (62 anos, dono da galeria Relíquias Vasconcelos)",
+                location: "Escritório particular (2º andar), Galeria Vasconcelos",
+                timeOfDeath: "Entre 21h15 e 21h45 (relógio de bolso quebrado às 21h32)",
+                crimeWindowLabel: "JANELA DA MORTE: 21h15 – 21h45 (Impacto exato às 21h32)",
+                summary:
+                    "Durante um coquetel fechado para apresentar o raríssimo 'Cronômetro Imperial', Arthur recolheu-se ao escritório às 21h00. Às 22h00, sua secretária encontrou-o morto sobre a escrivaninha, com uma taça de uísque pela metade. O cofre estava aberto, mas o Cronômetro Imperial permanecia intacto — apenas uma nota promissória desapareceu. A perícia confirmou envenenamento fulminante.",
+                hotspots: [
+                    {
+                        id: "desk",
+                        x: 195, y: 105,
+                        label: "Escrivaninha & Corpo",
+                        detail: "Arthur caiu para a frente, quebrando seu relógio de bolso exatamente às 21h32. A garrafa de uísque possui um leve borrão de pasta azul no gargalo (ver Evidência E1)."
+                    },
+                    {
+                        id: "safe",
+                        x: 345, y: 78,
+                        label: "Cofre Aberto",
+                        detail: "O Cronômetro Imperial (avaliado em R$ 800 mil) não foi roubado. Sumiu apenas o envelope com a dívida pessoal da sobrinha Beatriz."
+                    },
+                    {
+                        id: "door",
+                        x: 110, y: 210,
+                        label: "Porta e Tapete",
+                        detail: "Cinzas de cigarro espalhadas perto do batente. Sob a ponta do tapete, a perícia recolheu um lenço de seda com o monograma 'B.V.' (ver Evidência E4)."
+                    },
+                    {
+                        id: "stairs",
+                        x: 350, y: 215,
+                        label: "Escada para Térreo e Subsolo",
+                        detail: "Liga diretamente o 2º andar à recepção e ao laboratório de restauração no subsolo, que exige cartão magnético na porta blindada (ver Evidência E5)."
+                    }
+                ],
+                floorplanSvg: `
+          <svg class="floorplan-svg" viewBox="0 0 440 270" xmlns="http://www.w3.org/2000/svg">
+            <rect width="440" height="270" fill="#152028"/>
+            <g stroke="#29404f" stroke-width="0.6">
+              <path d="M0 30H440M0 60H440M0 90H440M0 120H440M0 150H440M0 180H440M0 210H440M0 240H440"/>
+              <path d="M40 0V270M80 0V270M120 0V270M160 0V270M200 0V270M240 0V270M280 0V270M320 0V270M360 0V270M400 0V270"/>
+            </g>
+            <!-- Walls -->
+            <rect x="35" y="30" width="370" height="210" fill="rgba(40,68,85,0.22)" stroke="#88b8d0" stroke-width="3"/>
+            <!-- Desk -->
+            <rect x="145" y="75" width="100" height="52" rx="3" fill="#253b4a" stroke="#7cb0c9" stroke-width="1.8"/>
+            <text x="195" y="105" text-anchor="middle" fill="#b7d8e8" font-family="monospace" font-size="10">ESCRIVANINHA</text>
+            <!-- Safe -->
+            <rect x="320" y="50" width="58" height="46" fill="#253b4a" stroke="#7cb0c9" stroke-width="1.8"/>
+            <text x="349" y="76" text-anchor="middle" fill="#b7d8e8" font-family="monospace" font-size="9">COFRE</text>
+            <!-- Rug & Door -->
+            <rect x="65" y="175" width="95" height="50" fill="rgba(180,95,80,0.2)" stroke="#c78b7d" stroke-dasharray="4 3"/>
+            <line x1="95" y1="240" x2="140" y2="240" stroke="#152028" stroke-width="5"/>
+            <path d="M95 240 A45 45 0 0 1 140 195" fill="none" stroke="#88b8d0" stroke-width="1.5" stroke-dasharray="3 3"/>
+            <text x="115" y="255" text-anchor="middle" fill="#88b8d0" font-family="monospace" font-size="9">PORTA PRINCIPAL</text>
+            <!-- Stairs -->
+            <rect x="305" y="175" width="90" height="60" fill="#1f313d" stroke="#7cb0c9" stroke-width="1.5"/>
+            <line x1="320" y1="175" x2="320" y2="235" stroke="#5c8ea6" stroke-width="1.2"/>
+            <line x1="335" y1="175" x2="335" y2="235" stroke="#5c8ea6" stroke-width="1.2"/>
+            <line x1="350" y1="175" x2="350" y2="235" stroke="#5c8ea6" stroke-width="1.2"/>
+            <line x1="365" y1="175" x2="365" y2="235" stroke="#5c8ea6" stroke-width="1.2"/>
+            <line x1="380" y1="175" x2="380" y2="235" stroke="#5c8ea6" stroke-width="1.2"/>
+            <text x="350" y="168" text-anchor="middle" fill="#88b8d0" font-family="monospace" font-size="9">ESCADA (SUBSOLO)</text>
+            <!-- Window -->
+            <line x1="150" y1="30" x2="250" y2="30" stroke="#c7e6f5" stroke-width="4"/>
+            <text x="200" y="22" text-anchor="middle" fill="#88b8d0" font-family="monospace" font-size="9">JANELA TRANCADA</text>
+            <!-- Hotspots container injected dynamically -->
+            <g id="svg-hotspots"></g>
+          </svg>
+        `,
+                suspects: [
+                    {
+                        id: "beatriz",
+                        name: "Beatriz Vasconcelos",
+                        age: 31,
+                        role: "Sobrinha e herdeira",
+                        profile: "Ambiciosa, acumula dívidas de cartão e dependia financeiramente do tio.",
+                        statement:
+                            "Fiquei no salão do coquetel até às 21h20. Como estava entediada, saí para a calçada às 21h25 para fumar e ligar para meu namorado, voltando só às 21h45. Eu jamais subi ao escritório do tio Arthur ontem à noite!",
+                        alibi: "Diz ter permanecido no salão até 21h20 e na calçada em frente das 21h25 às 21h45.",
+                        portrait: "woman_scarf",
+                        questions: [
+                            {
+                                id: "q1",
+                                q: "Qual era sua relação atual com seu tio?",
+                                a: "Ele era controlador. Ameaçou cortar minha mesada se eu não pagasse uma nota promissória de R$ 40 mil até o fim do mês, mas eu nunca mataria meu próprio tio por isso."
+                            },
+                            {
+                                id: "q2",
+                                q: "Alguém pode confirmar que você esteve fora do prédio durante o crime?",
+                                a: "Meu namorado! Ficamos quase meia hora ao telefone. E eu fiquei bem embaixo da marquise da padaria em frente por causa do chuvisco."
+                            }
+                        ],
+                        confrontations: [
+                            {
+                                evidenceId: "e4",
+                                response:
+                                    "Beatriz empalidece ao ver o lenço com suas iniciais: 'Tudo bem, eu menti sobre não ter subido! Subi às 21h10 para implorar por mais prazo. Quando tio Arthur foi lavar as mãos no lavabo, abri o cofre — eu sabia a senha — e peguei minha promissória. Ele percebeu, brigamos, eu derrubei o cinzeiro e saí batendo a porta às 21h18. Mas ele estava vivíssimo! E, enquanto eu descia a escada às 21h18, cruzei com o Dr. Henrique subindo ao 2º andar limpando uma mancha azul dos dedos!'",
+                                unlocksEvidenceId: "e8",
+                                marksContradiction: true
+                            }
+                        ],
+                        wrongConfront: "Beatriz dá de ombros: 'Isso não tem absolutamente nada a ver comigo, detetive. Procure em outro lugar.'"
+                    },
+                    {
+                        id: "henrique",
+                        name: "Dr. Henrique Alencar",
+                        age: 48,
+                        role: "Restaurador-chefe e químico",
+                        profile: "Perfeccionista, reservado e especialista em galvanoplastia de metais antigos.",
+                        statement:
+                            "Saí do coquetel às 20h58 para terminar a restauração de um cálice de prata no laboratório do subsolo. Não saí de lá nem por um segundo até às 21h50, quando subi para guardar o equipamento. Nunca entrei no escritório do Arthur ontem.",
+                        alibi: "Afirma ter ficado trancado no laboratório do subsolo ininterruptamente das 20h58 às 21h50.",
+                        portrait: "man_glasses",
+                        questions: [
+                            {
+                                id: "q1",
+                                q: "O senhor tem acesso a substâncias tóxicas no laboratório?",
+                                a: "Apenas solventes comuns e cera de polimento. Nada que possa envenenar alguém num piscar de olhos."
+                            },
+                            {
+                                id: "q2",
+                                q: "Como era sua relação profissional com Arthur?",
+                                a: "Impecável. Trabalhamos juntos há oito anos. Ele confiava cegamente no meu selo de autenticidade."
+                            }
+                        ],
+                        confrontations: [
+                            {
+                                evidenceId: "e2",
+                                response:
+                                    "Henrique ajeita os óculos com nervosismo: 'Ah, essa nota fiscal... Sim, eu compro cianeto de potássio para banho eletrolítico de prata antiga, é procedimento padrão de restauro! E uso pasta azul para polir. Mas isso não prova nada — eu não saí do subsolo!'",
+                                unlocksEvidenceId: null,
+                                marksContradiction: false
+                            },
+                            {
+                                evidenceId: "e5",
+                                response:
+                                    "O rosto de Henrique congela diante do relatório eletrônico: 'O leitor... registrou saída às 21h16?! Bem, o banheiro do subsolo estava entupido e eu subi rapidamente ao térreo! Não fui ao escritório!' (Nota da Perícia: o banheiro do subsolo foi verificado e funciona perfeitamente.)",
+                                unlocksEvidenceId: null,
+                                marksContradiction: true
+                            },
+                            {
+                                evidenceId: "e6",
+                                response:
+                                    "Henrique fecha o punho sobre a mesa: 'Arthur não entendia nada de química! Ele ia destruir minha carreira inteira por causa de três relógios restaurados com peças substitutas! Mas sem provas de que saí do subsolo, você não tem nada contra mim!'",
+                                unlocksEvidenceId: null,
+                                marksContradiction: false
+                            }
+                        ],
+                        wrongConfront: "Henrique mantém a frieza: 'Interessante, detetive, mas isso não contradiz meu depoimento.'"
+                    },
+                    {
+                        id: "clara",
+                        name: "Clara Mendes",
+                        age: 39,
+                        role: "Secretária pessoal",
+                        profile: "Organizada, leal a Arthur há 12 anos. Foi quem encontrou o corpo às 22h00.",
+                        statement:
+                            "Fiquei na recepção do térreo organizando as fichas dos compradores das 21h00 às 21h55. Conversei com dois clientes que saíram às 21h35. Quando subi às 22h00 com o fechamento do caixa, encontrei o Sr. Arthur caído.",
+                        alibi: "Permaneceu na recepção do térreo; dois clientes confirmaram sua presença até 21h35.",
+                        portrait: "woman_bun",
+                        questions: [
+                            {
+                                id: "q1",
+                                q: "O Sr. Arthur parecia preocupado antes do coquetel?",
+                                a: "Muito. Na tarde de ontem ele passou horas examinando um relatório de laboratório externo e me pediu para digitar um documento sigiloso antes dos convidados chegarem."
+                            },
+                            {
+                                id: "q2",
+                                q: "Você viu alguém subindo as escadas após as 21h00?",
+                                a: "Da minha mesa eu só vejo a porta da rua. A escada dos fundos que dá para o 2º andar e para o subsolo fica atrás da divisória."
+                            }
+                        ],
+                        confrontations: [
+                            {
+                                evidenceId: "e6",
+                                response:
+                                    "Clara suspira, aliviada por poder falar: 'Sim, fui eu quem digitou esse rascunho às 19h40. O Sr. Arthur descobriu que o Dr. Henrique estava trocando mecanismos originais por réplicas baratas e vendendo os originais no mercado paralelo. Ele ia entregar a denúncia à polícia hoje de manhã.'",
+                                unlocksEvidenceId: null,
+                                marksContradiction: false
+                            }
+                        ],
+                        wrongConfront: "Clara examina o documento com atenção: 'Sinto muito, detetive, não sei como posso ajudar com isso.'"
+                    },
+                    {
+                        id: "marcos",
+                        name: "Marcos Tavares",
+                        age: 55,
+                        role: "Colecionador rival",
+                        profile: "Temperamento explosivo; queria comprar o Cronômetro Imperial abaixo do valor.",
+                        statement:
+                            "Eu briguei feio com o Arthur às 20h40 na frente de todo mundo porque ele me chamou de picareta! Saí daquela galeria espumando de raiva às 20h55 e fui direto jantar no Bistrô Central. Não pisei mais lá!",
+                        alibi: "Afirma ter saído às 20h55 e jantado no Bistrô Central (a 4 km) das 21h10 às 21h55.",
+                        portrait: "man_hat",
+                        questions: [
+                            {
+                                id: "q1",
+                                q: "Você ameaçou o Arthur durante a briga?",
+                                a: "Eu disse 'você vai se arrepender de fechar negócios comigo', o que é força de expressão! Eu compro antiguidades, não enveneno velhos teimosos."
+                            },
+                            {
+                                id: "q2",
+                                q: "Como você prova que estava no Bistrô Central?",
+                                a: "Paguei a conta no cartão e ainda bati boca com o garçom porque o vinho estava quente. Pode checar o recibo."
+                            }
+                        ],
+                        confrontations: [
+                            {
+                                evidenceId: "e3",
+                                response:
+                                    "Marcos sorri triunfante: 'Viu só? Pedido às 21h12, pagamento presencial às 21h55, a 15 minutos de carro da galeria. A menos que eu saiba me teletransportar, eu não estava lá às 21h32!'",
+                                unlocksEvidenceId: null,
+                                marksContradiction: false
+                            }
+                        ],
+                        wrongConfront: "Marcos bufa impaciente: 'Não tenho nada a ver com isso, detetive. Meu advogado já foi avisado.'"
+                    }
+                ],
+                evidences: [
+                    {
+                        id: "e1",
+                        code: "E1",
+                        title: "Laudo Necroscópico e Toxicológico",
+                        type: "forensic",
+                        secret: false,
+                        desc: "Exame do IML realizado na vítima e na taça de cristal encontrada sobre a escrivaninha.",
+                        doc: "CAUSA DA MORTE: Envenenamento agudo por Cianeto de Potássio dissolvido no uísque.\nHORA ESTIMADA: 21h15 a 21h45 (relógio de bolso quebrado na queda às 21h32).\nVESTÍGIO FÍSICO: Resíduo de pasta azul de polimento de prata (óxido de cromo) no gargalo da garrafa de uísque."
+                    },
+                    {
+                        id: "e2",
+                        code: "E2",
+                        title: "Nota Fiscal — Química Industrial",
+                        type: "receipt",
+                        secret: false,
+                        desc: "Fatura encontrada no arquivo contábil da galeria, emitida há 14 dias.",
+                        doc: "COMPRADOR: Dr. Henrique Alencar (Restauro)\nITENS:\n- 500g Cianeto de Potássio P.A. (banho de prata)\n- 2x Pasta de Polimento Azul (Óxido de Cromo)\nSTATUS: Entregue no Laboratório do Subsolo."
+                    },
+                    {
+                        id: "e3",
+                        code: "E3",
+                        title: "Recibo Fiscal — Bistrô Central",
+                        type: "receipt",
+                        secret: false,
+                        desc: "Comprovante obtido com o gerente do restaurante localizado a 4 km (15 min de carro) da galeria.",
+                        doc: "CLIENTE: Marcos Tavares\nABERTURA DA MESA: 21h12\nPAGAMENTO PRESENCIAL (ASSINADO): 21h55\nOBS. DO GERENTE: Cliente não deixou o salão durante o jantar."
+                    },
+                    {
+                        id: "e4",
+                        code: "E4",
+                        title: "Lenço de Seda 'B.V.'",
+                        type: "object",
+                        secret: false,
+                        desc: "Recolhido parcialmente escondido sob o tapete, junto a cinzas de cigarro perto da porta do escritório.",
+                        doc: "OBJETO: Lenço feminino de seda bordô com monograma bordado 'B.V.'.\nLOCAL: 2º andar, escritório da vítima.\nOBS.: Forte odor de cigarro mentolado."
+                    },
+                    {
+                        id: "e5",
+                        code: "E5",
+                        title: "Log do Leitor Magnético (Subsolo)",
+                        type: "log",
+                        secret: false,
+                        desc: "Registro eletrônico automático da porta blindada do laboratório de restauração no subsolo.",
+                        doc: "CARTÃO #04 — DR. HENRIQUE ALENCAR\n20h58 -> ENTRADA no Subsolo\n21h16 -> SAÍDA do Subsolo\n21h38 -> RETORNO ao Subsolo\n21h51 -> SAÍDA definitiva"
+                    },
+                    {
+                        id: "e6",
+                        code: "E6",
+                        title: "Rascunho de Denúncia (PC da Recepção)",
+                        type: "message",
+                        secret: false,
+                        desc: "Documento salvo às 19h40 no computador de Clara, ditado por Arthur.",
+                        doc: "PARA: Delegacia de Estelionato e Patrimônio\nASSUNTO: Fraude na Galeria Vasconcelos\nTEXTO: 'Comunico que o restaurador-chefe substituiu mecanismos autênticos por falsificações em três peças raras. Protocolarei os laudos amanhã às 09h00.'"
+                    },
+                    {
+                        id: "e7",
+                        code: "E7",
+                        title: "Câmera Externa — Padaria em Frente",
+                        type: "photo",
+                        secret: false,
+                        desc: "Gravação da câmera de segurança da padaria voltada para a calçada da galeria.",
+                        doc: "REGISTRO DE VÍDEO (CALÇADA FRONTAL):\n21h22 -> Beatriz Vasconcelos sai pela porta principal fumando e falando ao celular.\n21h22 às 21h46 -> Permanece sob a marquise em tempo integral.\n21h46 -> Retorna ao interior da galeria."
+                    },
+                    {
+                        id: "e8",
+                        code: "E8",
+                        title: "Testemunho da Escada (Desbloqueado)",
+                        type: "message",
+                        secret: true,
+                        desc: "Confissão obtida após confrontar Beatriz com o lenço de seda (E4).",
+                        doc: "DEPOIMENTO COMPLEMENTAR — BEATRIZ:\n- Subiu às 21h10, pegou sua promissória no cofre e discutiu com Arthur.\n- Saiu do escritório às 21h18 (Arthur estava vivo).\n- Às 21h18, cruzou com Dr. Henrique subindo ao 2º andar limpando uma pasta azul dos dedos."
+                    }
+                ],
+                timeline: [
+                    { time: "19h40", text: "Arthur dita à secretária Clara uma denúncia formal de fraude contra o restaurador.", source: "Evidência E6", crimeWindow: false },
+                    { time: "20h40", text: "Marcos Tavares discute publicamente com Arthur no coquetel.", source: "Depoimento", crimeWindow: false },
+                    { time: "20h55", text: "Marcos deixa a galeria furioso.", source: "Depoimento", crimeWindow: false },
+                    { time: "20h58", text: "Dr. Henrique entra no laboratório do subsolo com seu cartão magnético.", source: "Evidência E5", crimeWindow: false },
+                    { time: "21h10", text: "Beatriz sobe ao escritório, retira sua nota promissória do cofre e discute com o tio.", source: "Evidência E8 (Oculta)", requiresEvidence: "e8", crimeWindow: false },
+                    { time: "21h12", text: "Marcos abre mesa no Bistrô Central (a 4 km da galeria).", source: "Evidência E3", crimeWindow: false },
+                    { time: "21h16", text: "Cartão do Dr. Henrique registra SAÍDA do laboratório do subsolo.", source: "Evidência E5", crimeWindow: true },
+                    { time: "21h18", text: "Beatriz deixa Arthur vivo e cruza com Dr. Henrique subindo a escada limpando pasta azul dos dedos.", source: "Evidência E8 (Oculta)", requiresEvidence: "e8", crimeWindow: true },
+                    { time: "21h22", text: "Câmera da padaria grava Beatriz na calçada ao celular (fica lá até 21h46).", source: "Evidência E7", crimeWindow: true },
+                    { time: "21h32", text: "Relógio de bolso de Arthur quebra na queda sobre a mesa (momento da morte por cianeto).", source: "Evidência E1", crimeWindow: true },
+                    { time: "21h38", text: "Cartão do Dr. Henrique registra RETORNO ao laboratório do subsolo.", source: "Evidência E5", crimeWindow: true },
+                    { time: "21h55", text: "Marcos paga a conta pessoalmente no Bistrô Central.", source: "Evidência E3", crimeWindow: false },
+                    { time: "22h00", text: "Clara sobe com o fechamento do caixa e encontra o corpo.", source: "Relatório Inicial", crimeWindow: false }
+                ],
+                hints: [
+                    "Nível 1 (Sutil): Dois suspeitos estão mentindo sobre onde estiveram. Um deles esconde um furto menor, mas tem uma gravação externa provando sua inocência no horário exato da morte (21h32).",
+                    "Nível 2 (Direcionada): Cruze o vestígio químico encontrado na garrafa de uísque (E1) com a nota fiscal de insumos (E2) e confronte Beatriz com o lenço (E4) para descobrir quem subiu as escadas às 21h18.",
+                    "Nível 3 (Conclusiva): Dr. Henrique tinha motivo (E6), o cianeto e a pasta azul (E2). O Log do Leitor Magnético (E5) destrói seu álibi, provando que ele saiu do subsolo das 21h16 às 21h38 — exatamente durante a morte às 21h32."
+                ],
+                accusationOptions: {
+                    methods: [
+                        { id: "cyanide_whisky", label: "Envenenamento por cianeto de potássio dissolvido no uísque" },
+                        { id: "blunt_force", label: "Golpe contundente na testa com o cinzeiro de latão" },
+                        { id: "gas_leak", label: "Asfixia por gás tóxico liberado pelo sistema de ventilação" },
+                        { id: "heart_attack", label: "Infarto natural provocado pela discussão sobre a dívida" }
+                    ],
+                    alibiBreakers: [
+                        { id: "e5", label: "E5 — Log do Leitor Magnético do Subsolo (saída às 21h16, retorno às 21h38)" },
+                        { id: "e4", label: "E4 — Lenço de Seda com monograma 'B.V.' encontrado no escritório" },
+                        { id: "e3", label: "E3 — Recibo Fiscal do Bistrô Central" },
+                        { id: "e7", label: "E7 — Câmera Externa da Padaria em Frente" }
+                    ]
+                },
+                solution: {
+                    culpritId: "henrique",
+                    methodId: "cyanide_whisky",
+                    alibiBreakerId: "e5",
+                    explanation:
+                        "Arthur descobriu que o Dr. Henrique Alencar falsificava antiguidades da galeria e preparou uma denúncia formal à polícia (E6). Embora Beatriz tenha mentido inicialmente (ela subiu às 21h10 para pegar sua nota promissória e deixou cair seu lenço E4), a câmera da padaria prova que ela ficou na calçada das 21h22 às 21h46 (E7), e Marcos estava no Bistrô Central (E3). O verdadeiro assassino foi o Dr. Henrique: o log do cartão magnético (E5) prova que ele deixou o subsolo às 21h16, subiu ao escritório com cianeto de potássio e resíduos de pasta azul de polimento nas mãos (E1, E2, E8), serviu o veneno no uísque de Arthur — que caiu morto às 21h32 — e retornou ao subsolo às 21h38 fingindo nunca ter saído."
+                }
+            },
+
+            /* ===================== CASO 2 ===================== */
+            {
+                id: "caso-02",
+                code: "DOSSIÊ #02-907",
+                title: "Morte no Expresso da Serra",
+                difficulty: "Dificuldade: Difícil",
+                victim: "Helena Duarte (44 anos, jornalista investigativa)",
+                location: "Cabine 04 (1ª Classe) — Trem Noturno Expresso da Serra",
+                timeOfDeath: "Entre 00h20 e 00h40 (durante o apagão de 00h25 a 00h35)",
+                crimeWindowLabel: "JANELA DA MORTE: 00h20 – 00h40 (Apagão proposital: 00h25 – 00h35)",
+                summary:
+                    "Com o trem de luxo parado na serra por uma tempestade de neve, um apagão atingiu o vagão de 1ª classe das 00h25 às 00h35 após alguém desligar o disjuntor no Vagão de Serviço. Quando a luz voltou, Helena Duarte foi encontrada morta na Cabine 04, sem sinais de luta e com a porta trancada por chave eletrônica. Seu laptop desapareceu, mas um cartão SD reserva caiu sob a poltrona.",
+                hotspots: [
+                    {
+                        id: "cab04",
+                        x: 165, y: 85,
+                        label: "Cabine 04 (Cena do Crime)",
+                        detail: "Sem sinais de arrombamento. A porta foi aberta às 00h27 com a Chave Mestra #02 (E5). Perto da cama havia uma abotoadura 'R.F.' (E4) e, sob a poltrona, o cartão SD de Helena (E3)."
+                    },
+                    {
+                        id: "cab06",
+                        x: 275, y: 85,
+                        label: "Cabine 06 (Dra. Sofia)",
+                        detail: "A fechadura com bateria independente gravou saída por dentro às 00h22 e reentrada com cartão às 00h37 — contradizendo seu depoimento (E5)."
+                    },
+                    {
+                        id: "service",
+                        x: 375, y: 155,
+                        label: "Copa & Vagão de Serviço",
+                        detail: "Contém o painel de disjuntores desligado às 00h25 e a lixeira onde foi achada uma ampola vazia de Succinilcolina com luva de látex (E2). Mateus deixou seu paletó com a Chave Mestra #02 aqui."
+                    },
+                    {
+                        id: "restaurant",
+                        x: 60, y: 155,
+                        label: "Vagão-Restaurante",
+                        detail: "O Senador Roberto Farias chegou agitado às 00h15 e ficou bebendo à vista do barman e três passageiros até 00h45 (E6)."
+                    }
+                ],
+                floorplanSvg: `
+          <svg class="floorplan-svg" viewBox="0 0 440 250" xmlns="http://www.w3.org/2000/svg">
+            <rect width="440" height="250" fill="#141d24"/>
+            <!-- Train outer shell -->
+            <rect x="18" y="38" width="404" height="174" rx="14" fill="rgba(45,70,88,0.22)" stroke="#85b5cc" stroke-width="3"/>
+            <!-- Corridor -->
+            <rect x="102" y="132" width="225" height="36" fill="rgba(133,181,204,0.12)" stroke="#537d91" stroke-dasharray="4 3"/>
+            <text x="215" y="154" text-anchor="middle" fill="#8bbad1" font-family="monospace" font-size="9">CORREDOR 1ª CLASSE</text>
+            <!-- Restaurant Car Link -->
+            <rect x="24" y="46" width="74" height="158" fill="#1e313d" stroke="#7cb0c9" stroke-width="1.5"/>
+            <text x="61" y="118" text-anchor="middle" fill="#b7d8e8" font-family="monospace" font-size="9">VAGÃO</text>
+            <text x="61" y="131" text-anchor="middle" fill="#b7d8e8" font-family="monospace" font-size="9">RESTAUR.</text>
+            <!-- Cabins top row -->
+            <rect x="102" y="46" width="54" height="82" fill="#1b2c37" stroke="#7cb0c9" stroke-width="1.4"/>
+            <text x="129" y="70" text-anchor="middle" fill="#9bc5d9" font-family="monospace" font-size="8">CAB. 02</text>
+            <text x="129" y="83" text-anchor="middle" fill="#6f9bb0" font-family="monospace" font-size="7">(Senador)</text>
+
+            <rect x="158" y="46" width="56" height="82" fill="rgba(158,27,27,0.32)" stroke="#d46363" stroke-width="2"/>
+            <text x="186" y="70" text-anchor="middle" fill="#ffd2d2" font-family="monospace" font-size="8">CAB. 04</text>
+            <text x="186" y="83" text-anchor="middle" fill="#ffb0b0" font-family="monospace" font-size="7">(VÍTIMA)</text>
+
+            <rect x="216" y="46" width="54" height="82" fill="#1b2c37" stroke="#7cb0c9" stroke-width="1.4"/>
+            <text x="243" y="70" text-anchor="middle" fill="#9bc5d9" font-family="monospace" font-size="8">CAB. 05</text>
+            <text x="243" y="83" text-anchor="middle" fill="#6f9bb0" font-family="monospace" font-size="7">(Lucas)</text>
+
+            <rect x="272" y="46" width="55" height="82" fill="#1b2c37" stroke="#7cb0c9" stroke-width="1.4"/>
+            <text x="299" y="70" text-anchor="middle" fill="#9bc5d9" font-family="monospace" font-size="8">CAB. 06</text>
+            <text x="299" y="83" text-anchor="middle" fill="#6f9bb0" font-family="monospace" font-size="7">(Dra. Sofia)</text>
+
+            <!-- Cabin 03 bottom -->
+            <rect x="145" y="172" width="120" height="32" fill="#1b2c37" stroke="#7cb0c9" stroke-width="1.4"/>
+            <text x="205" y="191" text-anchor="middle" fill="#9bc5d9" font-family="monospace" font-size="8">CAB. 03 (D. Carmem)</text>
+
+            <!-- Service / Breaker Car -->
+            <rect x="331" y="46" width="85" height="158" fill="#23323b" stroke="#c99e32" stroke-width="1.6"/>
+            <text x="374" y="102" text-anchor="middle" fill="#ebd28c" font-family="monospace" font-size="8">COPA &amp;</text>
+            <text x="374" y="114" text-anchor="middle" fill="#ebd28c" font-family="monospace" font-size="8">DISJUNTOR</text>
+            <text x="374" y="128" text-anchor="middle" fill="#9cb3bf" font-family="monospace" font-size="7">(Lixeira)</text>
+
+            <g id="svg-hotspots"></g>
+          </svg>
+        `,
+                suspects: [
+                    {
+                        id: "roberto",
+                        name: "Senador Roberto Farias",
+                        age: 58,
+                        role: "Político investigado pela vítima",
+                        profile: "Influente, autoritário e alvo central da reportagem de Helena sobre propinas.",
+                        statement:
+                            "Sei que aquela jornalista estava tentando manchar minha honra, mas eu sequer cheguei perto da cabine dela! Saí da minha Cabine 02 às 00h15, fui ao Vagão-Restaurante tomar um conhaque e fiquei lá conversando com o barman até às 00h45.",
+                        alibi: "Esteve no Vagão-Restaurante das 00h15 às 00h45, inclusive durante todo o apagão.",
+                        portrait: "man_suit",
+                        questions: [
+                            {
+                                id: "q1",
+                                q: "O senhor sabia que Helena tinha um dossiê pronto contra o seu gabinete?",
+                                a: "Rumores de imprensa sensacionalista! Eu resolvo minhas disputas nos tribunais, não em vagões escuros."
+                            },
+                            {
+                                id: "q2",
+                                q: "O senhor conhece a Dra. Sofia Nogueira?",
+                                a: "Apenas de vista. A clínica onde ela trabalhava recebeu emendas parlamentares do meu estado anos atrás, nada além disso."
+                            }
+                        ],
+                        confrontations: [
+                            {
+                                evidenceId: "e4",
+                                response:
+                                    "O Senador fecha a cara e abaixa a voz: 'Droga... Está bem! Eu menti sobre não ter ido lá. Entrei na Cabine 04 às 00h05 para oferecer um acordo financeiro pelo silêncio dela. Ela me expulsou aos gritos às 00h12, e minha abotoadura deve ter se soltado! Fui direto para o Vagão-Restaurante às 00h15 para acalmar os nervos. O barman e metade do vagão me viram lá até 00h45 — ela ainda estava viva quando saí!'",
+                                unlocksEvidenceId: null,
+                                marksContradiction: true
+                            }
+                        ],
+                        wrongConfront: "O Senador cruza os braços com desprezo: 'Isso não me incrimina em nada. Fale com minha assessoria.'"
+                    },
+                    {
+                        id: "sofia",
+                        name: "Dra. Sofia Nogueira",
+                        age: 37,
+                        role: "Médica anestesiologista (Cabine 06)",
+                        profile: "Fria, precisa e extremamente controlada. Sua carreira dependia do arquivamento de um caso médico de 2023.",
+                        statement:
+                            "Foi um choque terrível. Eu estava exausta do congresso, tomei um chá calmante e fui dormir na minha Cabine 06 às 23h40. Não abri minha porta em momento algum até às 00h50, quando a gritaria no corredor me acordou. E não carrego medicamentos controlados na bagagem.",
+                        alibi: "Afirma ter permanecido dormindo dentro da Cabine 06 das 23h40 às 00h50.",
+                        portrait: "woman_doctor",
+                        questions: [
+                            {
+                                id: "q1",
+                                q: "A senhora conhecia Helena Duarte antes desta viagem?",
+                                a: "Apenas de nome, pela televisão. Nunca tivemos contato pessoal."
+                            },
+                            {
+                                id: "q2",
+                                q: "Como anestesiologista, a senhora reconhece os sintomas da Succinilcolina?",
+                                a: "É um bloqueador neuromuscular potente, mas precisa ficar refrigerado e só existe em hospitais. Impossível alguém carregar isso casualmente num trem."
+                            }
+                        ],
+                        confrontations: [
+                            {
+                                evidenceId: "e5",
+                                response:
+                                    "Os olhos de Sofia se arregalam por uma fração de segundo: 'O leitor da Cabine 06 marcou saída às 00h22 e retorno às 00h37?! Deve ser defeito por causa do apagão... ou... talvez eu tenha saído brevemente ao corredor porque senti falta de ar! Mas não entrei na Cabine 04!' (Nota: o sistema eletrônico tem bateria própria e funciona com precisão de segundos.)",
+                                unlocksEvidenceId: null,
+                                marksContradiction: true
+                            },
+                            {
+                                evidenceId: "e3",
+                                response:
+                                    "Sofia cerra os dentes: 'Esse prontuário de 2023 foi arquivado pelo conselho! Helena não tinha direito de arruinar toda a minha vida por um erro administrativo... Mas isso não prova que eu estive na cabine dela!'",
+                                unlocksEvidenceId: null,
+                                marksContradiction: false
+                            },
+                            {
+                                evidenceId: "e9",
+                                response:
+                                    "Sofia desvia o olhar rapidamente: 'A velha da Cabine 03 vive inventando histórias! Eu pedi gelo para uma compressa no tornozelo, não para ampolas!'",
+                                unlocksEvidenceId: null,
+                                marksContradiction: false
+                            }
+                        ],
+                        wrongConfront: "Dra. Sofia responde com serenidade clínica: 'Não vejo qualquer relação lógica entre isso e o meu depoimento.'"
+                    },
+                    {
+                        id: "mateus",
+                        name: "Mateus Rocha",
+                        age: 29,
+                        role: "Comissário da 1ª Classe",
+                        profile: "Nervoso, sobrecarregado e endividado com apostas esportivas. Portador da Chave Mestra #02.",
+                        statement:
+                            "Eu não saí da copa em nenhum momento entre meia-noite e 00h40! Minha Chave Mestra #02 ficou o tempo todo no bolso do meu paletó. Quando a luz caiu às 00h25, demorei uns minutos no escuro para achar a lanterna e religar o disjuntor às 00h35.",
+                        alibi: "Alega ter ficado na copa o tempo todo com a Chave Mestra #02 sob sua guarda.",
+                        portrait: "man_uniform",
+                        questions: [
+                            {
+                                id: "q1",
+                                q: "Mais alguém tinha cópia da Chave Mestra #02?",
+                                a: "Não senhor! Cada vagão só tem uma mestra. A #02 é exclusiva minha."
+                            },
+                            {
+                                id: "q2",
+                                q: "Você ouviu Helena viva antes do apagão?",
+                                a: "Sim! Passei no corredor às 00h15 recolhendo bandejas e ouvi a voz dela ditando notas num gravador dentro da Cabine 04."
+                            }
+                        ],
+                        confrontations: [
+                            {
+                                evidenceId: "e7",
+                                response:
+                                    "Mateus começa a suar frio e confessa: 'Por favor, não conte ao gerente! Eu estou afundado em dívidas e às 00h19 saí da copa para esconder duas garrafas de champanhe caro na minha mala no vagão de carga — o maquinista até me viu passando lá às 00h26! Deixei meu paletó com a Chave Mestra #02 pendurado na copa. Quando voltei às 00h33 no escuro, vi uma mulher de sobretudo escuro voltando apressada para a Cabine 06 com um laptop prateado debaixo do braço!'",
+                                unlocksEvidenceId: "e8",
+                                marksContradiction: true
+                            },
+                            {
+                                evidenceId: "e5",
+                                response:
+                                    "Mateus entra em pânico: 'A Chave Mestra #02 abriu a Cabine 04 às 00h27?! Eu juro que não fui eu! Às 00h26 eu estava no vagão de carga — o maquinista me viu lá! Eu deixei meu paletó com a chave na copa às 00h19 porque fui esconder duas garrafas de champanhe... Quando voltei às 00h33, vi uma mulher de sobretudo escuro entrando na Cabine 06 segurando um laptop prateado!'",
+                                unlocksEvidenceId: "e8",
+                                marksContradiction: true
+                            }
+                        ],
+                        wrongConfront: "Mateus engole em seco: 'Eu só faço meu trabalho no vagão, detetive, não sei nada sobre isso.'"
+                    },
+                    {
+                        id: "lucas",
+                        name: "Lucas Almeida",
+                        age: 33,
+                        role: "Fotógrafo e colega de Helena (Cabine 05)",
+                        profile: "Temperamental, discutiu com Helena no jantar sobre créditos da reportagem.",
+                        statement:
+                            "Briguei com ela no jantar às 21h30, não vou negar — ela queria tirar minha assinatura da matéria. Mas às 22h10 entrei na Cabine 05, coloquei fones de ouvido e fiquei editando fotos no meu notebook até a confusão às 00h48. Nem percebi o apagão direito porque o notebook estava na bateria.",
+                        alibi: "Permaneceu trancado na Cabine 05 das 22h10 às 00h48 (confirmado pelo log eletrônico).",
+                        portrait: "man_beard",
+                        questions: [
+                            {
+                                id: "q1",
+                                q: "Você notou algo estranho pelo corredor ou pela parede da Cabine 04?",
+                                a: "Estava com fone de cancelamento de ruído. Só soube o que houve quando abriram as portas gritando por um médico."
+                            },
+                            {
+                                id: "q2",
+                                q: "O que havia no laptop que roubaram da Helena?",
+                                a: "A versão final da matéria com todos os anexos bancários e hospitalares. Mas ela sempre fazia backup num cartão SD pequeno."
+                            }
+                        ],
+                        confrontations: [
+                            {
+                                evidenceId: "e5",
+                                response:
+                                    "Lucas aponta para a linha da Cabine 05: 'Olha aí! Trancada às 22h10, próxima abertura só às 00h48. E meus arquivos RAW têm carimbo de edição salvos às 00h24, 00h28 e 00h33. Eu não saí daquela cabine.'",
+                                unlocksEvidenceId: null,
+                                marksContradiction: false
+                            }
+                        ],
+                        wrongConfront: "Lucas balança a cabeça: 'Cara, eu não tenho nada a ver com a morte dela. Estávamos no mesmo barco profissional.'"
+                    },
+                    {
+                        id: "carmem",
+                        name: "Dona Carmem Silveira",
+                        age: 67,
+                        role: "Passageira insone (Cabine 03)",
+                        profile: "Observadora atenta, sofre de insônia e repara em cada detalhe do vagão.",
+                        statement:
+                            "Eu não prego o olho em trens. Pouco depois da meia-noite ouvi o Senador discutir na porta da Cabine 04. Depois, no meio da escuridão do apagão, ouvi passos leves no corredor, o bipe baixo da fechadura da Cabine 04 e, minutos depois, alguém correndo em direção ao fim do vagão.",
+                        alibi: "Ficou na Cabine 03 lendo; sem qualquer vínculo ou motivo contra a vítima.",
+                        portrait: "woman_elder",
+                        questions: [
+                            {
+                                id: "q1",
+                                q: "A senhora conseguiu identificar de quem eram os passos no apagão?",
+                                a: "Não vi o rosto porque estava tudo escuro, mas eram passos firmes e leves, certamente de mulher usando sapato de salto baixo — bem diferentes das botas pesadas do comissário."
+                            },
+                            {
+                                id: "q2",
+                                q: "Notou algum comportamento incomum entre os passageiros mais cedo?",
+                                a: "No jantar tudo parecia calmo, exceto a discussão do fotógrafo. Mas se o senhor me mostrar o que encontraram, talvez eu me lembre de algum detalhe."
+                            }
+                        ],
+                        confrontations: [
+                            {
+                                evidenceId: "e2",
+                                response:
+                                    "Dona Carmem leva a mão à boca ao ouvir que o veneno precisava de refrigeração: 'Meu Deus! Agora me lembrei! Às 22h30 eu vi a Dra. Sofia no Vagão-Restaurante pedindo um saco de gelo picado ao garçom. Ela colocou o gelo dentro de uma bolsinha térmica cinza e disse que era para uma medicação pessoal!'",
+                                unlocksEvidenceId: "e9",
+                                marksContradiction: false
+                            }
+                        ],
+                        wrongConfront: "Dona Carmem ajusta os óculos: 'Hum, sobre isso infelizmente não vi nem ouvi nada, meu jovem.'"
+                    }
+                ],
+                evidences: [
+                    {
+                        id: "e1",
+                        code: "E1",
+                        title: "Laudo Médico-Pericial",
+                        type: "forensic",
+                        secret: false,
+                        desc: "Exame preliminar feito pelo médico legista acionado na estação de emergência.",
+                        doc: "CAUSA DA MORTE: Parada respiratória aguda por injeção de Succinilcolina atrás da orelha esquerda.\nHORA ESTIMADA: 00h20 a 00h40.\nOBSERVAÇÃO: Anestésico de ação fulminante (paralisa em 30 segundos). Exige conservação sob refrigeração (2°C a 8°C)."
+                    },
+                    {
+                        id: "e2",
+                        code: "E2",
+                        title: "Ampola & Luva na Lixeira do Serviço",
+                        type: "object",
+                        secret: false,
+                        desc: "Itens recolhidos na lixeira ao lado do painel de disjuntores do Vagão de Serviço.",
+                        doc: "ITENS: 1 ampola vazia de Succinilcolina (ainda fria ao toque) + 1 luva cirúrgica de látex rasgada.\nLOCAL: A 1 metro do disjuntor desligado às 00h25."
+                    },
+                    {
+                        id: "e3",
+                        code: "E3",
+                        title: "Cartão SD Reserva (Cabine 04)",
+                        type: "message",
+                        secret: false,
+                        desc: "Encontrado sob a poltrona da vítima — o assassino levou o laptop, mas não viu o backup.",
+                        doc: "MATÉRIA: 'Dossiê Saúde & Trilhos' (Publicação amanhã)\n1) Propinas do Senador Roberto Farias em obras ferroviárias.\n2) PROVA DOCUMENTAL: Dra. Sofia Nogueira falsificou prontuário de óbito em 2023 na clínica financiada pelo Senador para incriminar uma enfermeira — crime punível com prisão e cassação do CRM."
+                    },
+                    {
+                        id: "e4",
+                        code: "E4",
+                        title: "Abotoadura de Ouro 'R.F.'",
+                        type: "object",
+                        secret: false,
+                        desc: "Encontrada no carpete ao pé da cama dentro da Cabine 04.",
+                        doc: "OBJETO: Abotoadura masculina em ouro 18k com brasão e iniciais 'R.F.'.\nPERTENCENTE A: Senador Roberto Farias."
+                    },
+                    {
+                        id: "e5",
+                        code: "E5",
+                        title: "Log das Fechaduras Eletrônicas",
+                        type: "log",
+                        secret: false,
+                        desc: "Memória interna (com bateria própria, imune ao apagão) das portas da 1ª Classe.",
+                        doc: "CABINE 04 (Helena): 00h12 aberta por dentro | 00h27 aberta por CHAVE MESTRA #02\nCABINE 05 (Lucas): 22h10 trancada | 00h48 aberta\nCABINE 06 (Dra. Sofia): 00h22 aberta por dentro | 00h37 aberta por CARTÃO SOFIA"
+                    },
+                    {
+                        id: "e6",
+                        code: "E6",
+                        title: "Comanda do Vagão-Restaurante",
+                        type: "receipt",
+                        secret: false,
+                        desc: "Registro do barman e assinatura de três passageiros testemunhas.",
+                        doc: "CLIENTE: Senador Roberto Farias\nCHEGADA: 00h15 (3 doses de conhaque)\nPERMANÊNCIA: Permaneceu sentado no balcão central durante todo o apagão até 00h45.\nTESTEMUNHAS: Barman + 3 passageiros."
+                    },
+                    {
+                        id: "e7",
+                        code: "E7",
+                        title: "Inventário da Adega & Bilhete de Dívida",
+                        type: "receipt",
+                        secret: false,
+                        desc: "Auditoria de emergência do trem + papel encontrado no armário de Mateus.",
+                        doc: "ADEGA: Faltam 2 garrafas de champanhe safra especial (retiradas após 00h00).\nBILHETE: 'Mateus — R$ 4.000 de apostas vencem amanhã. Sem atrasos.'\nOBS. MAQUINISTA: Viu Mateus no vagão de carga às 00h26."
+                    },
+                    {
+                        id: "e8",
+                        code: "E8",
+                        title: "Confissão do Comissário (Desbloqueado)",
+                        type: "message",
+                        secret: true,
+                        desc: "Obtida após confrontar Mateus com a dívida/adega (E7) ou o log (E5).",
+                        doc: "DEPOIMENTO COMPLEMENTAR — MATEUS:\n- Saiu da copa às 00h19 deixando o paletó com a Chave Mestra #02 pendurado.\n- Confirmado pelo maquinista no vagão de carga às 00h26.\n- Ao retornar às 00h33 no escuro, viu uma mulher de sobretudo escuro entrando na Cabine 06 com um laptop prateado."
+                    },
+                    {
+                        id: "e9",
+                        code: "E9",
+                        title: "Relato da Bolsa Térmica (Desbloqueado)",
+                        type: "photo",
+                        secret: true,
+                        desc: "Lembrança de Dona Carmem após ver a ampola refrigerada (E2).",
+                        doc: "DEPOIMENTO COMPLEMENTAR — DONA CARMEM:\n- Às 22h30, viu Dra. Sofia pedir gelo picado ao garçom e guardá-lo em uma bolsa térmica cinza para conservar uma 'medicação pessoal'."
+                    }
+                ],
+                timeline: [
+                    { time: "21h30", text: "Lucas discute com Helena no jantar sobre créditos da reportagem.", source: "Depoimento", crimeWindow: false },
+                    { time: "22h10", text: "Lucas tranca-se na Cabine 05 (não abre até 00h48).", source: "Evidência E5", crimeWindow: false },
+                    { time: "22h30", text: "Dra. Sofia pede gelo picado e guarda numa bolsa térmica cinza.", source: "Evidência E9 (Oculta)", requiresEvidence: "e9", crimeWindow: false },
+                    { time: "00h05", text: "Senador Roberto entra na Cabine 04 para tentar subornar Helena e derruba sua abotoadura.", source: "Evidência E4", crimeWindow: false },
+                    { time: "00h12", text: "Cabine 04 é aberta por dentro (saída do Senador).", source: "Evidência E5", crimeWindow: false },
+                    { time: "00h15", text: "Mateus ouve Helena viva no gravador; Senador chega ao Vagão-Restaurante (fica lá até 00h45).", source: "Evidência E6", crimeWindow: false },
+                    { time: "00h19", text: "Mateus deixa o paletó com a Chave Mestra #02 na copa e vai ao vagão de carga esconder champanhe.", source: "Evidência E8 (Oculta)", requiresEvidence: "e8", crimeWindow: false },
+                    { time: "00h22", text: "Cabine 06 (Dra. Sofia) é aberta por dentro — contradizendo seu álibi de sono!", source: "Evidência E5", crimeWindow: true },
+                    { time: "00h25", text: "Disjuntor no Vagão de Serviço é desligado: início do apagão.", source: "Relatório Inicial", crimeWindow: true },
+                    { time: "00h26", text: "Maquinista vê Mateus no vagão de carga (longe da Cabine 04).", source: "Evidência E7", crimeWindow: true },
+                    { time: "00h27", text: "Cabine 04 é aberta usando a Chave Mestra #02 (momento da injeção letal).", source: "Evidência E5 & E1", crimeWindow: true },
+                    { time: "00h33", text: "Mateus retorna e vê mulher de sobretudo escuro entrando na Cabine 06 com um laptop prateado.", source: "Evidência E8 (Oculta)", requiresEvidence: "e8", crimeWindow: true },
+                    { time: "00h35", text: "Disjuntor é religado; fim do apagão.", source: "Relatório Inicial", crimeWindow: true },
+                    { time: "00h37", text: "Cabine 06 é aberta pelo cartão da Dra. Sofia.", source: "Evidência E5", crimeWindow: true }
+                ],
+                hints: [
+                    "Nível 1 (Sutil): Há três pessoas mentindo neste trem! O Senador esconde uma tentativa de suborno (mas tem testemunhas durante o apagão) e o Comissário esconde um furto de bebidas (mas foi visto pelo maquinista às 00h26).",
+                    "Nível 2 (Direcionada): Verifique o Log das Fechaduras Eletrônicas (E5) — ele possui bateria própria e registra exatamente quem saiu da própria cabine às 00h22 e voltou às 00h37. Confronte Mateus com E7 e Dona Carmem com E2.",
+                    "Nível 3 (Conclusiva): Dra. Sofia tinha motivo fatal (E3), acesso ao anestésico refrigerado (E1, E2, E9) e seu álibi de dormir na Cabine 06 é destruído pelo Log das Fechaduras Eletrônicas (E5)."
+                ],
+                accusationOptions: {
+                    methods: [
+                        { id: "succinylcholine", label: "Injeção letal de Succinilcolina atrás da orelha durante o apagão" },
+                        { id: "suffocation", label: "Asfixia mecânica com travesseiro após arrombamento da janela" },
+                        { id: "poison_wine", label: "Envenenamento por sedativo misturado ao conhaque do restaurante" },
+                        { id: "electrocution", label: "Choque elétrico provocado pelo curto-circuito do disjuntor" }
+                    ],
+                    alibiBreakers: [
+                        { id: "e5", label: "E5 — Log das Fechaduras Eletrônicas (saída da Cabine 06 às 00h22 e retorno às 00h37)" },
+                        { id: "e4", label: "E4 — Abotoadura de Ouro 'R.F.' encontrada perto da cama" },
+                        { id: "e6", label: "E6 — Comanda e Testemunho do Vagão-Restaurante" },
+                        { id: "e7", label: "E7 — Inventário da Adega e Bilhete de Dívida" }
+                    ]
+                },
+                solution: {
+                    culpritId: "sofia",
+                    methodId: "succinylcholine",
+                    alibiBreakerId: "e5",
+                    explanation:
+                        "Helena estava prestes a publicar provas de que a Dra. Sofia Nogueira falsificou um prontuário de óbito em 2023, o que destruiria sua carreira e a levaria à prisão (E3). O Senador Roberto realmente foi à Cabine 04 às 00h05 (deixando a abotoadura E4), mas ficou no Vagão-Restaurante das 00h15 às 00h45 (E6). Lucas não saiu da Cabine 05 (E5), e Mateus — apesar de ter furtado champanhe deixando a Chave Mestra #02 na copa — foi visto pelo maquinista no vagão de carga às 00h26 (E7, E8). Dra. Sofia levou Succinilcolina refrigerada em gelo (E1, E2, E9), saiu da Cabine 06 às 00h22 (E5), pegou a chave mestra no paletó de Mateus, desligou o disjuntor às 00h25, entrou na Cabine 04 às 00h27, aplicou a injeção letal, descartou a ampola na lixeira do serviço, furtou o laptop e retornou à Cabine 06 às 00h37."
+                }
+            }
+        ];
+
+        /* =========================================================================
+           2. GERADOR DE ÁUDIO SINTETIZADO (Web Audio API - Zero Dependências)
+           ========================================================================= */
+        const SoundFX = (() => {
+            let ctx = null;
+            let enabled = true;
+
+            function init() {
+                if (!ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) ctx = new AudioCtx();
+                }
+                if (ctx && ctx.state === "suspended") ctx.resume();
+            }
+
+            function setEnabled(val) { enabled = val; }
+            function isEnabled() { return enabled; }
+
+            function playPaper() {
+                if (!enabled) return;
+                try {
+                    init();
+                    if (!ctx) return;
+                    const dur = 0.09;
+                    const buffer = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < data.length; i++) {
+                        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.03));
+                    }
+                    const src = ctx.createBufferSource();
+                    src.buffer = buffer;
+                    const filter = ctx.createBiquadFilter();
+                    filter.type = "bandpass";
+                    filter.frequency.value = 1800;
+                    const gain = ctx.createGain();
+                    gain.gain.value = 0.09;
+                    src.connect(filter).connect(gain).connect(ctx.destination);
+                    src.start();
+                } catch (_) { }
+            }
+
+            function playTypeClick() {
+                if (!enabled) return;
+                try {
+                    init();
+                    if (!ctx) return;
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = "triangle";
+                    osc.frequency.setValueAtTime(620, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + 0.035);
+                    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.035);
+                    osc.connect(gain).connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.04);
+                } catch (_) { }
+            }
+
+            function playBreakthrough() {
+                if (!enabled) return;
+                try {
+                    init();
+                    if (!ctx) return;
+                    const notes = [330, 440, 554.37];
+                    notes.forEach((freq, idx) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = "sine";
+                        const t = ctx.currentTime + idx * 0.09;
+                        osc.frequency.setValueAtTime(freq, t);
+                        gain.gain.setValueAtTime(0.09, t);
+                        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+                        osc.connect(gain).connect(ctx.destination);
+                        osc.start(t);
+                        osc.stop(t + 0.34);
+                    });
+                } catch (_) { }
+            }
+
+            function playStamp() {
+                if (!enabled) return;
+                try {
+                    init();
+                    if (!ctx) return;
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = "sawtooth";
+                    osc.frequency.setValueAtTime(135, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(42, ctx.currentTime + 0.18);
+                    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+                    osc.connect(gain).connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.22);
+                } catch (_) { }
+            }
+
+            return { setEnabled, isEnabled, playPaper, playTypeClick, playBreakthrough, playStamp };
+        })();
+
+        /* =========================================================================
+           3. SVGs INLINE (Retratos Noir & Ícones de Evidências)
+           ========================================================================= */
+        function getPortraitSVG(type) {
+            const baseBg = `<rect width="100" height="100" fill="#231e1a"/>
+        <circle cx="50" cy="40" r="45" fill="rgba(215,180,115,0.12)"/>`;
+            const shapes = {
+                woman_scarf: `
+          <path d="M18 100 C20 74 34 66 50 66 C66 66 80 74 82 100 Z" fill="#4f2222"/>
+          <path d="M35 67 Q50 82 65 67 L60 88 Q50 93 40 88 Z" fill="#9e2a2a"/>
+          <ellipse cx="50" cy="42" rx="18" ry="22" fill="#d8c0a0"/>
+          <path d="M30 42 C28 18 72 18 70 42 C72 56 66 64 62 62 C64 42 62 28 50 28 C38 28 36 42 38 62 C34 64 28 56 30 42 Z" fill="#1e1714"/>
+          <circle cx="43" cy="42" r="2.1" fill="#1e1714"/><circle cx="57" cy="42" r="2.1" fill="#1e1714"/>
+          <path d="M45 53 Q50 56 55 53" stroke="#7d2525" stroke-width="2" fill="none"/>
+        `,
+                man_glasses: `
+          <path d="M15 100 C18 73 32 66 50 66 C68 66 82 73 85 100 Z" fill="#2f353b"/>
+          <polygon points="44,68 56,68 52,92 48,92" fill="#8b2626"/>
+          <ellipse cx="50" cy="42" rx="17" ry="21" fill="#d5bfa3"/>
+          <path d="M33 36 C33 19 67 19 67 36 C63 29 37 29 33 36 Z" fill="#2b2623"/>
+          <rect x="37" y="38" width="11" height="7" rx="2" fill="none" stroke="#181512" stroke-width="2"/>
+          <rect x="52" y="38" width="11" height="7" rx="2" fill="none" stroke="#181512" stroke-width="2"/>
+          <line x1="48" y1="41" x2="52" y2="41" stroke="#181512" stroke-width="2"/>
+          <path d="M44 53 Q50 51 56 53" stroke="#42362d" stroke-width="1.8" fill="none"/>
+        `,
+                woman_bun: `
+          <circle cx="50" cy="18" r="10" fill="#2b221c"/>
+          <path d="M18 100 C20 74 34 66 50 66 C66 66 80 74 82 100 Z" fill="#3a403a"/>
+          <polygon points="42,67 50,78 58,67" fill="#ece2cc"/>
+          <ellipse cx="50" cy="43" rx="17" ry="20" fill="#dcc6ab"/>
+          <path d="M33 39 C33 21 67 21 67 39 C61 30 39 30 33 39 Z" fill="#2b221c"/>
+          <circle cx="43" cy="43" r="2" fill="#1e1714"/><circle cx="57" cy="43" r="2" fill="#1e1714"/>
+          <path d="M45 53 Q50 55 55 53" stroke="#5e3e38" stroke-width="1.8" fill="none"/>
+        `,
+                man_hat: `
+          <path d="M14 100 C18 72 32 66 50 66 C68 66 82 72 86 100 Z" fill="#3d3126"/>
+          <ellipse cx="50" cy="45" rx="18" ry="20" fill="#cca987"/>
+          <ellipse cx="50" cy="30" rx="30" ry="6" fill="#1c1714"/>
+          <path d="M31 30 L35 12 L65 12 L69 30 Z" fill="#261f1a"/>
+          <rect x="33" y="25" width="34" height="4" fill="#9e2a2a"/>
+          <circle cx="43" cy="44" r="2.2" fill="#1e1714"/><circle cx="57" cy="44" r="2.2" fill="#1e1714"/>
+          <path d="M42 54 Q50 51 58 54" stroke="#36281e" stroke-width="3" fill="none"/>
+        `,
+                man_suit: `
+          <path d="M14 100 C18 70 32 65 50 65 C68 65 82 70 86 100 Z" fill="#1e242e"/>
+          <polygon points="42,66 50,86 58,66" fill="#f0e8d8"/>
+          <polygon points="48,68 52,68 51,86 49,86" fill="#b38824"/>
+          <ellipse cx="50" cy="42" rx="18" ry="21" fill="#d7bba0"/>
+          <path d="M32 37 C32 18 68 18 68 37 C62 28 38 28 32 37 Z" fill="#6f6d69"/>
+          <circle cx="43" cy="42" r="2.1" fill="#1e1714"/><circle cx="57" cy="42" r="2.1" fill="#1e1714"/>
+          <path d="M44 53 H56" stroke="#47382e" stroke-width="2"/>
+        `,
+                woman_doctor: `
+          <path d="M16 100 C20 72 34 66 50 66 C66 66 80 72 84 100 Z" fill="#d7d4cb"/>
+          <path d="M38 68 V88 M62 68 V88" stroke="#3b454d" stroke-width="3" stroke-linecap="round"/>
+          <ellipse cx="50" cy="42" rx="17" ry="21" fill="#e0cbb4"/>
+          <path d="M31 44 C30 18 70 18 69 44 C68 55 64 58 62 56 C63 38 60 28 50 28 C40 28 37 38 38 56 C36 58 32 55 31 44 Z" fill="#1d1917"/>
+          <circle cx="43" cy="42" r="2" fill="#1a1715"/><circle cx="57" cy="42" r="2" fill="#1a1715"/>
+          <path d="M45 53 Q50 52 55 53" stroke="#753131" stroke-width="1.8" fill="none"/>
+        `,
+                man_uniform: `
+          <path d="M16 100 C20 72 34 66 50 66 C66 66 80 72 84 100 Z" fill="#233042"/>
+          <circle cx="44" cy="80" r="2.3" fill="#d4aa3b"/><circle cx="56" cy="80" r="2.3" fill="#d4aa3b"/>
+          <ellipse cx="50" cy="44" rx="16" ry="19" fill="#d9bda2"/>
+          <path d="M31 32 L69 32 L64 17 L36 17 Z" fill="#233042"/>
+          <rect x="31" y="29" width="38" height="4" fill="#d4aa3b"/>
+          <circle cx="44" cy="44" r="2" fill="#1e1714"/><circle cx="56" cy="44" r="2" fill="#1e1714"/>
+          <path d="M45 54 Q50 52 55 54" stroke="#4d3d33" stroke-width="1.8" fill="none"/>
+        `,
+                man_beard: `
+          <path d="M15 100 C18 72 32 66 50 66 C68 66 82 72 85 100 Z" fill="#3a332b"/>
+          <ellipse cx="50" cy="42" rx="17" ry="21" fill="#d4b596"/>
+          <path d="M33 38 C32 18 68 18 67 38 C61 29 39 29 33 38 Z" fill="#2e231c"/>
+          <path d="M34 48 C35 63 65 63 66 48 C61 55 39 55 34 48 Z" fill="#2e231c"/>
+          <circle cx="43" cy="42" r="2" fill="#1e1714"/><circle cx="57" cy="42" r="2" fill="#1e1714"/>
+        `,
+                woman_elder: `
+          <path d="M17 100 C20 73 34 66 50 66 C66 66 80 73 83 100 Z" fill="#523d4e"/>
+          <circle cx="44" cy="70" r="2.5" fill="#f5efe2"/><circle cx="50" cy="72" r="2.5" fill="#f5efe2"/><circle cx="56" cy="70" r="2.5" fill="#f5efe2"/>
+          <ellipse cx="50" cy="43" rx="17" ry="20" fill="#e2cbb5"/>
+          <path d="M30 42 C28 19 72 19 70 42 C66 30 34 30 30 42 Z" fill="#cbc8c2"/>
+          <circle cx="43" cy="43" r="5" fill="none" stroke="#524638" stroke-width="1.4"/>
+          <circle cx="57" cy="43" r="5" fill="none" stroke="#524638" stroke-width="1.4"/>
+          <path d="M46 53 Q50 56 54 53" stroke="#6b4b45" stroke-width="1.8" fill="none"/>
+        `
+            };
+            return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">${baseBg}${shapes[type] || shapes.man_glasses}</svg>`;
+        }
+
+        function getEvidenceIconSVG(type) {
+            const icons = {
+                forensic: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3"/><path d="M8 15h8"/></svg>`,
+                receipt: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3v18l3-2 2 2 2-2 2 2 2-2 3 2V3z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>`,
+                object: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>`,
+                log: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6M7 17h4"/></svg>`,
+                message: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v12H7l-3 3V4z"/><path d="M8 8h8M8 12h5"/></svg>`,
+                photo: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/></svg>`
+            };
+            return icons[type] || icons.object;
+        }
+
+        /* =========================================================================
+           4. ESTADO DO JOGO & PERSISTÊNCIA (localStorage)
+           ========================================================================= */
+        const STORAGE_KEY = "arquivo_confidencial_save_v1";
+
+        function loadPersistedData() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) return JSON.parse(raw);
+            } catch (_) { }
+            return { cases: {} };
+        }
+
+        function savePersistedData() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
+            } catch (_) { }
+        }
+
+        let persisted = loadPersistedData();
+
+        function ensureCaseProgress(caseId) {
+            if (!persisted.cases[caseId]) {
+                persisted.cases[caseId] = {
+                    notes: "",
+                    unlockedEvidences: [],
+                    askedQuestions: {},
+                    crackedSuspects: [],
+                    hintsUsed: 0,
+                    solved: false,
+                    bestScore: null,
+                    bestRank: null,
+                    lastAttempt: null
+                };
+            }
+            return persisted.cases[caseId];
+        }
+
+        const state = {
+            currentCaseId: CASES[0].id,
+            activeTab: "scene",
+            selectedSuspectId: CASES[0].suspects[0].id,
+            selectedHotspotId: null,
+            interrogationFeedback: null
+        };
+
+        function getCurrentCase() {
+            return CASES.find(c => c.id === state.currentCaseId) || CASES[0];
+        }
+
+        function getVisibleEvidences(caseObj) {
+            const prog = ensureCaseProgress(caseObj.id);
+            return caseObj.evidences.filter(ev => !ev.secret || prog.unlockedEvidences.includes(ev.id));
+        }
+
+        /* =========================================================================
+           5. UTILIDADES DE INTERFACE
+           ========================================================================= */
+        let toastTimer = null;
+        function showToast(msg) {
+            const el = document.getElementById("toast");
+            el.textContent = msg;
+            el.classList.add("show");
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => el.classList.remove("show"), 3400);
+        }
+
+        function calculateRank(score, perfect) {
+            if (!perfect) return "Recruta";
+            if (score >= 95) return "Mestre da Dedução";
+            if (score >= 80) return "Inspetor Chefe";
+            if (score >= 65) return "Investigador Sênior";
+            return "Investigador";
+        }
+
+        /* =========================================================================
+           6. RENDERIZAÇÃO PRINCIPAL
+           ========================================================================= */
+        function renderAll() {
+            const c = getCurrentCase();
+            const prog = ensureCaseProgress(c.id);
+            renderCaseSelector();
+            updateCounters();
+            renderActiveTab();
+            document.getElementById("hint-counter").textContent = `${prog.hintsUsed}/3`;
+            document.getElementById("notebook-case-label").textContent = `${c.code} — ${c.title}`;
+            document.getElementById("notebook-textarea").value = prog.notes || "";
+        }
+
+        function renderCaseSelector() {
+            const container = document.getElementById("case-selector");
+            container.innerHTML = CASES.map(c => {
+                const prog = ensureCaseProgress(c.id);
+                const activeClass = c.id === state.currentCaseId ? "active" : "";
+                const statusBadge = prog.solved
+                    ? `<span class="stamp-pill stamp-solved">RESOLVIDO (${prog.bestScore} PTS)</span>`
+                    : `<span class="stamp-pill stamp-open">EM ABERTO</span>`;
+                return `
+          <button class="case-folder-btn ${activeClass}" data-case-id="${c.id}">
+            <div>
+              <div class="case-folder-meta">${c.code} &bull; ${c.difficulty}</div>
+              <div class="case-folder-title">${c.title}</div>
+            </div>
+            ${statusBadge}
+          </button>
+        `;
+            }).join("");
+
+            container.querySelectorAll(".case-folder-btn").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const newId = btn.dataset.caseId;
+                    if (newId === state.currentCaseId) return;
+                    SoundFX.playPaper();
+                    state.currentCaseId = newId;
+                    const nextCase = getCurrentCase();
+                    state.selectedSuspectId = nextCase.suspects[0].id;
+                    state.selectedHotspotId = null;
+                    state.interrogationFeedback = null;
+                    state.activeTab = "scene";
+                    updateTabButtons();
+                    renderAll();
+                });
+            });
+        }
+
+        function updateCounters() {
+            const c = getCurrentCase();
+            document.getElementById("count-suspects").textContent = c.suspects.length;
+            document.getElementById("count-evidence").textContent = getVisibleEvidences(c).length;
+        }
+
+        function updateTabButtons() {
+            document.querySelectorAll(".tab-btn").forEach(b => {
+                b.classList.toggle("active", b.dataset.tab === state.activeTab);
+            });
+        }
+
+        function renderActiveTab() {
+            const host = document.getElementById("dossier-content");
+            if (state.activeTab === "scene") renderSceneTab(host);
+            else if (state.activeTab === "suspects") renderSuspectsTab(host);
+            else if (state.activeTab === "evidence") renderEvidenceTab(host);
+            else if (state.activeTab === "timeline") renderTimelineTab(host);
+            else if (state.activeTab === "accuse") renderAccuseTab(host);
+        }
+
+        /* ----- ABA 1: CENA DO CRIME ----- */
+        function renderSceneTab(host) {
+            const c = getCurrentCase();
+            const prog = ensureCaseProgress(c.id);
+            const selectedSpot = c.hotspots.find(h => h.id === state.selectedHotspotId) || c.hotspots[0];
+
+            host.innerHTML = `
+        <div class="section-title">
+          <span>Relatório Inicial — ${c.title}</span>
+          <span class="mono-label">${c.code}</span>
+        </div>
+        <div class="scene-grid">
+          <div class="paper-sheet">
+            <div class="paper-clip"></div>
+            <div class="dossier-meta-grid">
+              <div class="meta-box">
+                <span class="mono-label">Vítima</span>
+                <strong>${c.victim}</strong>
+              </div>
+              <div class="meta-box">
+                <span class="mono-label">Hora Estimada da Morte</span>
+                <strong>${c.timeOfDeath}</strong>
+              </div>
+              <div class="meta-box" style="grid-column: 1 / -1;">
+                <span class="mono-label">Local do Crime</span>
+                <strong>${c.location}</strong>
+              </div>
+            </div>
+            <h3 class="mono-label" style="margin-bottom:0.35rem;">Resumo da Ocorrência</h3>
+            <p style="font-size:0.93rem; margin-bottom:1rem;">${c.summary}</p>
+            <div style="background:#ece3cd; border:1px dashed #a89670; padding:0.75rem; border-radius:4px; font-size:0.84rem;">
+              <strong>Orientação de Investigação:</strong> Examine a planta baixa ao lado, revise todas as <em>Evidências</em> e interrogue os <em>Suspeitos</em>. Use o botão <strong>Apresentar Evidência</strong> para desmascarar mentiras e desbloquear pistas ocultas!
+            </div>
+            ${prog.solved ? `
+              <div style="margin-top:0.85rem; padding:0.65rem 0.85rem; background:#dff2e7; border-left:4px solid var(--green-solved); font-family:var(--font-mono); font-size:0.82rem;">
+                CASO ENCERRADO — Melhor pontuação: <strong>${prog.bestScore} pts</strong> (${prog.bestRank})
+              </div>` : ""}
+          </div>
+
+          <div class="floorplan-container">
+            <div class="floorplan-header">
+              <span>PLANTA BAIXA INTERATIVA</span>
+              <span>CLIQUE NOS MARCADORES</span>
+            </div>
+            <div id="floorplan-slot">${c.floorplanSvg}</div>
+            <div class="hotspot-info" id="hotspot-info">
+              <h4>&#128205; ${selectedSpot.label}</h4>
+              <p>${selectedSpot.detail}</p>
+            </div>
+          </div>
+        </div>
+      `;
+
+            // Inject interactive SVG hotspots
+            const hotspotLayer = host.querySelector("#svg-hotspots");
+            if (hotspotLayer) {
+                hotspotLayer.innerHTML = c.hotspots.map((h, i) => {
+                    const isSelected = h.id === selectedSpot.id;
+                    return `
+            <g class="hotspot" data-hotspot-id="${h.id}" transform="translate(${h.x}, ${h.y})">
+              <circle class="pulse-ring" r="${isSelected ? 15 : 12}" fill="${isSelected ? 'rgba(201,158,50,0.42)' : 'rgba(201,42,42,0.28)'}" stroke="${isSelected ? '#f2cc63' : '#ff6b6b'}" stroke-width="2"/>
+              <circle r="7" fill="${isSelected ? '#c99e32' : '#b82525'}"/>
+              <text y="3" text-anchor="middle" fill="#fff" font-family="monospace" font-size="9" font-weight="bold">${i + 1}</text>
+            </g>
+          `;
+                }).join("");
+
+                hotspotLayer.querySelectorAll(".hotspot").forEach(el => {
+                    el.addEventListener("click", () => {
+                        SoundFX.playTypeClick();
+                        state.selectedHotspotId = el.dataset.hotspotId;
+                        renderSceneTab(host);
+                    });
+                });
+            }
+        }
+
+        /* ----- ABA 2: SUSPEITOS & INTERROGATÓRIO ----- */
+        function renderSuspectsTab(host) {
+            const c = getCurrentCase();
+            const prog = ensureCaseProgress(c.id);
+            const suspect = c.suspects.find(s => s.id === state.selectedSuspectId) || c.suspects[0];
+            const visibleEvidences = getVisibleEvidences(c);
+            const askedSet = prog.askedQuestions[suspect.id] || [];
+
+            host.innerHTML = `
+        <div class="section-title">
+          <span>Sala de Interrogatório</span>
+          <span class="mono-label">Cruze depoimentos com provas físicas</span>
+        </div>
+        <div class="suspects-layout">
+          <div class="suspect-list">
+            ${c.suspects.map(s => {
+                const cracked = prog.crackedSuspects.includes(s.id);
+                return `
+                <button class="suspect-card-mini ${s.id === suspect.id ? 'active' : ''}" data-suspect-id="${s.id}">
+                  <div class="portrait-thumb">${getPortraitSVG(s.portrait)}</div>
+                  <div>
+                    <div class="suspect-mini-name">${s.name}</div>
+                    <div class="suspect-mini-role">${s.role}</div>
+                    ${cracked ? `<span class="cracked-badge">Mentira Exposta</span>` : ""}
+                  </div>
+                </button>
+              `;
+            }).join("")}
+          </div>
+
+          <div class="paper-sheet">
+            <div class="interrogation-header">
+              <div class="portrait-large">${getPortraitSVG(suspect.portrait)}</div>
+              <div style="flex:1; min-width:200px;">
+                <span class="mono-label">Ficha de Suspeito</span>
+                <h3 style="font-size:1.2rem; margin:0.1rem 0;">${suspect.name} (${suspect.age} anos)</h3>
+                <div style="font-size:0.88rem; color:var(--ink-muted); margin-bottom:0.35rem;"><strong>Vínculo:</strong> ${suspect.role}</div>
+                <div style="font-size:0.86rem;"><strong>Perfil Psicológico:</strong> ${suspect.profile}</div>
+              </div>
+            </div>
+
+            <span class="mono-label">Depoimento Inicial</span>
+            <div class="quote-box">"${suspect.statement}"</div>
+
+            <div class="alibi-tag">
+              <strong>Álibi Declarado:</strong> ${suspect.alibi}
+            </div>
+
+            <div class="questions-box">
+              <div class="mono-label" style="margin-bottom:0.45rem;">Perguntas de Interrogatório</div>
+              ${suspect.questions.map(qObj => {
+                const isAsked = askedSet.includes(qObj.id);
+                return `<button class="question-btn ${isAsked ? 'asked' : ''}" data-qid="${qObj.id}">
+                  ${isAsked ? "&#10003; " : "&#9656; "}${qObj.q}
+                </button>`;
+            }).join("")}
+            </div>
+
+            <div class="confront-box">
+              <div class="mono-label" style="color:var(--stamp-red);">Confrontar Contradição com Evidência</div>
+              <p style="font-size:0.83rem; color:var(--ink-muted); margin-top:0.2rem;">
+                Acha que ${suspect.name.split(" ")[0]} está escondendo algo? Selecione uma evidência para pressionar o suspeito.
+              </p>
+              <div class="confront-controls">
+                <select class="dossier-select" id="confront-select">
+                  <option value="">— Selecione uma evidência para apresentar —</option>
+                  ${visibleEvidences.map(ev => `<option value="${ev.id}">${ev.code} — ${ev.title}</option>`).join("")}
+                </select>
+                <button class="btn btn-danger" id="btn-confront">Apresentar Prova</button>
+              </div>
+            </div>
+
+            ${state.interrogationFeedback ? `
+              <div class="answer-log ${state.interrogationFeedback.breakthrough ? 'breakthrough' : ''}">
+                <div style="font-family:var(--font-mono); font-size:0.74rem; color:var(--gold-soft); margin-bottom:0.35rem; text-transform:uppercase;">
+                  ${state.interrogationFeedback.title}
+                </div>
+                <div>${state.interrogationFeedback.text}</div>
+              </div>
+            ` : ""}
+          </div>
+        </div>
+      `;
+
+            // Switch suspect
+            host.querySelectorAll(".suspect-card-mini").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    SoundFX.playPaper();
+                    state.selectedSuspectId = btn.dataset.suspectId;
+                    state.interrogationFeedback = null;
+                    renderSuspectsTab(host);
+                });
+            });
+
+            // Ask question
+            host.querySelectorAll(".question-btn").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    SoundFX.playTypeClick();
+                    const qObj = suspect.questions.find(item => item.id === btn.dataset.qid);
+                    if (!qObj) return;
+                    if (!prog.askedQuestions[suspect.id]) prog.askedQuestions[suspect.id] = [];
+                    if (!prog.askedQuestions[suspect.id].includes(qObj.id)) {
+                        prog.askedQuestions[suspect.id].push(qObj.id);
+                        savePersistedData();
+                    }
+                    state.interrogationFeedback = {
+                        title: `Resposta de ${suspect.name}`,
+                        text: `"${qObj.a}"`,
+                        breakthrough: false
+                    };
+                    renderSuspectsTab(host);
+                });
+            });
+
+            // Confront with evidence
+            host.querySelector("#btn-confront").addEventListener("click", () => {
+                const evId = host.querySelector("#confront-select").value;
+                if (!evId) {
+                    showToast("Selecione uma evidência antes de confrontar.");
+                    return;
+                }
+                const match = suspect.confrontations.find(cf => cf.evidenceId === evId);
+                if (match) {
+                    let unlockedMsg = "";
+                    if (match.marksContradiction && !prog.crackedSuspects.includes(suspect.id)) {
+                        prog.crackedSuspects.push(suspect.id);
+                    }
+                    if (match.unlocksEvidenceId && !prog.unlockedEvidences.includes(match.unlocksEvidenceId)) {
+                        prog.unlockedEvidences.push(match.unlocksEvidenceId);
+                        const newEv = c.evidences.find(e => e.id === match.unlocksEvidenceId);
+                        unlockedMsg = `<div style="margin-top:0.65rem; padding:0.45rem 0.65rem; background:rgba(201,158,50,0.2); border:1px solid var(--gold); border-radius:3px; font-family:var(--font-mono); font-size:0.78rem; color:#ffe69b;">&#9733; NOVA EVIDÊNCIA DESBLOQUEADA: ${newEv.code} — ${newEv.title}</div>`;
+                        showToast(`Nova pista desbloqueada: ${newEv.code} — ${newEv.title}`);
+                    } else if (match.marksContradiction) {
+                        showToast(`Contradição exposta no depoimento de ${suspect.name}!`);
+                    }
+                    savePersistedData();
+                    updateCounters();
+                    SoundFX.playBreakthrough();
+                    state.interrogationFeedback = {
+                        title: match.marksContradiction ? "CONTRADIÇÃO EXPOSTA!" : "REAÇÃO RELEVANTE",
+                        text: match.response + unlockedMsg,
+                        breakthrough: true
+                    };
+                } else {
+                    SoundFX.playTypeClick();
+                    state.interrogationFeedback = {
+                        title: `Reação de ${suspect.name}`,
+                        text: suspect.wrongConfront,
+                        breakthrough: false
+                    };
+                }
+                renderSuspectsTab(host);
+            });
+        }
+
+        /* ----- ABA 3: EVIDÊNCIAS ----- */
+        function renderEvidenceTab(host) {
+            const c = getCurrentCase();
+            const visible = getVisibleEvidences(c);
+            const lockedCount = c.evidences.length - visible.length;
+
+            host.innerHTML = `
+        <div class="section-title">
+          <span>Quadro de Evidências (${visible.length}/${c.evidences.length})</span>
+          <span class="mono-label">${lockedCount > 0 ? `${lockedCount} pista(s) oculta(s) via confronto` : "Todas as pistas coletadas!"}</span>
+        </div>
+        <div class="evidence-grid">
+          ${visible.map(ev => `
+            <article class="evidence-card ${ev.secret ? 'secret-unlocked' : ''}">
+              <div class="evidence-top">
+                <div class="evidence-icon">${getEvidenceIconSVG(ev.type)}</div>
+                <div>
+                  <div class="evidence-code">${ev.code} ${ev.secret ? "&bull; PISTA DESBLOQUEADA" : ""}</div>
+                  <div class="evidence-title">${ev.title}</div>
+                </div>
+              </div>
+              <p class="evidence-desc">${ev.desc}</p>
+              <div class="evidence-doc">${ev.doc}</div>
+            </article>
+          `).join("")}
+        </div>
+      `;
+        }
+
+        /* ----- ABA 4: LINHA DO TEMPO ----- */
+        function renderTimelineTab(host) {
+            const c = getCurrentCase();
+            const prog = ensureCaseProgress(c.id);
+            const events = c.timeline.filter(ev => !ev.requiresEvidence || prog.unlockedEvidences.includes(ev.requiresEvidence));
+
+            host.innerHTML = `
+        <div class="section-title">
+          <span>Reconstrução Cronológica</span>
+          <span class="mono-label">Atualizada automaticamente com pistas</span>
+        </div>
+        <div class="timeline-banner">
+          <span>&#9200; ${c.crimeWindowLabel}</span>
+          <span>Eventos em vermelho ocorrem na janela crítica</span>
+        </div>
+        <div class="timeline-list">
+          ${events.map(item => `
+            <div class="timeline-item ${item.crimeWindow ? 'crime-window' : ''} ${item.requiresEvidence ? 'unlocked-event' : ''}">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.25rem;">
+                <div>
+                  <span class="timeline-time">${item.time}</span>
+                  ${item.crimeWindow ? `<span style="font-family:var(--font-mono); font-size:0.7rem; color:var(--stamp-red); font-weight:700;">[JANELA CRÍTICA]</span>` : ""}
+                </div>
+                <span class="timeline-source">${item.source}</span>
+              </div>
+              <p style="font-size:0.9rem;">${item.text}</p>
+            </div>
+          `).join("")}
+        </div>
+      `;
+        }
+
+        /* ----- ABA 5: QUADRO DE ACUSAÇÃO ----- */
+        function renderAccuseTab(host) {
+            const c = getCurrentCase();
+            const prog = ensureCaseProgress(c.id);
+
+            host.innerHTML = `
+        <div class="section-title">
+          <span>Quadro de Acusação Formal</span>
+          <span class="mono-label">Encerramento do Inquérito</span>
+        </div>
+        <form class="accusation-form" id="accusation-form">
+          <div class="accusation-step">
+            <label>1. Quem é o verdadeiro culpado pelo homicídio?</label>
+            <div class="radio-grid">
+              ${c.suspects.map(s => `
+                <label class="radio-option">
+                  <input type="radio" name="culprit" value="${s.id}" ${prog.lastAttempt?.culprit === s.id ? "checked" : ""}/>
+                  <span><strong>${s.name}</strong><br/><small style="color:var(--ink-muted)">${s.role}</small></span>
+                </label>
+              `).join("")}
+            </div>
+          </div>
+
+          <div class="accusation-step">
+            <label>2. Qual foi o método / arma utilizada no crime?</label>
+            <div class="radio-grid">
+              ${c.accusationOptions.methods.map(m => `
+                <label class="radio-option">
+                  <input type="radio" name="method" value="${m.id}" ${prog.lastAttempt?.method === m.id ? "checked" : ""}/>
+                  <span>${m.label}</span>
+                </label>
+              `).join("")}
+            </div>
+          </div>
+
+          <div class="accusation-step">
+            <label>3. Qual evidência quebra definitivamente o álibi do culpado?</label>
+            <div class="radio-grid">
+              ${c.accusationOptions.alibiBreakers.map(a => `
+                <label class="radio-option">
+                  <input type="radio" name="alibiBreaker" value="${a.id}" ${prog.lastAttempt?.alibiBreaker === a.id ? "checked" : ""}/>
+                  <span>${a.label}</span>
+                </label>
+              `).join("")}
+            </div>
+          </div>
+
+          <div style="text-align:center; margin-top:1.15rem;">
+            <button type="submit" class="btn btn-danger" style="padding:0.8rem 1.8rem; font-size:0.95rem;">
+              &#9878; Assinar Mandado e Encerrar Caso
+            </button>
+          </div>
+        </form>
+
+        <div id="result-slot">
+          ${prog.lastAttempt ? renderResultHTML(c, prog.lastAttempt, prog) : ""}
+        </div>
+      `;
+
+            host.querySelector("#accusation-form").addEventListener("submit", e => {
+                e.preventDefault();
+                const fd = new FormData(e.target);
+                const culprit = fd.get("culprit");
+                const method = fd.get("method");
+                const alibiBreaker = fd.get("alibiBreaker");
+
+                if (!culprit || !method || !alibiBreaker) {
+                    showToast("Preencha todas as 3 etapas da acusação antes de assinar o mandado.");
+                    return;
+                }
+
+                const okCulprit = culprit === c.solution.culpritId;
+                const okMethod = method === c.solution.methodId;
+                const okAlibi = alibiBreaker === c.solution.alibiBreakerId;
+                const perfect = okCulprit && okMethod && okAlibi;
+
+                // Pontuação: até 100 pts (45 culpado + 25 método + 30 quebra-álibi) + bônus confronto (até +10) - penalidade dicas
+                let baseScore = (okCulprit ? 45 : 0) + (okMethod ? 25 : 0) + (okAlibi ? 30 : 0);
+                const hintPenalties = [0, 10, 25, 50];
+                const penalty = hintPenalties[Math.min(prog.hintsUsed, 3)];
+                const bonus = Math.min(prog.crackedSuspects.length * 5, 10);
+                const finalScore = Math.max(0, Math.min(100, baseScore + (perfect ? bonus : 0) - penalty));
+                const rank = calculateRank(finalScore, perfect);
+
+                const attempt = { culprit, method, alibiBreaker, okCulprit, okMethod, okAlibi, perfect, finalScore, penalty, rank };
+                prog.lastAttempt = attempt;
+                if (perfect) {
+                    prog.solved = true;
+                    if (prog.bestScore === null || finalScore > prog.bestScore) {
+                        prog.bestScore = finalScore;
+                        prog.bestRank = rank;
+                    }
+                }
+                savePersistedData();
+                SoundFX.playStamp();
+                renderCaseSelector();
+                host.querySelector("#result-slot").innerHTML = renderResultHTML(c, attempt, prog);
+                host.querySelector("#result-slot").scrollIntoView({ behavior: "smooth", block: "start" });
+            });
+        }
+
+        function renderResultHTML(c, attempt, prog) {
+            const trueCulprit = c.suspects.find(s => s.id === c.solution.culpritId).name;
+            const trueMethod = c.accusationOptions.methods.find(m => m.id === c.solution.methodId).label;
+            const trueAlibi = c.accusationOptions.alibiBreakers.find(a => a.id === c.solution.alibiBreakerId).label;
+            const nextCase = CASES.find(item => item.id !== c.id);
+
+            return `
+        <div class="result-box">
+          <div class="verdict-header">
+            <div>
+              <span class="mono-label">Relatório Final da Promotoria</span>
+              <h3 style="font-size:1.25rem; margin-top:0.15rem;">
+                ${attempt.perfect ? "Dedução Impecável! Caso Resolvido." : "Acusação Incompleta ou Incorreta."}
+              </h3>
+            </div>
+            <div class="big-stamp ${attempt.perfect ? 'success' : 'fail'}">
+              ${attempt.perfect ? "CASO ENCERRADO" : "INQUÉRITO CONTESTADO"}
+            </div>
+          </div>
+
+          <div class="score-grid">
+            <div class="score-card">
+              <div class="mono-label">Pontuação Final</div>
+              <div class="val">${attempt.finalScore} / 100</div>
+            </div>
+            <div class="score-card">
+              <div class="mono-label">Patente Obtida</div>
+              <div class="val" style="font-size:1rem; padding-top:0.25rem;">${attempt.rank}</div>
+            </div>
+            <div class="score-card">
+              <div class="mono-label">Dicas Usadas</div>
+              <div class="val">${prog.hintsUsed} (-${attempt.penalty} pts)</div>
+            </div>
+            <div class="score-card">
+              <div class="mono-label">Contradições Expostas</div>
+              <div class="val">${prog.crackedSuspects.length}</div>
+            </div>
+          </div>
+
+          <ul class="checklist-result">
+            <li class="${attempt.okCulprit ? 'ok' : 'err'}">
+              <strong>${attempt.okCulprit ? "&#10003; Culpado Correto:" : "&#10007; Culpado Incorreto:"}</strong> A autoria pertence a <em>${trueCulprit}</em>.
+            </li>
+            <li class="${attempt.okMethod ? 'ok' : 'err'}">
+              <strong>${attempt.okMethod ? "&#10003; Método Correto:" : "&#10007; Método Incorreto:"}</strong> ${trueMethod}.
+            </li>
+            <li class="${attempt.okAlibi ? 'ok' : 'err'}">
+              <strong>${attempt.okAlibi ? "&#10003; Quebra de Álibi Correta:" : "&#10007; Quebra de Álibi Incorreta:"}</strong> ${trueAlibi}.
+            </li>
+          </ul>
+
+          <div style="background:var(--paper-alt); border-left:4px solid var(--ink); padding:0.95rem 1.1rem; margin-top:1rem;">
+            <div class="mono-label" style="margin-bottom:0.3rem;">Reconstrução Oficial dos Fatos</div>
+            <p style="font-size:0.92rem;">${c.solution.explanation}</p>
+          </div>
+
+          <div style="margin-top:1.1rem; display:flex; flex-wrap:wrap; gap:0.6rem; justify-content:flex-end;">
+            ${nextCase ? `<button type="button" class="btn btn-gold" onclick="switchToCase('${nextCase.id}')">Ir para ${nextCase.code}: ${nextCase.title} &rarr;</button>` : ""}
+          </div>
+        </div>
+      `;
+        }
+
+        window.switchToCase = function (caseId) {
+            SoundFX.playPaper();
+            state.currentCaseId = caseId;
+            const nextCase = getCurrentCase();
+            state.selectedSuspectId = nextCase.suspects[0].id;
+            state.selectedHotspotId = null;
+            state.interrogationFeedback = null;
+            state.activeTab = "scene";
+            updateTabButtons();
+            renderAll();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        };
+
+        /* =========================================================================
+           7. DICAS PROGRESSIVAS, CADERNO & CONTROLES GLOBAIS
+           ========================================================================= */
+        const backdrop = document.getElementById("backdrop");
+        const notebookDrawer = document.getElementById("notebook-drawer");
+        const hintModal = document.getElementById("hint-modal");
+
+        function closeOverlays() {
+            backdrop.classList.remove("open");
+            notebookDrawer.classList.remove("open");
+            hintModal.classList.remove("open");
+        }
+
+        function renderHintsModal() {
+            const c = getCurrentCase();
+            const prog = ensureCaseProgress(c.id);
+            const list = document.getElementById("hint-list");
+
+            if (prog.hintsUsed === 0) {
+                list.innerHTML = `<p style="font-size:0.9rem; font-style:italic; color:var(--ink-muted);">Nenhuma dica solicitada ainda para este caso. Clique abaixo para receber uma pista sutil do legista.</p>`;
+            } else {
+                list.innerHTML = c.hints.slice(0, prog.hintsUsed).map(h => `<div class="hint-card">${h}</div>`).join("");
+            }
+
+            const btnUnlock = document.getElementById("btn-unlock-hint");
+            if (prog.hintsUsed >= c.hints.length) {
+                btnUnlock.disabled = true;
+                btnUnlock.textContent = "Todas as Dicas Liberadas";
+            } else {
+                btnUnlock.disabled = false;
+                btnUnlock.textContent = `Solicitar Dica Nível ${prog.hintsUsed + 1}`;
+            }
+        }
+
+        // Event bindings
+        document.querySelectorAll(".tab-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                SoundFX.playPaper();
+                state.activeTab = btn.dataset.tab;
+                updateTabButtons();
+                renderActiveTab();
+            });
+        });
+
+        document.getElementById("btn-notebook").addEventListener("click", () => {
+            SoundFX.playPaper();
+            closeOverlays();
+            backdrop.classList.add("open");
+            notebookDrawer.classList.add("open");
+        });
+
+        document.getElementById("btn-close-notebook").addEventListener("click", closeOverlays);
+
+        document.getElementById("notebook-textarea").addEventListener("input", e => {
+            const prog = ensureCaseProgress(state.currentCaseId);
+            prog.notes = e.target.value;
+            savePersistedData();
+            document.getElementById("notebook-status").textContent = "Salvo às " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        });
+
+        document.getElementById("btn-clear-notes").addEventListener("click", () => {
+            const prog = ensureCaseProgress(state.currentCaseId);
+            prog.notes = "";
+            document.getElementById("notebook-textarea").value = "";
+            savePersistedData();
+            showToast("Anotações deste caso apagadas.");
+        });
+
+        document.getElementById("btn-hint").addEventListener("click", () => {
+            SoundFX.playTypeClick();
+            closeOverlays();
+            renderHintsModal();
+            backdrop.classList.add("open");
+            hintModal.classList.add("open");
+        });
+
+        document.getElementById("btn-close-hint").addEventListener("click", closeOverlays);
+
+        document.getElementById("btn-unlock-hint").addEventListener("click", () => {
+            const c = getCurrentCase();
+            const prog = ensureCaseProgress(c.id);
+            if (prog.hintsUsed < c.hints.length) {
+                prog.hintsUsed++;
+                savePersistedData();
+                SoundFX.playTypeClick();
+                document.getElementById("hint-counter").textContent = `${prog.hintsUsed}/3`;
+                renderHintsModal();
+            }
+        });
+
+        backdrop.addEventListener("click", closeOverlays);
+
+        document.getElementById("btn-sound").addEventListener("click", () => {
+            const next = !SoundFX.isEnabled();
+            SoundFX.setEnabled(next);
+            document.getElementById("sound-icon").innerHTML = next ? "&#128266;" : "&#128263;";
+            document.getElementById("sound-label").textContent = next ? "Som: ON" : "Som: OFF";
+            if (next) SoundFX.playTypeClick();
+        });
+
+        // Boot
+        renderAll();
+    </script>
+    <script src="./ecosystem-nav.js" defer data-page="mistery.html" data-theme="dark" data-pos="mistery"></script>
+</body>
+
+</html>

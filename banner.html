@@ -1,0 +1,2664 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Biotecnologia Vermelha • Banner 3D Interativo (UFPA)</title>
+
+    <!-- Tailwind CSS para interface responsiva moderna -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Fonte Inter + Montserrat para legibilidade no banner e na UI -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@600;700;800;900&display=swap"
+        rel="stylesheet" />
+
+    <!-- Import Map para Three.js e OrbitControls via jsDelivr -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+    <style>
+        :root {
+            --crimson: #7a0000;
+            --crimson-bright: #a60d14;
+            --glass-bg: rgba(18, 12, 16, 0.76);
+            --glass-border: rgba(255, 255, 255, 0.14);
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: #0d080c;
+            user-select: none;
+        }
+
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Glassmorphism temático da Biotecnologia Vermelha */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+        }
+
+        /* Slider customizado de enrolamento */
+        input[type="range"].roll-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 9999px;
+            background: rgba(255, 255, 255, 0.22);
+            outline: none;
+        }
+
+        input[type="range"].roll-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 9999px;
+            background: #ffffff;
+            border: 3px solid #9e0b0f;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            transition: transform 0.15s ease;
+        }
+
+        input[type="range"].roll-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        input[type="range"].roll-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 9999px;
+            background: #ffffff;
+            border: 3px solid #9e0b0f;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Scrollbar discreta no menu de seções */
+        .custom-scroll::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.22);
+            border-radius: 9999px;
+        }
+
+        .nav-btn {
+            transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .nav-btn.active {
+            background: linear-gradient(135deg, #8b0000 0%, #b31217 100%);
+            border-color: rgba(255, 200, 200, 0.45);
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(139, 0, 0, 0.45);
+        }
+
+        @keyframes pulseSoft {
+
+            0%,
+            100% {
+                opacity: 0.78;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 1;
+                transform: scale(1.03);
+            }
+        }
+
+        .pulse-soft {
+            animation: pulseSoft 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Container do WebGL / Three.js -->
+    <div id="canvas-container"></div>
+
+    <!-- Overlay Cinematográfico da Introdução -->
+    <div id="intro-overlay"
+        class="fixed inset-0 pointer-events-none z-30 flex flex-col justify-between p-3 sm:p-6 transition-opacity duration-700">
+        <!-- Topo da Intro -->
+        <div class="flex items-start justify-between gap-2 sm:gap-3">
+            <div class="glass-panel rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 text-white max-w-[calc(100vw-130px)] sm:max-w-md min-w-0">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-red-500 animate-pulse shrink-0"></span>
+                    <span class="text-[10px] sm:text-[11px] font-bold tracking-wider sm:tracking-widest uppercase text-red-300 truncate">UFPA • Extensão
+                        Biotecnologia Vermelha</span>
+                </div>
+                <div id="intro-phase-title" class="text-xs sm:text-base font-bold mt-0.5 text-white truncate">
+                    Pareamento Molecular de Nucleotídeos
+                </div>
+            </div>
+
+            <button id="btn-skip-intro"
+                class="pointer-events-auto glass-panel hover:bg-red-900/75 text-white text-xs sm:text-sm font-semibold px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl transition flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0">
+                <span>Pular</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Legenda Dinâmica do Pareamento de Bases -->
+        <div class="flex flex-col items-center mb-16 sm:mb-8">
+            <div id="intro-subtitle-box"
+                class="glass-panel rounded-2xl px-5 py-3 text-center transition-all duration-300">
+                <div id="intro-pair-badge" class="text-lg sm:text-2xl font-extrabold tracking-wider text-white">
+                    G <span class="text-amber-300">≡</span> C
+                </div>
+                <div id="intro-pair-desc" class="text-xs sm:text-sm text-gray-200 mt-0.5">
+                    Guanina — Citosina • 3 pontes de hidrogênio
+                </div>
+            </div>
+            <!-- Barra de progresso sutil da intro -->
+            <div class="w-56 sm:w-72 h-1 bg-white/15 rounded-full overflow-hidden mt-3">
+                <div id="intro-progress-bar"
+                    class="h-full bg-gradient-to-r from-red-600 via-rose-400 to-white transition-all duration-75"
+                    style="width: 0%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interface Principal Interativa (oculta suavemente durante a intro) -->
+    <div id="main-ui" class="fixed inset-0 pointer-events-none z-20 opacity-0 transition-opacity duration-700">
+
+        <!-- Barra Superior -->
+        <div class="absolute top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4 flex items-start justify-between gap-2">
+            <!-- Identificação e Botão de Menu -->
+            <div class="flex items-center gap-2 pointer-events-auto">
+                <button id="btn-toggle-menu" title="Abrir/Recolher Menu de Seções"
+                    class="glass-panel hover:bg-red-950/80 text-white p-2.5 sm:px-3.5 sm:py-2.5 rounded-xl flex items-center gap-2 transition cursor-pointer">
+                    <svg id="icon-menu" class="w-5 h-5 text-red-300" fill="none" stroke="currentColor" stroke-width="2"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h10" />
+                    </svg>
+                    <span class="text-xs sm:text-sm font-semibold hidden sm:inline">Seções do Banner</span>
+                </button>
+
+                <div class="glass-panel rounded-xl px-3.5 py-2 text-white hidden md:block">
+                    <div class="text-xs font-extrabold tracking-wide text-white leading-tight">BIOTECNOLOGIA VERMELHA •
+                        UFPA</div>
+                    <div class="text-[11px] text-gray-300 leading-tight mt-0.5">Arraste para girar 360° • Scroll/Pinça
+                        para aproximar</div>
+                </div>
+            </div>
+
+            <!-- Ações Rápidas (Rever Intro + Upload de Imagem Própria) -->
+            <div class="flex items-center gap-1.5 sm:gap-2 pointer-events-auto flex-wrap justify-end">
+                <button id="btn-replay-intro"
+                    class="glass-panel hover:bg-red-900/75 text-white text-xs font-semibold px-2.5 py-2 sm:px-3 sm:py-2.5 rounded-xl flex items-center gap-1.5 transition cursor-pointer"
+                    title="Rever animação cinematográfica de DNA e montagem do tripé">
+                    <svg class="w-4 h-4 text-rose-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span class="hidden sm:inline">Rever Intro</span>
+                    <span class="sm:hidden">Intro</span>
+                </button>
+
+                <label for="input-custom-image"
+                    class="glass-panel hover:bg-white/15 text-gray-100 text-xs font-medium px-2.5 py-2 sm:px-3 sm:py-2.5 rounded-xl flex items-center gap-1.5 transition cursor-pointer"
+                    title="Carregar sua imagem original (.JPG ou .PNG) na lona do banner 3D">
+                    <svg class="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span class="hidden sm:inline">Usar imagem própria .JPG/.PNG</span>
+                    <span class="sm:hidden">Imagem</span>
+                </label>
+                <input id="input-custom-image" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" />
+
+                <button id="btn-reset-texture"
+                    class="hidden glass-panel hover:bg-red-900/75 text-rose-200 text-xs font-semibold px-2.5 py-2 sm:px-3 sm:py-2.5 rounded-xl transition cursor-pointer"
+                    title="Restaurar textura vetorial fiel em alta definição">
+                    Padrão HD
+                </button>
+            </div>
+        </div>
+
+        <!-- Painel Lateral Recolhível de Navegação por Seções -->
+        <aside id="sections-drawer"
+            class="pointer-events-auto absolute top-16 sm:top-20 left-3 sm:left-4 w-[min(17.5rem,calc(100vw-1.5rem))] max-h-[calc(100dvh-11.5rem)] glass-panel rounded-2xl p-3 text-white flex flex-col transition-all duration-300 origin-top-left">
+            <div class="flex items-center justify-between px-1 pb-2 mb-2 border-b border-white/10">
+                <div>
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-rose-300">Focar Seção</h2>
+                    <p class="text-[11px] text-gray-300">Clique para aproximar com nitidez</p>
+                </div>
+                <button id="btn-close-drawer"
+                    class="p-1.5 rounded-lg hover:bg-white/10 text-gray-300 hover:text-white transition cursor-pointer"
+                    title="Recolher menu">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div id="section-buttons" class="flex flex-col gap-1.5 overflow-y-auto custom-scroll pr-1">
+                <!-- Botões preenchidos dinamicamente via JS -->
+            </div>
+        </aside>
+
+        <!-- Dica Contextual (ex: atalho para o card de Aplicações quando em Diagnóstico Molecular) -->
+        <div id="context-pill"
+            class="pointer-events-auto hidden absolute bottom-24 sm:bottom-20 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-2 text-white text-xs font-semibold flex items-center gap-2.5 border border-rose-400/40 shadow-lg">
+            <span id="context-pill-text" class="text-gray-200">Continuação na coluna direita:</span>
+            <button id="btn-jump-aplicacoes"
+                class="bg-red-800 hover:bg-red-700 text-white px-3 py-1 rounded-full transition flex items-center gap-1 cursor-pointer">
+                <span id="context-pill-btn-label">Ver Card: Aplicações ↗</span>
+            </button>
+        </div>
+
+        <!-- Barra Inferior: Enrolar / Desenrolar + Slider Contínuo -->
+        <div
+            class="pointer-events-auto absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] sm:bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-1.25rem)] sm:w-[calc(100%-1.5rem)] max-w-xl glass-panel rounded-2xl px-2.5 py-2 sm:px-4 sm:py-3 text-white flex items-center gap-2 sm:gap-3">
+            <button id="btn-toggle-roll"
+                class="shrink-0 bg-gradient-to-r from-[#7a0000] to-[#a60d14] hover:from-[#8f0000] hover:to-[#bd131b] text-white text-[11px] sm:text-sm font-bold px-2.5 py-2 sm:px-3.5 rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer">
+                <svg id="icon-roll" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
+                </svg>
+                <span id="label-toggle-roll">Enrolar Banner</span>
+            </button>
+
+            <div class="flex-1 flex flex-col gap-1 min-w-0">
+                <div class="flex items-center justify-between text-[11px] font-medium text-gray-200">
+                    <span>Abertura da Lona</span>
+                    <span id="roll-percent" class="font-bold text-rose-300 tabular-nums">100%</span>
+                </div>
+                <input id="slider-roll" type="range" min="0" max="100" step="0.5" value="100"
+                    class="roll-slider w-full cursor-pointer" />
+            </div>
+
+            <button id="btn-reset-view" title="Visão Geral (Enquadrar Banner Completo)"
+                class="shrink-0 p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M3 10h4V6m0 0l-3 3m17 5h-4v4m0 0l3-3M21 10V6h-4m-14 8v4h4" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast de Notificação Discreta (substitui qualquer alert) -->
+    <div id="toast-box"
+        class="fixed top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-300 translate-y-[-8px]">
+        <div id="toast-content"
+            class="glass-panel rounded-xl px-4 py-2.5 text-white text-xs sm:text-sm font-medium border border-rose-400/40">
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // =========================================================================
+        // 1. CONSTANTES FÍSICAS E GEOMÉTRICAS DO BANNER E DO TRIPÉ (em metros)
+        // =========================================================================
+        const CANVAS_W = 1600;
+        const CANVAS_H = 2133;
+
+        // Proporção real 3:4 (equivalente a um banner universitário 90x120 cm)
+        const BANNER_W = 0.90;
+        const BANNER_H = 1.20;
+        const BANNER_TOP_Y = 1.88;        // Altura da borda superior da lona
+        const BANNER_Z = 0.068;           // Avanço frontal em relação ao eixo central do tripé (z = 0)
+        const TRIPOD_TOP_Y = 2.04;        // Altura do gancho superior do tripé
+
+        // Parâmetros da espiral de Arquimedes para o enrolamento realista
+        const ROLL_R0 = 0.0145;           // Raio inicial sobre o bastão inferior
+        const ROLL_LAYER_THICKNESS = 0.0042; // Espessura por volta da lona
+        const ROLL_B = ROLL_LAYER_THICKNESS / (2 * Math.PI);
+        const BACK_LAYER_OFFSET = 0.00085; // Separação mínima entre frente e verso (evita z-fighting)
+
+        // Sequência exata dos 8 pares de bases do banner (da esquerda para a direita)
+        const DNA_SEQUENCE = [
+            { top: 'G', bottom: 'C', bonds: 3, desc: 'Guanina — Citosina • 3 pontes de hidrogênio' },
+            { top: 'T', bottom: 'A', bonds: 2, desc: 'Timina — Adenina • 2 pontes de hidrogênio' },
+            { top: 'G', bottom: 'C', bonds: 3, desc: 'Guanina — Citosina • 3 pontes de hidrogênio' },
+            { top: 'C', bottom: 'G', bonds: 3, desc: 'Citosina — Guanina • 3 pontes de hidrogênio' },
+            { top: 'T', bottom: 'A', bonds: 2, desc: 'Timina — Adenina • 2 pontes de hidrogênio' },
+            { top: 'G', bottom: 'C', bonds: 3, desc: 'Guanina — Citosina • 3 pontes de hidrogênio' },
+            { top: 'A', bottom: 'T', bonds: 2, desc: 'Adenina — Timina • 2 pontes de hidrogênio' },
+            { top: 'A', bottom: 'T', bonds: 2, desc: 'Adenina — Timina • 2 pontes de hidrogênio' }
+        ];
+
+        // Metadados das seções (retângulos preenchidos automaticamente durante o desenho do Canvas2D)
+        const SECTION_RECTS = {};
+
+        const SECTIONS_MENU = [
+            { id: 'geral', label: 'Visão Geral', sub: 'Banner completo + tripé', icon: '🎯' },
+            { id: 'tema', label: 'Tema', sub: 'UFPA • Biotecnologia Vermelha', icon: '🏛️' },
+            { id: 'autores', label: 'Autores', sub: 'Equipe de extensão (6 autores)', icon: '👥' },
+            { id: 'introducao', label: 'Introdução', sub: 'Conceito e aplicações gerais', icon: '📖' },
+            { id: 'dna', label: 'DNA: A Molécula da Vida', sub: 'Estrutura + diagrama de 8 bases', icon: '🧬' },
+            { id: 'molecular', label: 'Diagnóstico Molecular', sub: 'Alterações genéticas e patógenos', icon: '🔬' },
+            { id: 'forense', label: 'Diagnóstico Forense', sub: '5 etapas + quadro de importância', icon: '🔎' },
+            { id: 'conclusao', label: 'Conclusão', sub: 'Impacto na saúde e sociedade', icon: '✅' },
+            { id: 'referencias', label: 'Referências', sub: 'Fontes científicas bibliográficas', icon: '📚' }
+        ];
+
+        // =========================================================================
+        // 2. ESTADO GLOBAL DA APLICAÇÃO
+        // =========================================================================
+        let scene, camera, renderer, controls, clock;
+        let studioBgMat, studioFloorMesh, contactShadowMesh;
+        let hemiLight, keyLight, rimLight, introPointLight;
+
+        // Grupos 3D principais
+        let tripodGroup, tripodLegs = [], tripodStruts = [], tripodMastSections = [], tripodTopHook, tripodCollar;
+        let bannerSystemGroup, bannerFrontMesh, bannerBackMesh, topRodGroup, bottomRodGroup, hangingCordMesh;
+        let bannerFrontGeo, bannerBackGeo, bannerBasePositions;
+        let defaultBannerTexture, currentBannerTexture;
+
+        // Highlight luminoso de seção focada
+        let highlightGroup, highlightMat, highlightState = { active: false, elapsed: 0, duration: 3.4 };
+
+        // Animação cinematográfica de introdução
+        let introGroup, introParticles, dnaPairObjects = [], backboneSegments = [];
+        let introState = {
+            active: true,
+            time: 0,
+            duration: 9.6,
+            lastShownPair: -1
+        };
+
+        // Estado de enrolamento da lona (1 = aberto, 0 = enrolado no topo)
+        let unrollProgress = 0.0;
+        let targetUnrollProgress = 1.0;
+        let isRollAnimating = false;
+        let isUserDraggingSlider = false;
+
+        // Interpolação suave da câmera ao focar seções
+        let cameraTween = null;
+        let activeSectionId = 'geral';
+        let isDrawerOpen = window.innerWidth >= 768;
+
+        // =========================================================================
+        // 3. UTILITÁRIOS DE UI E MATEMÁTICA
+        // =========================================================================
+        function showToast(msg, duration = 2800) {
+            const box = document.getElementById('toast-box');
+            const content = document.getElementById('toast-content');
+            content.textContent = msg;
+            box.classList.remove('opacity-0', 'translate-y-[-8px]');
+            box.classList.add('opacity-100', 'translate-y-0');
+            clearTimeout(box._timer);
+            box._timer = setTimeout(() => {
+                box.classList.add('opacity-0', 'translate-y-[-8px]');
+                box.classList.remove('opacity-100', 'translate-y-0');
+            }, duration);
+        }
+
+        function clamp(v, min, max) {
+            return Math.max(min, Math.min(max, v));
+        }
+
+        function lerp(a, b, t) {
+            return a + (b - a) * t;
+        }
+
+        function smoothstep(edge0, edge1, x) {
+            const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
+            return t * t * (3 - 2 * t);
+        }
+
+        function easeOutCubic(t) {
+            return 1 - Math.pow(1 - clamp(t, 0, 1), 3);
+        }
+
+        function easeInOutCubic(t) {
+            const c = clamp(t, 0, 1);
+            return c < 0.5 ? 4 * c * c * c : 1 - Math.pow(-2 * c + 2, 3) / 2;
+        }
+
+        // =========================================================================
+        // 4. GERADOR DE TEXTURA CANVAS2D DE ALTA DEFINIÇÃO (1600 x 2133 px)
+        // =========================================================================
+        function drawRoundedRect(ctx, x, y, w, h, r) {
+            const radius = Math.min(r, w / 2, h / 2);
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + w - radius, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+            ctx.lineTo(x + w, y + h - radius);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+            ctx.lineTo(x + radius, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+        }
+
+        // Quebra de linha precisa para textos em português
+        function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, align = 'left') {
+            ctx.textAlign = align;
+            const words = text.split(' ');
+            let line = '';
+            let currY = y;
+
+            for (let i = 0; i < words.length; i++) {
+                const testLine = line ? line + ' ' + words[i] : words[i];
+                const metrics = ctx.measureText(testLine);
+                if (metrics.width > maxWidth && line !== '') {
+                    ctx.fillText(line, x, currY);
+                    line = words[i];
+                    currY += lineHeight;
+                } else {
+                    line = testLine;
+                }
+            }
+            if (line) {
+                ctx.fillText(line, x, currY);
+                currY += lineHeight;
+            }
+            return currY;
+        }
+
+        // Brasão estilizado da UFPA no canto superior esquerdo
+        function drawUFPACrest(ctx, cx, cy) {
+            ctx.save();
+            ctx.translate(cx, cy);
+
+            // Sombra suave do brasão
+            ctx.shadowColor = 'rgba(0,0,0,0.16)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetY = 4;
+
+            // Chama/tocha superior dourada e vermelha
+            ctx.beginPath();
+            ctx.moveTo(0, -96);
+            ctx.bezierCurveTo(16, -78, 18, -62, 0, -54);
+            ctx.bezierCurveTo(-18, -62, -16, -78, 0, -96);
+            ctx.fillStyle = '#d62828';
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(0, -86);
+            ctx.bezierCurveTo(9, -74, 10, -64, 0, -57);
+            ctx.bezierCurveTo(-10, -64, -9, -74, 0, -86);
+            ctx.fillStyle = '#f4b41a';
+            ctx.fill();
+
+            // Base dourada da tocha
+            ctx.fillStyle = '#c89216';
+            ctx.fillRect(-10, -56, 20, 8);
+
+            // Escudo principal azul marinho/royal com moldura dourada
+            ctx.beginPath();
+            ctx.moveTo(-54, -46);
+            ctx.lineTo(54, -46);
+            ctx.lineTo(54, 16);
+            ctx.quadraticCurveTo(54, 62, 0, 80);
+            ctx.quadraticCurveTo(-54, 62, -54, 16);
+            ctx.closePath();
+            ctx.fillStyle = '#185499';
+            ctx.fill();
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#d4a017';
+            ctx.stroke();
+
+            // Interno branco do escudo
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetY = 0;
+            ctx.beginPath();
+            ctx.moveTo(-43, -36);
+            ctx.lineTo(43, -36);
+            ctx.lineTo(43, 12);
+            ctx.quadraticCurveTo(43, 49, 0, 64);
+            ctx.quadraticCurveTo(-43, 49, -43, 12);
+            ctx.closePath();
+            ctx.fillStyle = '#f9fafb';
+            ctx.fill();
+
+            // Faixa diagonal azul clássica do brasão
+            ctx.save();
+            ctx.clip();
+            ctx.strokeStyle = '#1d62b2';
+            ctx.lineWidth = 10;
+            ctx.beginPath();
+            ctx.moveTo(-50, 32);
+            ctx.lineTo(50, -24);
+            ctx.stroke();
+
+            // Detalhes simbólicos internos (livro aberto e pássaro/estilização)
+            ctx.fillStyle = '#1b1b1b';
+            ctx.beginPath();
+            ctx.moveTo(-24, -12);
+            ctx.quadraticCurveTo(0, -24, 24, -12);
+            ctx.quadraticCurveTo(4, -4, 0, 8);
+            ctx.quadraticCurveTo(-4, -4, -24, -12);
+            ctx.fill();
+
+            // Livro aberto na parte inferior do escudo
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#1a1a1a';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(-22, 22);
+            ctx.lineTo(0, 27);
+            ctx.lineTo(22, 22);
+            ctx.lineTo(22, 42);
+            ctx.lineTo(0, 47);
+            ctx.lineTo(-22, 42);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, 27);
+            ctx.lineTo(0, 47);
+            ctx.stroke();
+            ctx.restore();
+
+            // Faixa vermelha inferior curvada ("UNIVERSIDADE FEDERAL DO PARÁ")
+            ctx.beginPath();
+            ctx.moveTo(-72, 28);
+            ctx.quadraticCurveTo(0, 50, 72, 28);
+            ctx.lineTo(66, 54);
+            ctx.quadraticCurveTo(0, 76, -66, 54);
+            ctx.closePath();
+            ctx.fillStyle = '#c81018';
+            ctx.fill();
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = '#7a0000';
+            ctx.stroke();
+
+            // Pontas dobradas da faixa
+            ctx.fillStyle = '#8f0a10';
+            ctx.beginPath();
+            ctx.moveTo(-66, 54);
+            ctx.lineTo(-78, 68);
+            ctx.lineTo(-50, 68);
+            ctx.closePath();
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(66, 54);
+            ctx.lineTo(78, 68);
+            ctx.lineTo(50, 68);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 9.5px "Montserrat", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('UNIVERSIDADE FEDERAL DO PARÁ', 0, 52);
+
+            // Flâmula inferior azul e branca
+            ctx.beginPath();
+            ctx.moveTo(-14, 72);
+            ctx.lineTo(14, 72);
+            ctx.lineTo(10, 92);
+            ctx.lineTo(0, 86);
+            ctx.lineTo(-10, 92);
+            ctx.closePath();
+            ctx.fillStyle = '#185499';
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Selo circular azul/turquesa da FABIOTEC no canto superior direito
+        function drawFabiotecSeal(ctx, cx, cy) {
+            ctx.save();
+            ctx.translate(cx, cy);
+
+            // Anel externo com gradiente azul/turquesa
+            const grad = ctx.createLinearGradient(-56, -56, 56, 56);
+            grad.addColorStop(0, '#0a3d62');
+            grad.addColorStop(0.5, '#1b7fa8');
+            grad.addColorStop(1, '#32b6c9');
+
+            ctx.beginPath();
+            ctx.arc(0, 0, 56, 0, Math.PI * 2);
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = 9;
+            ctx.stroke();
+
+            // Anel tracejado/molecular externo fino
+            ctx.beginPath();
+            ctx.arc(0, 0, 63, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(27, 127, 168, 0.35)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([7, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Fundo interno suave
+            const innerGrad = ctx.createRadialGradient(-10, -10, 6, 0, 0, 48);
+            innerGrad.addColorStop(0, '#eef9fc');
+            innerGrad.addColorStop(1, '#cdeaf4');
+            ctx.beginPath();
+            ctx.arc(0, 0, 47, 0, Math.PI * 2);
+            ctx.fillStyle = innerGrad;
+            ctx.fill();
+
+            // Dupla hélice estilizada no interior do selo
+            ctx.save();
+            ctx.rotate(-0.42);
+            for (let i = -30; i <= 30; i += 8) {
+                const phase = i * 0.12;
+                const x1 = Math.sin(phase) * 16;
+                const x2 = -Math.sin(phase) * 16;
+                ctx.strokeStyle = '#177e9f';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(x1, i);
+                ctx.lineTo(x2, i);
+                ctx.stroke();
+            }
+            ctx.lineWidth = 4.5;
+            ctx.strokeStyle = '#0e4d7a';
+            ctx.beginPath();
+            for (let i = -34; i <= 34; i += 2) {
+                const x = Math.sin(i * 0.12) * 16;
+                if (i === -34) ctx.moveTo(x, i); else ctx.lineTo(x, i);
+            }
+            ctx.stroke();
+
+            ctx.strokeStyle = '#25a5be';
+            ctx.beginPath();
+            for (let i = -34; i <= 34; i += 2) {
+                const x = -Math.sin(i * 0.12) * 16;
+                if (i === -34) ctx.moveTo(x, i); else ctx.lineTo(x, i);
+            }
+            ctx.stroke();
+            ctx.restore();
+
+            // Nó molecular no topo e laterais
+            const dots = [[-56, 0], [56, 0], [0, -56], [40, -40], [-40, 40]];
+            ctx.fillStyle = '#0f5c85';
+            dots.forEach(([dx, dy]) => {
+                ctx.beginPath();
+                ctx.arc(dx, dy, 4.5, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Texto FABIOTEC abaixo do selo
+            ctx.fillStyle = '#111111';
+            ctx.font = '800 20px "Montserrat", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('FABIOTEC', 0, 82);
+
+            ctx.fillStyle = '#333333';
+            ctx.font = '600 8.5px "Inter", sans-serif';
+            ctx.fillText('FACULDADE DE BIOTECNOLOGIA', 0, 94);
+            ctx.fillText('E ENGENHARIA DE BIOPROCESSOS', 0, 104);
+
+            ctx.restore();
+        }
+
+        // Marca d'água sutil de dupla hélice e textura geométrica no fundo do banner
+        function drawBackgroundWatermark(ctx) {
+            // Base cinza-branco limpa
+            const bgGrad = ctx.createLinearGradient(0, 0, CANVAS_W, CANVAS_H);
+            bgGrad.addColorStop(0, '#f8f8f9');
+            bgGrad.addColorStop(0.5, '#f2f3f5');
+            bgGrad.addColorStop(1, '#eceef1');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+            // Dobras/facetas geométricas muito sutis (estilo do banner original)
+            ctx.save();
+            ctx.fillStyle = 'rgba(210, 214, 222, 0.28)';
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(950, 0);
+            ctx.lineTo(420, 920);
+            ctx.lineTo(0, 620);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+            ctx.beginPath();
+            ctx.moveTo(820, 0);
+            ctx.lineTo(1600, 0);
+            ctx.lineTo(1600, 1180);
+            ctx.lineTo(980, 680);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(205, 210, 218, 0.26)';
+            ctx.beginPath();
+            ctx.moveTo(1600, 980);
+            ctx.lineTo(1600, 2133);
+            ctx.lineTo(540, 2133);
+            ctx.lineTo(1140, 1340);
+            ctx.closePath();
+            ctx.fill();
+
+            // Marca d'água de dupla hélice no lado esquerdo inferior (fiel à imagem original)
+            ctx.save();
+            ctx.translate(45, 1660);
+            ctx.rotate(0.28);
+            ctx.strokeStyle = 'rgba(130, 142, 162, 0.14)';
+            ctx.lineWidth = 10;
+            for (let y = -480; y <= 540; y += 34) {
+                const x1 = Math.sin(y * 0.011) * 145;
+                const x2 = -Math.sin(y * 0.011) * 145;
+                ctx.beginPath();
+                ctx.moveTo(x1, y);
+                ctx.lineTo(x2, y);
+                ctx.stroke();
+            }
+            ctx.lineWidth = 18;
+            ctx.strokeStyle = 'rgba(130, 142, 162, 0.16)';
+            ctx.beginPath();
+            for (let y = -500; y <= 560; y += 6) {
+                const x = Math.sin(y * 0.011) * 145;
+                if (y === -500) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.beginPath();
+            for (let y = -500; y <= 560; y += 6) {
+                const x = -Math.sin(y * 0.011) * 145;
+                if (y === -500) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.restore();
+
+            // Marca d'água sutil de hexágonos moleculares no canto superior direito
+            ctx.strokeStyle = 'rgba(140, 145, 155, 0.08)';
+            ctx.lineWidth = 3;
+            const hexCenters = [[1240, 720], [1340, 778], [1340, 894], [1440, 720]];
+            hexCenters.forEach(([hx, hy]) => {
+                ctx.beginPath();
+                for (let k = 0; k < 6; k++) {
+                    const ang = (Math.PI / 3) * k - Math.PI / 6;
+                    const px = hx + Math.cos(ang) * 56;
+                    const py = hy + Math.sin(ang) * 56;
+                    if (k === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+                ctx.stroke();
+            });
+
+            ctx.restore();
+        }
+
+        // Caixa de título bordô padrão do banner
+        function drawSectionTitleBox(ctx, text, x, y, w, h, fontSize = 37) {
+            ctx.save();
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.16)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetY = 4;
+
+            const grad = ctx.createLinearGradient(x, y, x + w, y + h);
+            grad.addColorStop(0, '#740000');
+            grad.addColorStop(0.5, '#880508');
+            grad.addColorStop(1, '#6c0000');
+            ctx.fillStyle = grad;
+            ctx.fillRect(x, y, w, h);
+
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetY = 0;
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `700 ${fontSize}px "Montserrat", "Inter", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, x + w / 2, y + h / 2 + 2);
+            ctx.restore();
+        }
+
+        // Card branco arredondado com aba superior bordô e sombra suave (estilo do banner original)
+        function drawAccentCard(ctx, x, y, w, h, radius = 34) {
+            ctx.save();
+            // Aba bordô deslocada para cima-esquerda
+            ctx.fillStyle = '#7a0000';
+            drawRoundedRect(ctx, x - 16, y - 20, w - 12, h - 10, radius);
+            ctx.fill();
+
+            // Cartão branco principal com sombra suave
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
+            ctx.shadowBlur = 20;
+            ctx.shadowOffsetX = 4;
+            ctx.shadowOffsetY = 9;
+            ctx.fillStyle = '#ffffff';
+            drawRoundedRect(ctx, x, y, w, h, radius);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Esquema horizontal das 8 bases nitrogenadas do DNA (encaixes complementares exatos)
+        function drawHorizontalDNADiagram(ctx, startX, startY, totalW, totalH) {
+            ctx.save();
+            const strandH = 30;
+            const topStrandY = startY;
+            const botStrandY = startY + totalH - strandH;
+            const innerTop = topStrandY + strandH;
+            const innerBot = botStrandY;
+            const midY = (innerTop + innerBot) / 2;
+
+            // Cores exatas conforme o banner original
+            const BASE_COLORS = {
+                G: { fill: '#f8d8d8', text: '#141414' }, // Guanina (claro/rosado)
+                C: { fill: '#eb5e58', text: '#141414' }, // Citosina (coral)
+                T: { fill: '#f5f0dc', text: '#141414' }, // Timina (creme/branco)
+                A: { fill: '#9c090e', text: '#141414' }  // Adenina (bordô)
+            };
+
+            const pairCount = DNA_SEQUENCE.length; // 8 pares
+            const padX = 36;
+            const usableW = totalW - padX * 2;
+            const colStep = usableW / pairCount;
+            const barW = 46;
+            const gap = 8; // pequeno espaçamento visual entre o encaixe superior e inferior
+
+            // Desenha cada um dos 8 pares verticais
+            DNA_SEQUENCE.forEach((pair, idx) => {
+                const cx = startX + padX + colStep * (idx + 0.5);
+                const left = cx - barW / 2;
+                const right = cx + barW / 2;
+
+                const isGC = (pair.top === 'G' || pair.top === 'C');
+
+                // Helper para desenhar uma metade de base (top ou bottom)
+                const drawHalfBase = (letter, isTop) => {
+                    const style = BASE_COLORS[letter];
+                    ctx.fillStyle = style.fill;
+                    ctx.strokeStyle = '#1f1f1f';
+                    ctx.lineWidth = 3;
+
+                    const baseY = isTop ? innerTop : innerBot;
+                    const dir = isTop ? 1 : -1; // +1 aponta para baixo, -1 aponta para cima
+                    const edgeY = midY - dir * (gap / 2);
+
+                    // Regra de encaixe complementar fiel à imagem:
+                    // G = ponta convexa arredondada; C = encaixe côncavo arredondado
+                    // A = ponta convexa triangular (seta); T = encaixe côncavo triangular (V)
+                    const tipDepth = 16;
+
+                    ctx.beginPath();
+                    ctx.moveTo(left, baseY);
+                    ctx.lineTo(right, baseY);
+
+                    if (isGC) {
+                        const isConvex = (letter === 'G');
+                        if (isConvex) {
+                            // Convexa arredondada avança além de edgeY
+                            ctx.lineTo(right, edgeY - dir * 5);
+                            ctx.quadraticCurveTo(cx, edgeY + dir * (tipDepth + 8), left, edgeY - dir * 5);
+                        } else {
+                            // Côncava arredondada recua para dentro
+                            ctx.lineTo(right, edgeY + dir * 7);
+                            ctx.quadraticCurveTo(cx, edgeY - dir * (tipDepth + 2), left, edgeY + dir * 7);
+                        }
+                    } else {
+                        const isConvex = (letter === 'A');
+                        if (isConvex) {
+                            // Seta triangular convexa
+                            ctx.lineTo(right, edgeY - dir * 4);
+                            ctx.lineTo(cx, edgeY + dir * tipDepth);
+                            ctx.lineTo(left, edgeY - dir * 4);
+                        } else {
+                            // Recorte triangular côncavo (V)
+                            ctx.lineTo(right, edgeY + dir * 8);
+                            ctx.lineTo(cx, edgeY - dir * (tipDepth - 2));
+                            ctx.lineTo(left, edgeY + dir * 8);
+                        }
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Letra rotacionada -90° centralizada dentro do bloco
+                    ctx.save();
+                    const labelY = isTop ? (innerTop + midY) / 2 - 4 : (midY + innerBot) / 2 + 4;
+                    ctx.translate(cx, labelY);
+                    ctx.rotate(-Math.PI / 2);
+                    ctx.fillStyle = style.text;
+                    ctx.font = '700 24px "Montserrat", "Inter", sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(letter, 0, 1);
+                    ctx.restore();
+                };
+
+                drawHalfBase(pair.top, true);
+                drawHalfBase(pair.bottom, false);
+            });
+
+            // Fitas horizontais coral-vermelho (topo e base) desenhadas por cima para acabamento limpo
+            ctx.fillStyle = '#e9564e';
+            ctx.strokeStyle = '#1f1f1f';
+            ctx.lineWidth = 3.2;
+
+            ctx.fillRect(startX, topStrandY, totalW, strandH);
+            ctx.strokeRect(startX, topStrandY, totalW, strandH);
+
+            ctx.fillRect(startX, botStrandY, totalW, strandH);
+            ctx.strokeRect(startX, botStrandY, totalW, strandH);
+
+            ctx.restore();
+        }
+
+        // Constrói a textura fiel 1600x2133px e registra as coordenadas exatas de cada seção
+        function createBannerCanvasTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = CANVAS_W;
+            canvas.height = CANVAS_H;
+            const ctx = canvas.getContext('2d');
+
+            // 1. Fundo claro com textura e marca d'água DNA
+            drawBackgroundWatermark(ctx);
+
+            // 2. CABEÇALHO SUPERIOR (0..222px)
+            drawUFPACrest(ctx, 126, 112);
+
+            ctx.fillStyle = '#111111';
+            ctx.font = '700 28px "Montserrat", "Inter", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText('UNIVERSIDADE FEDERAL DO PARÁ', 228, 152);
+
+            ctx.textAlign = 'right';
+            ctx.font = '700 27px "Montserrat", "Inter", sans-serif';
+            ctx.fillText('INSTITUTO DE CIÊNCIAS BIOLÓGICAS', 1384, 96);
+            ctx.fillText('FACULDADE DE BIOTECNOLOGIA', 1384, 134);
+            ctx.fillText('EXTENSÃO BIOTECNOLOGIA VERMELHA', 1384, 172);
+
+            drawFabiotecSeal(ctx, 1485, 96);
+
+            // 3. FAIXA PRINCIPAL DE TEMA (222..478px)
+            const themeGrad = ctx.createLinearGradient(0, 222, CANVAS_W, 478);
+            themeGrad.addColorStop(0, '#620000');
+            themeGrad.addColorStop(0.35, '#860306');
+            themeGrad.addColorStop(0.65, '#7a0000');
+            themeGrad.addColorStop(1, '#580000');
+            ctx.fillStyle = themeGrad;
+            ctx.fillRect(0, 222, CANVAS_W, 256);
+
+            // Leve brilho horizontal superior na faixa bordô
+            const sheenGrad = ctx.createLinearGradient(0, 222, 0, 340);
+            sheenGrad.addColorStop(0, 'rgba(255, 255, 255, 0.08)');
+            sheenGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = sheenGrad;
+            ctx.fillRect(0, 222, CANVAS_W, 118);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = '800 72px "Montserrat", "Inter", sans-serif';
+            ctx.fillText('BIOTECNOLOGIA VERMELHA', CANVAS_W / 2, 314);
+            ctx.font = '800 74px "Montserrat", "Inter", sans-serif';
+            ctx.fillText('DNA E DIAGNÓSTICO', CANVAS_W / 2, 408);
+
+            SECTION_RECTS.tema = { x: 16, y: 12, w: 1568, h: 472 };
+
+            // 4. FAIXA DE AUTORES (486..584px)
+            ctx.fillStyle = '#111111';
+            ctx.font = '700 26.5px "Inter", sans-serif';
+            ctx.textBaseline = 'alphabetic';
+            const authorsText =
+                'Hanna Gabrielle Tavares Favacho¹; Jéssica Larissa Valle de Souza¹; Julliany Christinny Girard Carneiro¹; Kayllane Cristine Bezerra Carvalho¹; Maria Kailane da Silva de Souza¹; Richard Wesley da Silva Barbosa¹.';
+            drawWrappedText(ctx, authorsText, 78, 530, 1446, 39, 'left');
+
+            SECTION_RECTS.autores = { x: 48, y: 488, w: 1504, h: 102 };
+
+            // =======================================================================
+            // COLUNA ESQUERDA
+            // =======================================================================
+
+            // 5. INTRODUÇÃO
+            drawSectionTitleBox(ctx, 'INTRODUÇÃO', 260, 628, 316, 62, 37);
+
+            ctx.fillStyle = '#121212';
+            ctx.font = '700 25.5px "Inter", sans-serif';
+            ctx.textBaseline = 'alphabetic';
+            const introText =
+                'A Biotecnologia Vermelha área da biotecnologia voltada à saúde, que utiliza organismos vivos, células e moléculas biológicas para desenvolver soluções na prevenção, no diagnóstico e no tratamento de doenças. Suas principais aplicações são:';
+            drawWrappedText(ctx, introText, 68, 752, 760, 38, 'left');
+
+            // Card branco arredondado com 2 colunas de tópicos
+            drawAccentCard(ctx, 166, 938, 618, 142, 36);
+            ctx.fillStyle = '#141414';
+            ctx.font = '700 22.5px "Inter", sans-serif';
+            drawWrappedText(ctx, '• Desenvolvimento de vacinas e medicamentos.', 188, 984, 290, 31, 'left');
+            drawWrappedText(ctx, '• Diagnóstico molecular.', 188, 1054, 290, 31, 'left');
+            drawWrappedText(ctx, '• Terapias gênicas.', 504, 998, 265, 31, 'left');
+            drawWrappedText(ctx, '• Medicina personalizada.', 504, 1038, 265, 31, 'left');
+
+            SECTION_RECTS.introducao = { x: 48, y: 612, w: 794, h: 488 };
+
+            // 6. DNA: A MOLÉCULA DA VIDA
+            drawSectionTitleBox(ctx, 'DNA: A MOLÉCULA DA VIDA', 114, 1126, 610, 62, 35);
+
+            ctx.fillStyle = '#121212';
+            ctx.font = '700 25.5px "Inter", sans-serif';
+            const dnaText1 =
+                'O DNA é a molécula responsável por armazenar e transmitir as informações genéticas dos seres vivos. Sua estrutura apresenta duas fitas em dupla hélice, formadas por nucleotídeos que possuem quatro bases nitrogenadas:';
+            let nextY = drawWrappedText(ctx, dnaText1, 68, 1244, 760, 38, 'left');
+
+            ctx.font = '700 25px "Inter", sans-serif';
+            nextY = drawWrappedText(ctx, '• Adenina (A), Timina (T), Citosina (C) e Guanina (G).', 92, nextY + 6, 730, 36, 'left');
+
+            ctx.font = '700 25.5px "Inter", sans-serif';
+            const dnaText2 =
+                'O DNA é fundamental para a hereditariedade, a produção de proteínas, o funcionamento celular e a transmissão das características genéticas.';
+            drawWrappedText(ctx, dnaText2, 68, nextY + 6, 760, 38, 'left');
+
+            // Esquema gráfico horizontal das 8 bases do DNA
+            drawHorizontalDNADiagram(ctx, 142, 1564, 610, 224);
+
+            SECTION_RECTS.dna = { x: 48, y: 1110, w: 794, h: 702 };
+
+            // 7. DIAGNÓSTICO MOLECULAR (canto inferior esquerdo)
+            drawSectionTitleBox(ctx, 'DIAGNÓSTICO MOLECULAR', 142, 1854, 600, 62, 35);
+
+            ctx.fillStyle = '#121212';
+            ctx.font = '700 25.5px "Inter", sans-serif';
+            const molText =
+                'O DNA permite identificar alterações genéticas e detectar agentes infecciosos por meio de técnicas de biologia molecular.';
+            drawWrappedText(ctx, molText, 76, 1974, 748, 38, 'left');
+
+            SECTION_RECTS.molecular = { x: 48, y: 1838, w: 794, h: 245 };
+
+            // =======================================================================
+            // COLUNA DIREITA
+            // =======================================================================
+
+            // 8. CARD DE APLICAÇÕES (topo da coluna direita)
+            drawAccentCard(ctx, 948, 616, 594, 158, 38);
+            ctx.fillStyle = '#121212';
+            ctx.font = '700 25.5px "Inter", sans-serif';
+            const appText =
+                '• Aplicações: diagnóstico de doenças hereditárias, identificação de mutações e detecção de microrganismos.';
+            drawWrappedText(ctx, appText, 976, 666, 540, 38, 'left');
+
+            SECTION_RECTS.aplicacoes = { x: 912, y: 582, w: 650, h: 214 };
+
+            // 9. DIAGNÓSTICO FORENSE
+            drawSectionTitleBox(ctx, 'DIAGNÓSTICO FORENSE', 964, 818, 540, 62, 35);
+
+            ctx.fillStyle = '#121212';
+            ctx.font = '700 25.5px "Inter", sans-serif';
+            const forenseText =
+                'A genética forense utiliza o DNA para identificar indivíduos e auxiliar investigações criminais. A análise pode ser realizada a partir de vestígios biológicos, como sangue, saliva, sêmen e células da pele.';
+            drawWrappedText(ctx, forenseText, 902, 942, 650, 38, 'left');
+
+            // 5 etapas verticais à esquerda (círculo numerado + pílula bordô)
+            const steps = ['COLETA', 'EXTRAÇÃO', 'PCR', 'ANÁLISE', 'COMPARAÇÃO'];
+            const stepStartY = 1146;
+            const stepGapY = 108;
+
+            steps.forEach((stepLabel, idx) => {
+                const cy = stepStartY + idx * stepGapY;
+                const cx = 968;
+
+                // Círculo numerado com contorno bordô espesso
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(cx, cy, 34, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+                ctx.lineWidth = 10;
+                ctx.strokeStyle = '#7a0000';
+                ctx.stroke();
+
+                ctx.fillStyle = '#141414';
+                ctx.font = '800 30px "Montserrat", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(String(idx + 1), cx, cy + 2);
+
+                // Pílula bordô ao lado
+                const pillX = 1020;
+                const pillW = 194;
+                const pillH = 68;
+                ctx.shadowColor = 'rgba(0,0,0,0.16)';
+                ctx.shadowBlur = 10;
+                ctx.shadowOffsetY = 4;
+                ctx.fillStyle = '#7a0000';
+                drawRoundedRect(ctx, pillX, cy - pillH / 2, pillW, pillH, 34);
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetY = 0;
+                ctx.fillStyle = '#ffffff';
+                const pillFontSize = stepLabel.length > 9 ? 20 : (stepLabel === 'PCR' ? 28 : 23);
+                ctx.font = `700 ${pillFontSize}px "Montserrat", "Inter", sans-serif`;
+                ctx.fillText(stepLabel, pillX + pillW / 2, cy + 2);
+                ctx.restore();
+            });
+
+            // Card "IMPORTÂNCIA" à direita das 5 etapas
+            ctx.save();
+            const impX = 1236, impY = 1134, impW = 328, impH = 434;
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
+            ctx.shadowBlur = 18;
+            ctx.shadowOffsetX = 4;
+            ctx.shadowOffsetY = 8;
+            ctx.fillStyle = '#ffffff';
+            drawRoundedRect(ctx, impX, impY, impW, impH, 42);
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            ctx.lineWidth = 14;
+            ctx.strokeStyle = '#7a0000';
+            drawRoundedRect(ctx, impX, impY, impW, impH, 42);
+            ctx.stroke();
+
+            ctx.fillStyle = '#111111';
+            ctx.font = '800 26px "Montserrat", "Inter", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText('IMPORTÂNCIA', impX + impW / 2, impY + 62);
+
+            ctx.font = '700 23.5px "Inter", sans-serif';
+            let impYCurr = impY + 104;
+            const impItems = [
+                '• Identificar vítimas',
+                '• Investigar crimes',
+                '• Reconhecer restos mortais e realizar testes de vínculo biológico',
+                '• Produção de evidências científicas.'
+            ];
+            impItems.forEach((item) => {
+                impYCurr = drawWrappedText(ctx, item, impX + 28, impYCurr, impW - 52, 33, 'left') + 8;
+            });
+            ctx.restore();
+
+            SECTION_RECTS.forense = { x: 886, y: 802, w: 694, h: 836 };
+
+            // 10. CONCLUSÃO
+            drawSectionTitleBox(ctx, 'CONCLUSÃO', 1046, 1666, 300, 62, 36);
+
+            ctx.fillStyle = '#121212';
+            ctx.font = '700 25.5px "Inter", sans-serif';
+            ctx.textBaseline = 'alphabetic';
+            const concText =
+                'O DNA é uma ferramenta essencial para a biotecnologia moderna. Sua análise possibilita avanços no diagnóstico de doenças, na medicina personalizada e na identificação humana, demonstrando a importância da genética molecular para a saúde e a sociedade.';
+            drawWrappedText(ctx, concText, 874, 1784, 668, 38, 'left');
+
+            SECTION_RECTS.conclusao = { x: 856, y: 1650, w: 702, h: 316 };
+
+            // 11. REFERÊNCIAS (rodapé direito)
+            ctx.fillStyle = '#111111';
+            ctx.font = '800 26px "Montserrat", "Inter", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('REFERÊNCIAS', 1004, 2002);
+
+            ctx.font = '700 17px "Inter", sans-serif';
+            const refs = [
+                '• NATIONAL HUMAN GENOME RESEARCH INSTITUTE. DNA Fact Sheet. Genome.gov.',
+                '• NATIONAL INSTITUTE OF JUSTICE. DNA Evidence: Basics of Analyzing.',
+                '• NELSON, D. L.; COX, M. M. Princípios de Bioquímica de Lehninger.'
+            ];
+            let refY = 2034;
+            refs.forEach((r) => {
+                refY = drawWrappedText(ctx, r, 990, refY, 594, 23, 'left') + 4;
+            });
+
+            SECTION_RECTS.referencias = { x: 966, y: 1966, w: 626, h: 152 };
+
+            // Cria CanvasTexture em SRGB com anisotropia máxima
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.colorSpace = THREE.SRGBColorSpace;
+            tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            tex.minFilter = THREE.LinearMipmapLinearFilter;
+            tex.magFilter = THREE.LinearFilter;
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        // Textura sutil de trama vinílica para o verso realista do banner
+        function createVinylBackTexture() {
+            const c = document.createElement('canvas');
+            c.width = 256;
+            c.height = 256;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#e7e8eb';
+            ctx.fillRect(0, 0, 256, 256);
+
+            ctx.strokeStyle = 'rgba(180, 184, 192, 0.25)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 256; i += 4) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0); ctx.lineTo(i, 256);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, i); ctx.lineTo(256, i);
+                ctx.stroke();
+            }
+            const tex = new THREE.CanvasTexture(c);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(8, 10);
+            tex.colorSpace = THREE.SRGBColorSpace;
+            return tex;
+        }
+
+        // =========================================================================
+        // 5. CONSTRUÇÃO DO ESTÚDIO ACADÊMICO E ILUMINAÇÃO
+        // =========================================================================
+        function buildStudioEnvironment() {
+            // Domo de fundo com gradiente suave que muda entre modo científico escuro (intro) e estúdio claro
+            const domeGeo = new THREE.SphereGeometry(28, 32, 24);
+            studioBgMat = new THREE.ShaderMaterial({
+                side: THREE.BackSide,
+                depthWrite: false,
+                uniforms: {
+                    uTopColor: { value: new THREE.Color('#09050b') },
+                    uHorizonColor: { value: new THREE.Color('#1c0910') },
+                    uBottomColor: { value: new THREE.Color('#0b060a') }
+                },
+                vertexShader: `
+          varying vec3 vWorldPos;
+          void main() {
+            vec4 wp = modelMatrix * vec4(position, 1.0);
+            vWorldPos = wp.xyz;
+            gl_Position = projectionMatrix * viewMatrix * wp;
+          }
+        `,
+                fragmentShader: `
+          uniform vec3 uTopColor;
+          uniform vec3 uHorizonColor;
+          uniform vec3 uBottomColor;
+          varying vec3 vWorldPos;
+          void main() {
+            float h = normalize(vWorldPos).y;
+            vec3 col = h >= 0.0
+              ? mix(uHorizonColor, uTopColor, pow(h, 0.65))
+              : mix(uHorizonColor, uBottomColor, pow(-h, 0.5));
+            gl_FragColor = vec4(col, 1.0);
+          }
+        `
+            });
+            const dome = new THREE.Mesh(domeGeo, studioBgMat);
+            scene.add(dome);
+
+            // Piso circular reflexivo/acetinado de estúdio com textura radial suave
+            const floorCanvas = document.createElement('canvas');
+            floorCanvas.width = 512;
+            floorCanvas.height = 512;
+            const fctx = floorCanvas.getContext('2d');
+            const fGrad = fctx.createRadialGradient(256, 256, 20, 256, 256, 256);
+            fGrad.addColorStop(0, '#f4f5f7');
+            fGrad.addColorStop(0.55, '#dfe3ea');
+            fGrad.addColorStop(1, '#c9cfd8');
+            fctx.fillStyle = fGrad;
+            fctx.fillRect(0, 0, 512, 512);
+
+            // Anéis sutis de exposição acadêmica
+            fctx.strokeStyle = 'rgba(122, 0, 0, 0.06)';
+            fctx.lineWidth = 2;
+            fctx.beginPath(); fctx.arc(256, 256, 85, 0, Math.PI * 2); fctx.stroke();
+            fctx.beginPath(); fctx.arc(256, 256, 155, 0, Math.PI * 2); fctx.stroke();
+
+            const floorTex = new THREE.CanvasTexture(floorCanvas);
+            floorTex.colorSpace = THREE.SRGBColorSpace;
+
+            const floorGeo = new THREE.CircleGeometry(9.5, 64);
+            const floorMat = new THREE.MeshStandardMaterial({
+                map: floorTex,
+                roughness: 0.42,
+                metalness: 0.08,
+                transparent: true,
+                opacity: 0.96
+            });
+            studioFloorMesh = new THREE.Mesh(floorGeo, floorMat);
+            studioFloorMesh.rotation.x = -Math.PI / 2;
+            studioFloorMesh.position.y = 0;
+            studioFloorMesh.receiveShadow = true;
+            scene.add(studioFloorMesh);
+
+            // Sombra de contato suave sob o tripé
+            const shCanvas = document.createElement('canvas');
+            shCanvas.width = 256;
+            shCanvas.height = 256;
+            const sctx = shCanvas.getContext('2d');
+            const sGrad = sctx.createRadialGradient(128, 128, 10, 128, 128, 120);
+            sGrad.addColorStop(0, 'rgba(0, 0, 0, 0.32)');
+            sGrad.addColorStop(0.55, 'rgba(0, 0, 0, 0.10)');
+            sGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            sctx.fillStyle = sGrad;
+            sctx.fillRect(0, 0, 256, 256);
+
+            const contactTex = new THREE.CanvasTexture(shCanvas);
+            contactShadowMesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(1.4, 1.4),
+                new THREE.MeshBasicMaterial({ map: contactTex, transparent: true, depthWrite: false, opacity: 0.0 })
+            );
+            contactShadowMesh.rotation.x = -Math.PI / 2;
+            contactShadowMesh.position.y = 0.0015;
+            scene.add(contactShadowMesh);
+
+            // Rig de Iluminação Balanceado
+            hemiLight = new THREE.HemisphereLight('#ffffff', '#b8bec9', 0.35);
+            scene.add(hemiLight);
+
+            keyLight = new THREE.DirectionalLight('#fffaf2', 0.4);
+            keyLight.position.set(2.4, 3.8, 3.2);
+            keyLight.castShadow = true;
+            keyLight.shadow.mapSize.set(2048, 2048);
+            keyLight.shadow.camera.near = 0.5;
+            keyLight.shadow.camera.far = 11;
+            keyLight.shadow.camera.left = -2.2;
+            keyLight.shadow.camera.right = 2.2;
+            keyLight.shadow.camera.top = 2.8;
+            keyLight.shadow.camera.bottom = -0.5;
+            keyLight.shadow.bias = -0.0005;
+            scene.add(keyLight);
+
+            rimLight = new THREE.DirectionalLight('#dbeafe', 0.35);
+            rimLight.position.set(-2.6, 2.8, -2.5);
+            scene.add(rimLight);
+
+            // Luz dramática usada durante a animação molecular da intro
+            introPointLight = new THREE.PointLight('#ff5a5f', 2.6, 4.5);
+            introPointLight.position.set(0.5, 1.35, 0.9);
+            scene.add(introPointLight);
+        }
+
+        // =========================================================================
+        // 6. MODELO 3D REALISTA DO TRIPÉ PORTA-BANNER
+        // =========================================================================
+        function buildTripodModel() {
+            tripodGroup = new THREE.Group();
+            scene.add(tripodGroup);
+
+            const darkMetalMat = new THREE.MeshStandardMaterial({
+                color: '#22252a',
+                roughness: 0.36,
+                metalness: 0.82
+            });
+
+            const chromeMetalMat = new THREE.MeshStandardMaterial({
+                color: '#d4dae2',
+                roughness: 0.22,
+                metalness: 0.92
+            });
+
+            const matteBlackMat = new THREE.MeshStandardMaterial({
+                color: '#16171a',
+                roughness: 0.72,
+                metalness: 0.15
+            });
+
+            const rubberMat = new THREE.MeshStandardMaterial({
+                color: '#121316',
+                roughness: 0.92,
+                metalness: 0.05
+            });
+
+            // 3 seções telescópicas da haste vertical central
+            const sec1 = new THREE.Mesh(new THREE.CylinderGeometry(0.0155, 0.0155, 0.76, 24), darkMetalMat);
+            sec1.position.y = 0.50; // de 0.12 a 0.88
+            sec1.castShadow = true;
+            tripodGroup.add(sec1);
+            tripodMastSections.push(sec1);
+
+            // Trava/manípulo entre seção 1 e 2
+            const lock1 = new THREE.Group();
+            const lock1Body = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.055, 20), matteBlackMat);
+            const knob1 = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.011, 0.032, 14), matteBlackMat);
+            knob1.rotation.z = Math.PI / 2;
+            knob1.position.set(0.026, 0, 0);
+            lock1.add(lock1Body, knob1);
+            lock1.position.y = 0.88;
+            tripodGroup.add(lock1);
+            tripodMastSections.push(lock1);
+
+            const sec2 = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, 0.64, 24), chromeMetalMat);
+            sec2.position.y = 1.20; // de 0.88 a 1.52
+            sec2.castShadow = true;
+            tripodGroup.add(sec2);
+            tripodMastSections.push(sec2);
+
+            // Trava/manípulo entre seção 2 e 3
+            const lock2 = new THREE.Group();
+            const lock2Body = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.019, 0.048, 20), matteBlackMat);
+            const knob2 = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.010, 0.028, 14), matteBlackMat);
+            knob2.rotation.z = Math.PI / 2;
+            knob2.position.set(0.023, 0, 0);
+            lock2.add(lock2Body, knob2);
+            lock2.position.y = 1.52;
+            tripodGroup.add(lock2);
+            tripodMastSections.push(lock2);
+
+            const sec3 = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.010, 0.52, 24), chromeMetalMat);
+            sec3.position.y = 1.78; // de 1.52 a 2.04
+            sec3.castShadow = true;
+            tripodGroup.add(sec3);
+            tripodMastSections.push(sec3);
+
+            // Garra / Gancho superior onde se prende o cordão do banner
+            tripodTopHook = new THREE.Group();
+            tripodTopHook.position.set(0, TRIPOD_TOP_Y, 0);
+
+            const capMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.013, 0.045, 20), matteBlackMat);
+            tripodTopHook.add(capMesh);
+
+            const armMesh = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.014, 0.072), matteBlackMat);
+            armMesh.position.set(0, 0.008, 0.036);
+            tripodTopHook.add(armMesh);
+
+            // Gancho frontal curvado
+            const hookTip = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.024, 12), chromeMetalMat);
+            hookTip.position.set(0, 0.002, 0.068);
+            tripodTopHook.add(hookTip);
+
+            const hookLip = new THREE.Mesh(new THREE.SphereGeometry(0.007, 12, 12), matteBlackMat);
+            hookLip.position.set(0, 0.015, 0.068);
+            tripodTopHook.add(hookLip);
+
+            tripodGroup.add(tripodTopHook);
+
+            // Colar deslizante central (articulação superior das 3 pernas)
+            tripodCollar = new THREE.Group();
+            const collarRing = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.030, 0.062, 24), matteBlackMat);
+            const collarKnob = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.011, 0.036, 14), matteBlackMat);
+            collarKnob.rotation.x = Math.PI / 2;
+            collarKnob.position.set(0, 0, -0.032);
+            tripodCollar.add(collarRing, collarKnob);
+            tripodCollar.position.y = 0.44;
+            tripodGroup.add(tripodCollar);
+
+            // Colar inferior das hastes estabilizadoras
+            const lowerHub = new THREE.Mesh(new THREE.CylinderGeometry(0.023, 0.023, 0.036, 20), matteBlackMat);
+            lowerHub.position.y = 0.15;
+            tripodGroup.add(lowerHub);
+            tripodMastSections.push(lowerHub);
+
+            // 3 Pernas metálicas articuladas + pontas emborrachadas + barras estabilizadoras
+            const legLength = 0.59;
+            const legRadius = 0.010;
+            const strutLength = 0.25;
+
+            for (let i = 0; i < 3; i++) {
+                // Ângulos distribuídos a 120°, com uma perna apontando para trás (-Z) para estabilidade frontal
+                const az = (i * 2 * Math.PI) / 3 + Math.PI / 6;
+
+                const legPivot = new THREE.Group();
+                legPivot.position.set(0, 0.44, 0);
+                legPivot.rotation.y = az;
+
+                // Tubo da perna saindo para baixo ao longo de -Y local
+                const legTube = new THREE.Mesh(
+                    new THREE.CylinderGeometry(legRadius, legRadius * 0.9, legLength, 16),
+                    darkMetalMat
+                );
+                legTube.position.y = -legLength / 2;
+                legTube.castShadow = true;
+                legPivot.add(legTube);
+
+                // Pé emborrachado antiderrapante
+                const foot = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.013, 0.016, 0.036, 16),
+                    rubberMat
+                );
+                foot.position.y = -legLength;
+                foot.castShadow = true;
+                legPivot.add(foot);
+
+                // Haste estabilizadora (ligação da base do mastro ao meio da perna)
+                const strutPivot = new THREE.Group();
+                strutPivot.position.set(0, 0.15, 0);
+                strutPivot.rotation.y = az;
+
+                const strutBar = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.008, 0.006, strutLength),
+                    darkMetalMat
+                );
+                strutBar.position.z = strutLength / 2;
+                strutPivot.add(strutBar);
+
+                tripodGroup.add(legPivot);
+                tripodGroup.add(strutPivot);
+                tripodLegs.push({ pivot: legPivot, az });
+                tripodStruts.push({ pivot: strutPivot, bar: strutBar, az });
+            }
+
+            // Configura estado inicial recolhido (para ser animado na Fase 2 da Intro)
+            setTripodDeployment(0);
+        }
+
+        // Controla abertura suave das pernas e extensão do tripé (t de 0 a 1)
+        function setTripodDeployment(t) {
+            const deploy = clamp(t, 0, 1);
+            const legSpreadAngle = lerp(0.04, 0.72, easeOutCubic(deploy)); // ~41° totalmente aberto
+
+            // Calcula altura do colar para que os pés toquem exatamente y = 0 quando deploy = 1
+            const legLen = 0.59;
+            const footHeightOffset = 0.016;
+            const collarY = Math.cos(legSpreadAngle) * legLen + footHeightOffset;
+            tripodCollar.position.y = collarY;
+
+            tripodLegs.forEach(({ pivot }) => {
+                pivot.position.y = collarY;
+                // Inclina a perna para fora ao longo de +Z local
+                pivot.rotation.x = -legSpreadAngle;
+            });
+
+            // Ajusta cada barra estabilizadora conectando (0, 0.15) até o ponto médio da perna
+            const midDist = legLen * 0.48;
+            const targetZ = Math.sin(legSpreadAngle) * midDist;
+            const targetY = collarY - Math.cos(legSpreadAngle) * midDist;
+            const dy = targetY - 0.15;
+            const dz = targetZ;
+            const dist = Math.max(0.02, Math.hypot(dy, dz));
+            const pitch = -Math.atan2(dy, dz);
+
+            tripodStruts.forEach(({ pivot, bar }) => {
+                pivot.rotation.x = pitch;
+                bar.scale.z = dist / 0.25;
+                bar.position.z = dist / 2;
+            });
+
+            // Escala de extensão vertical do mastro central
+            const mastScale = lerp(0.15, 1.0, easeOutCubic(deploy));
+            tripodMastSections.forEach((m) => {
+                m.scale.set(1, mastScale, 1);
+            });
+            tripodTopHook.position.y = lerp(0.55, TRIPOD_TOP_Y, easeOutCubic(deploy));
+            tripodGroup.visible = deploy > 0.005;
+        }
+
+        // =========================================================================
+        // 7. BANNER 3D SUBDIVIDIDO + ENROLAMENTO EM ESPIRAL DE ARQUIMEDES
+        // =========================================================================
+        function buildBannerModel() {
+            bannerSystemGroup = new THREE.Group();
+            scene.add(bannerSystemGroup);
+
+            // Gera textura padrão de alta definição
+            defaultBannerTexture = createBannerCanvasTexture();
+            currentBannerTexture = defaultBannerTexture;
+            const backTexture = createVinylBackTexture();
+
+            // Alta segmentação vertical (150 linhas) para curvatura em espiral ultra suave
+            const segX = 32;
+            const segY = 150;
+
+            bannerFrontGeo = new THREE.PlaneGeometry(BANNER_W, BANNER_H, segX, segY);
+            bannerBackGeo = new THREE.PlaneGeometry(BANNER_W, BANNER_H, segX, segY);
+
+            // Armazena coordenadas originais (x, s = distância a partir do topo)
+            const posAttr = bannerFrontGeo.attributes.position;
+            bannerBasePositions = new Float32Array(posAttr.count * 2);
+            for (let i = 0; i < posAttr.count; i++) {
+                const vx = posAttr.getX(i);
+                const vy = posAttr.getY(i); // +H/2 no topo até -H/2 na base
+                const s = BANNER_H / 2 - vy; // s = 0 no topo, s = H na base
+                bannerBasePositions[i * 2] = vx;
+                bannerBasePositions[i * 2 + 1] = s;
+            }
+
+            const frontMat = new THREE.MeshStandardMaterial({
+                map: currentBannerTexture,
+                roughness: 0.46,
+                metalness: 0.02,
+                side: THREE.FrontSide
+            });
+
+            const backMat = new THREE.MeshStandardMaterial({
+                map: backTexture,
+                color: '#eceef2',
+                roughness: 0.62,
+                metalness: 0.02,
+                side: THREE.BackSide
+            });
+
+            bannerFrontMesh = new THREE.Mesh(bannerFrontGeo, frontMat);
+            bannerFrontMesh.castShadow = true;
+            bannerFrontMesh.receiveShadow = true;
+
+            bannerBackMesh = new THREE.Mesh(bannerBackGeo, backMat);
+            bannerBackMesh.castShadow = true;
+            bannerBackMesh.receiveShadow = true;
+
+            bannerSystemGroup.add(bannerFrontMesh, bannerBackMesh);
+
+            // Bastão superior (tubo branco/alumínio + ponteiras pretas)
+            topRodGroup = createDowelRod(BANNER_W + 0.045, 0.0115);
+            topRodGroup.position.set(0, BANNER_TOP_Y + 0.004, BANNER_Z);
+            bannerSystemGroup.add(topRodGroup);
+
+            // Bastão inferior (acompanha dinamicamente o centro do rolo ao enrolar)
+            bottomRodGroup = createDowelRod(BANNER_W + 0.045, 0.0125);
+            bottomRodGroup.position.set(0, BANNER_TOP_Y - BANNER_H, BANNER_Z);
+            bannerSystemGroup.add(bottomRodGroup);
+
+            // Cordão em "V" ligando o bastão superior ao gancho do tripé
+            const cordCurve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(-0.34, BANNER_TOP_Y + 0.01, BANNER_Z),
+                new THREE.Vector3(-0.17, (BANNER_TOP_Y + TRIPOD_TOP_Y) * 0.5 + 0.004, BANNER_Z),
+                new THREE.Vector3(0, TRIPOD_TOP_Y + 0.002, BANNER_Z),
+                new THREE.Vector3(0.17, (BANNER_TOP_Y + TRIPOD_TOP_Y) * 0.5 + 0.004, BANNER_Z),
+                new THREE.Vector3(0.34, BANNER_TOP_Y + 0.01, BANNER_Z)
+            ]);
+            const cordGeo = new THREE.TubeGeometry(cordCurve, 32, 0.0022, 8, false);
+            const cordMat = new THREE.MeshStandardMaterial({ color: '#e5e7eb', roughness: 0.8 });
+            hangingCordMesh = new THREE.Mesh(cordGeo, cordMat);
+            bannerSystemGroup.add(hangingCordMesh);
+
+            // Moldura luminosa 3D para destacar a seção focada
+            buildHighlightFrame();
+
+            // Atualiza malha inicial
+            updateBannerDeformation(0.0, 0);
+        }
+
+        function createDowelRod(length, radius) {
+            const group = new THREE.Group();
+            const tubeMat = new THREE.MeshStandardMaterial({
+                color: '#dde2e8',
+                roughness: 0.34,
+                metalness: 0.45
+            });
+            const capMat = new THREE.MeshStandardMaterial({
+                color: '#191b1f',
+                roughness: 0.65,
+                metalness: 0.2
+            });
+
+            const tube = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, length, 20), tubeMat);
+            tube.rotation.z = Math.PI / 2;
+            tube.castShadow = true;
+            group.add(tube);
+
+            const capL = new THREE.Mesh(new THREE.CylinderGeometry(radius * 1.18, radius * 1.18, 0.026, 18), capMat);
+            capL.rotation.z = Math.PI / 2;
+            capL.position.x = -length / 2 - 0.006;
+            group.add(capL);
+
+            const capR = capL.clone();
+            capR.position.x = length / 2 + 0.006;
+            group.add(capR);
+
+            return group;
+        }
+
+        // Moldura luminosa que destaca brevemente cada seção focada
+        function buildHighlightFrame() {
+            highlightGroup = new THREE.Group();
+            highlightMat = new THREE.MeshBasicMaterial({
+                color: '#ff3b47',
+                transparent: true,
+                opacity: 0,
+                depthWrite: false
+            });
+
+            // 4 barras que serão redimensionadas dinamicamente para envolver qualquer seção
+            const barGeo = new THREE.PlaneGeometry(1, 1);
+            for (let i = 0; i < 4; i++) {
+                const bar = new THREE.Mesh(barGeo, highlightMat);
+                highlightGroup.add(bar);
+            }
+            highlightGroup.visible = false;
+            bannerSystemGroup.add(highlightGroup);
+        }
+
+        function triggerSectionHighlight(rect) {
+            if (!rect) {
+                highlightState.active = false;
+                highlightGroup.visible = false;
+                return;
+            }
+
+            const w = (rect.w / CANVAS_W) * BANNER_W;
+            const h = (rect.h / CANVAS_H) * BANNER_H;
+            const cx = ((rect.x + rect.w / 2) / CANVAS_W - 0.5) * BANNER_W;
+            const cy = BANNER_TOP_Y - ((rect.y + rect.h / 2) / CANVAS_H) * BANNER_H;
+            const border = 0.0055;
+
+            const [topBar, botBar, leftBar, rightBar] = highlightGroup.children;
+
+            topBar.scale.set(w + border * 2, border, 1);
+            topBar.position.set(0, h / 2 + border / 2, 0);
+
+            botBar.scale.set(w + border * 2, border, 1);
+            botBar.position.set(0, -h / 2 - border / 2, 0);
+
+            leftBar.scale.set(border, h, 1);
+            leftBar.position.set(-w / 2 - border / 2, 0, 0);
+
+            rightBar.scale.set(border, h, 1);
+            rightBar.position.set(w / 2 + border / 2, 0, 0);
+
+            highlightGroup.position.set(cx, cy, BANNER_Z + 0.0045);
+            highlightGroup.visible = true;
+            highlightState.active = true;
+            highlightState.elapsed = 0;
+        }
+
+        /**
+         * Deformação paramétrica exata da lona em Espiral de Arquimedes
+         * @param {number} progress - 0 (totalmente enrolado no topo) até 1 (totalmente aberto)
+         * @param {number} time - tempo decorrido para leve balanço natural do tecido
+         */
+        function updateBannerDeformation(progress, time) {
+            const p = clamp(progress, 0, 1);
+            const minHanging = 0.022; // 2.2cm presos ao bastão superior
+            const sSplit = lerp(minHanging, BANNER_H, p);
+            const rolledLength = Math.max(0, BANNER_H - sSplit);
+
+            // Calcula ângulo total (thetaMax) e raio externo da espiral de Arquimedes
+            // L(theta) = r0 * theta + 0.5 * b * theta^2
+            const thetaMax = rolledLength > 0.0001
+                ? (-ROLL_R0 + Math.sqrt(ROLL_R0 * ROLL_R0 + 2 * ROLL_B * rolledLength)) / ROLL_B
+                : 0;
+            const rOuter = ROLL_R0 + ROLL_B * thetaMax;
+
+            // Centro do cilindro do rolo (posicionado à frente da lona para não colidir com o mastro do tripé)
+            const rollCenterY = BANNER_TOP_Y - sSplit;
+            const rollCenterZ = BANNER_Z + rOuter;
+
+            // Suaviza o deslocamento do bastão inferior quando o banner está 100% aberto
+            const rodRollBlend = smoothstep(0.0, 0.06, 1 - p);
+            const swayAmp = 0.0022 * p * p; // leve movimento de ar apenas quando desenrolado
+
+            const frontPos = bannerFrontGeo.attributes.position;
+            const frontNorm = bannerFrontGeo.attributes.normal;
+            const backPos = bannerBackGeo.attributes.position;
+            const backNorm = bannerBackGeo.attributes.normal;
+
+            const count = frontPos.count;
+            for (let i = 0; i < count; i++) {
+                const vx = bannerBasePositions[i * 2];
+                const s = bannerBasePositions[i * 2 + 1];
+
+                let y, z, ny, nz;
+
+                if (s <= sSplit) {
+                    // Trecho vertical aberto
+                    const normS = s / BANNER_H;
+                    const wave = Math.sin(time * 1.45 - normS * 3.1 + vx * 1.8) * swayAmp * normS;
+                    y = BANNER_TOP_Y - s;
+                    z = BANNER_Z + wave;
+                    ny = 0;
+                    nz = 1;
+                } else {
+                    // Trecho enrolado em espiral contínua ao redor do bastão inferior
+                    const uRoll = BANNER_H - s; // distância a partir da borda inferior (núcleo)
+                    const theta = (-ROLL_R0 + Math.sqrt(ROLL_R0 * ROLL_R0 + 2 * ROLL_B * uRoll)) / ROLL_B;
+                    const r = ROLL_R0 + ROLL_B * theta;
+                    const phi = thetaMax - theta; // 0 no ponto tangente de entrada da espiral
+
+                    const sinP = Math.sin(phi);
+                    const cosP = Math.cos(phi);
+
+                    y = rollCenterY - r * sinP;
+                    z = rollCenterZ - r * cosP;
+
+                    // Normal analítica exata da frente da lona
+                    ny = sinP;
+                    nz = cosP;
+                }
+
+                frontPos.setXYZ(i, vx, y, z);
+                frontNorm.setXYZ(i, 0, ny, nz);
+
+                // Malha traseira deslocada sutilmente no sentido oposto à normal frontal
+                backPos.setXYZ(i, vx, y - ny * BACK_LAYER_OFFSET, z - nz * BACK_LAYER_OFFSET);
+                backNorm.setXYZ(i, 0, ny, nz);
+            }
+
+            frontPos.needsUpdate = true;
+            frontNorm.needsUpdate = true;
+            backPos.needsUpdate = true;
+            backNorm.needsUpdate = true;
+
+            // Posiciona o bastão inferior exatamente no centro da espiral (e girando com ela!)
+            bottomRodGroup.position.set(
+                0,
+                rollCenterY,
+                lerp(BANNER_Z, rollCenterZ, rodRollBlend)
+            );
+            bottomRodGroup.rotation.x = -thetaMax;
+        }
+
+        // =========================================================================
+        // 8. ANIMAÇÃO CINEMATOGRÁFICA DE INTRODUÇÃO (PAREAMENTO DE DNA -> TRIPÉ)
+        // =========================================================================
+        function buildIntroDNAObjects() {
+            introGroup = new THREE.Group();
+            scene.add(introGroup);
+
+            // Materiais distintos para as 4 bases nitrogenadas
+            const BASE_MATS = {
+                A: new THREE.MeshStandardMaterial({ color: '#9e0b0f', emissive: '#590408', emissiveIntensity: 0.45, roughness: 0.25, metalness: 0.15 }),
+                T: new THREE.MeshStandardMaterial({ color: '#f5efe2', emissive: '#544a38', emissiveIntensity: 0.35, roughness: 0.28, metalness: 0.10 }),
+                C: new THREE.MeshStandardMaterial({ color: '#eb5a54', emissive: '#6e1915', emissiveIntensity: 0.40, roughness: 0.26, metalness: 0.15 }),
+                G: new THREE.MeshStandardMaterial({ color: '#eab64d', emissive: '#63430c', emissiveIntensity: 0.42, roughness: 0.24, metalness: 0.25 })
+            };
+
+            const backboneMatL = new THREE.MeshStandardMaterial({ color: '#c92a2a', emissive: '#520a0a', emissiveIntensity: 0.4, roughness: 0.25, metalness: 0.4 });
+            const backboneMatR = new THREE.MeshStandardMaterial({ color: '#e2e8f0', emissive: '#334155', emissiveIntensity: 0.35, roughness: 0.25, metalness: 0.5 });
+            const hBondMat = new THREE.MeshBasicMaterial({ color: '#7dd3fc', transparent: true, opacity: 0.9 });
+
+            const helixStartY = 0.58;
+            const helixStepY = 0.175;
+            const helixRadius = 0.17;
+            const twistPerStep = 0.52;
+
+            DNA_SEQUENCE.forEach((pair, idx) => {
+                const y = helixStartY + idx * helixStepY;
+                const angle = idx * twistPerStep;
+
+                const pairHolder = new THREE.Group();
+                pairHolder.position.set(0, y, 0);
+                pairHolder.rotation.y = angle;
+
+                // Nucleotídeo da esquerda (fita 1)
+                const leftUnit = new THREE.Group();
+                const blockL = new THREE.Mesh(
+                    new THREE.CapsuleGeometry(0.022, 0.115, 8, 16),
+                    BASE_MATS[pair.top].clone()
+                );
+                blockL.rotation.z = Math.PI / 2;
+                blockL.position.x = -0.088;
+                const phosL = new THREE.Mesh(new THREE.SphereGeometry(0.032, 18, 18), backboneMatL.clone());
+                phosL.position.x = -helixRadius;
+                leftUnit.add(blockL, phosL);
+
+                // Nucleotídeo da direita (fita 2)
+                const rightUnit = new THREE.Group();
+                const blockR = new THREE.Mesh(
+                    new THREE.CapsuleGeometry(0.022, 0.115, 8, 16),
+                    BASE_MATS[pair.bottom].clone()
+                );
+                blockR.rotation.z = Math.PI / 2;
+                blockR.position.x = 0.088;
+                const phosR = new THREE.Mesh(new THREE.SphereGeometry(0.032, 18, 18), backboneMatR.clone());
+                phosR.position.x = helixRadius;
+                rightUnit.add(blockR, phosR);
+
+                // Pontes de hidrogênio luminosas (3 para G≡C, 2 para A=T)
+                const bondsGroup = new THREE.Group();
+                const offsets = pair.bonds === 3 ? [-0.015, 0, 0.015] : [-0.010, 0.010];
+                offsets.forEach((oy) => {
+                    const bond = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.004, 0.004, 0.068, 8),
+                        hBondMat.clone()
+                    );
+                    bond.rotation.z = Math.PI / 2;
+                    bond.position.y = oy;
+                    bondsGroup.add(bond);
+                });
+                bondsGroup.scale.set(0.001, 0.001, 0.001);
+
+                pairHolder.add(leftUnit, rightUnit, bondsGroup);
+                introGroup.add(pairHolder);
+
+                dnaPairObjects.push({
+                    holder: pairHolder,
+                    leftUnit,
+                    rightUnit,
+                    bondsGroup,
+                    baseY: y,
+                    baseAngle: angle,
+                    pair
+                });
+
+                // Segmentos das fitas fosfato-açúcar conectando este par ao anterior
+                if (idx > 0) {
+                    const prevY = helixStartY + (idx - 1) * helixStepY;
+                    const prevAng = (idx - 1) * twistPerStep;
+
+                    const makeRail = (sideSign, mat) => {
+                        const p0 = new THREE.Vector3(Math.cos(prevAng) * helixRadius * sideSign, prevY, -Math.sin(prevAng) * helixRadius * sideSign);
+                        const p1 = new THREE.Vector3(Math.cos(angle) * helixRadius * sideSign, y, -Math.sin(angle) * helixRadius * sideSign);
+                        const dir = new THREE.Vector3().subVectors(p1, p0);
+                        const len = dir.length();
+                        const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, len, 10), mat.clone());
+                        mesh.position.copy(p0).addScaledVector(dir, 0.5);
+                        mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+                        mesh.visible = false;
+                        introGroup.add(mesh);
+                        return { mesh, appearIndex: idx };
+                    };
+
+                    backboneSegments.push(makeRail(-1, backboneMatL));
+                    backboneSegments.push(makeRail(1, backboneMatR));
+                }
+            });
+
+            // Partículas moleculares flutuantes ao redor da hélice
+            const pCount = 140;
+            const pPositions = new Float32Array(pCount * 3);
+            for (let i = 0; i < pCount; i++) {
+                const r = 0.35 + Math.random() * 1.9;
+                const theta = Math.random() * Math.PI * 2;
+                pPositions[i * 3] = Math.cos(theta) * r;
+                pPositions[i * 3 + 1] = 0.2 + Math.random() * 2.2;
+                pPositions[i * 3 + 2] = Math.sin(theta) * r;
+            }
+            const pGeo = new THREE.BufferGeometry();
+            pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+            const pMat = new THREE.PointsMaterial({
+                color: '#fda4af',
+                size: 0.022,
+                transparent: true,
+                opacity: 0.72,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            introParticles = new THREE.Points(pGeo, pMat);
+            introGroup.add(introParticles);
+        }
+
+        // Atualiza o ambiente (cores do domo + luzes) entre dark biotech (0) e estúdio claro (1)
+        function setStudioBrightness(t) {
+            const b = clamp(t, 0, 1);
+
+            const darkTop = new THREE.Color('#09050b');
+            const lightTop = new THREE.Color('#dce2eb');
+            const darkHorizon = new THREE.Color('#1c0910');
+            const lightHorizon = new THREE.Color('#f1f4f8');
+            const darkBot = new THREE.Color('#0b060a');
+            const lightBot = new THREE.Color('#cfd6e0');
+
+            studioBgMat.uniforms.uTopColor.value.lerpColors(darkTop, lightTop, b);
+            studioBgMat.uniforms.uHorizonColor.value.lerpColors(darkHorizon, lightHorizon, b);
+            studioBgMat.uniforms.uBottomColor.value.lerpColors(darkBot, lightBot, b);
+
+            hemiLight.intensity = lerp(0.28, 1.15, b);
+            keyLight.intensity = lerp(0.35, 1.48, b);
+            rimLight.intensity = lerp(0.30, 0.72, b);
+            introPointLight.intensity = lerp(2.8, 0.0, smoothstep(0.15, 0.85, b));
+
+            studioFloorMesh.material.opacity = lerp(0.14, 0.96, b);
+            contactShadowMesh.material.opacity = lerp(0.0, 0.75, b);
+        }
+
+        // Executa o quadro atual da animação de introdução (0s -> 9.6s)
+        function updateIntroAnimation(dt) {
+            if (!introState.active) return;
+
+            introState.time += dt;
+            const t = introState.time;
+
+            const progressPct = clamp((t / introState.duration) * 100, 0, 100);
+            document.getElementById('intro-progress-bar').style.width = `${progressPct}%`;
+
+            const phaseTitleEl = document.getElementById('intro-phase-title');
+            const pairBadgeEl = document.getElementById('intro-pair-badge');
+            const pairDescEl = document.getElementById('intro-pair-desc');
+            const subtitleBox = document.getElementById('intro-subtitle-box');
+
+            // -----------------------------------------------------------------------
+            // FASE 1 (0.0s a 4.5s): Pareamento Sequencial dos 8 Nucleotídeos
+            // -----------------------------------------------------------------------
+            if (t < 4.5) {
+                setStudioBrightness(0.0);
+                bannerSystemGroup.visible = false;
+                setTripodDeployment(0);
+                introGroup.visible = true;
+
+                phaseTitleEl.textContent = 'Fase 1 • Pareamento Sequencial de Nucleotídeos';
+                subtitleBox.style.opacity = '1';
+
+                const pairInterval = 0.48; // cada par entra a cada 0.48s
+                const pairAnimDur = 0.56;
+
+                // Rotação suave da dupla hélice em formação
+                introGroup.rotation.y = t * 0.42;
+                introParticles.rotation.y = -t * 0.18;
+                introParticles.material.opacity = 0.75;
+
+                let activeIdx = 0;
+
+                dnaPairObjects.forEach((obj, idx) => {
+                    const localT = (t - idx * pairInterval) / pairAnimDur;
+                    if (localT <= 0) {
+                        obj.holder.visible = false;
+                        return;
+                    }
+                    obj.holder.visible = true;
+                    activeIdx = idx;
+
+                    const p = easeOutCubic(clamp(localT, 0, 1));
+                    const slideOffset = lerp(0.85, 0, p);
+                    obj.leftUnit.position.set(-slideOffset, 0, 0);
+                    obj.rightUnit.position.set(slideOffset, 0, 0);
+                    obj.leftUnit.scale.setScalar(1);
+                    obj.rightUnit.scale.setScalar(1);
+                    obj.holder.scale.setScalar(1);
+                    obj.holder.position.y = obj.baseY;
+
+                    // Brilho nas pontes de hidrogênio no instante exato do encaixe
+                    const bondP = smoothstep(0.62, 0.96, localT);
+                    const flash = localT > 0.7 && localT < 1.25 ? Math.sin((localT - 0.7) * Math.PI / 0.55) : 0;
+                    obj.bondsGroup.scale.set(Math.max(0.001, bondP), Math.max(0.001, bondP + flash * 0.45), Math.max(0.001, bondP + flash * 0.45));
+                    obj.bondsGroup.children.forEach((b) => {
+                        b.material.opacity = clamp(bondP * 0.9 + flash * 0.5, 0, 1);
+                    });
+                });
+
+                // Mostra as fitas fosfato-açúcar conforme os pares acoplam
+                backboneSegments.forEach((seg) => {
+                    const segT = (t - seg.appearIndex * pairInterval) / 0.4;
+                    seg.mesh.visible = segT > 0.35;
+                    seg.mesh.scale.setScalar(1);
+                });
+
+                // Atualiza legenda do par atual
+                if (activeIdx !== introState.lastShownPair) {
+                    introState.lastShownPair = activeIdx;
+                    const pData = DNA_SEQUENCE[activeIdx];
+                    const sym = pData.bonds === 3 ? '≡' : '=';
+                    pairBadgeEl.innerHTML = `${pData.top} <span class="text-amber-300">${sym}</span> ${pData.bottom} <span class="text-xs font-semibold text-rose-300 ml-2">(${activeIdx + 1}/8)</span>`;
+                    pairDescEl.textContent = pData.desc;
+                }
+
+                // Câmera próxima acompanhando o crescimento vertical da dupla hélice
+                const targetY = lerp(0.62, 1.62, clamp(t / 4.2, 0, 1));
+                const camAngle = lerp(-0.28, 0.25, t / 4.5);
+                camera.position.set(
+                    Math.sin(camAngle) * 0.92,
+                    targetY + 0.06,
+                    Math.cos(camAngle) * 0.92
+                );
+                controls.target.set(0, targetY, 0);
+                camera.lookAt(controls.target);
+
+                introPointLight.position.set(Math.sin(t * 2) * 0.4, targetY, 0.55);
+
+                // -----------------------------------------------------------------------
+                // FASE 2 (4.5s a 7.2s): Afastamento + Transformação na Haste e Tripé
+                // -----------------------------------------------------------------------
+            } else if (t < 7.2) {
+                const p2 = clamp((t - 4.5) / 2.7, 0, 1);
+                const p2Smooth = easeInOutCubic(p2);
+
+                phaseTitleEl.textContent = 'Fase 2 • Estruturação do Tripé de Exposição';
+                pairBadgeEl.innerHTML = 'DNA <span class="text-rose-400">→</span> EXPOSIÇÃO ACADÊMICA';
+                pairDescEl.textContent = 'A dupla hélice converge formando o suporte do banner UFPA';
+
+                // Clareia gradualmente o estúdio
+                setStudioBrightness(smoothstep(0.05, 0.92, p2));
+
+                // Nucleotídeos brilham e convergem para o eixo central formando a haste metálica
+                const collapseP = smoothstep(0.0, 0.65, p2);
+                const fadeOutDNA = 1 - smoothstep(0.45, 0.80, p2);
+
+                introGroup.visible = fadeOutDNA > 0.01;
+                introGroup.rotation.y = 4.5 * 0.42 + p2Smooth * Math.PI * 1.4;
+                introParticles.material.opacity = fadeOutDNA * 0.65;
+
+                dnaPairObjects.forEach((obj) => {
+                    obj.holder.visible = true;
+                    const radialScale = lerp(1.0, 0.08, collapseP);
+                    obj.holder.scale.set(radialScale, lerp(1.0, 1.35, collapseP), radialScale);
+                    obj.leftUnit.position.set(0, 0, 0);
+                    obj.rightUnit.position.set(0, 0, 0);
+                    obj.bondsGroup.scale.setScalar(fadeOutDNA);
+                });
+
+                backboneSegments.forEach((seg) => {
+                    seg.mesh.visible = fadeOutDNA > 0.02;
+                    seg.mesh.scale.set(lerp(1, 0.1, collapseP), 1, lerp(1, 0.1, collapseP));
+                });
+
+                // Abertura progressiva do tripé (pernas + haste telescópica)
+                const tripodP = smoothstep(0.22, 0.96, p2);
+                setTripodDeployment(tripodP);
+
+                // Banner enrolado surge discretamente no topo ao final da Fase 2
+                bannerSystemGroup.visible = p2 > 0.84;
+                unrollProgress = 0.0;
+                updateBannerDeformation(0.0, t);
+
+                // Afastamento cinematográfico da câmera até o plano geral
+                const startPos = new THREE.Vector3(Math.sin(0.25) * 0.92, 1.68, Math.cos(0.25) * 0.92);
+                const endPos = getOverviewCameraPose().pos;
+                const startTgt = new THREE.Vector3(0, 1.62, 0);
+                const endTgt = getOverviewCameraPose().target;
+
+                // Arco suave em órbita durante o zoom out
+                const orbitOffset = Math.sin(p2Smooth * Math.PI) * 0.72;
+                camera.position.lerpVectors(startPos, endPos, p2Smooth);
+                camera.position.x += orbitOffset;
+                controls.target.lerpVectors(startTgt, endTgt, p2Smooth);
+                camera.lookAt(controls.target);
+
+                // -----------------------------------------------------------------------
+                // FASE 3 (7.2s a 9.6s): Desenrolamento Suave do Banner Completo
+                // -----------------------------------------------------------------------
+            } else if (t < introState.duration) {
+                const p3 = clamp((t - 7.2) / (introState.duration - 7.2), 0, 1);
+                setStudioBrightness(1.0);
+                introGroup.visible = false;
+                setTripodDeployment(1.0);
+                bannerSystemGroup.visible = true;
+
+                phaseTitleEl.textContent = 'Fase 3 • Abertura do Banner Científico';
+                pairBadgeEl.innerHTML = 'BIOTECNOLOGIA VERMELHA';
+                pairDescEl.textContent = 'DNA e Diagnóstico • Universidade Federal do Pará';
+
+                // Desenrola suavemente com leve amortecimento no final
+                unrollProgress = easeInOutCubic(p3);
+                targetUnrollProgress = unrollProgress;
+                updateBannerDeformation(unrollProgress, t);
+                syncRollUI(unrollProgress);
+
+                // Pequeno ajuste elegante de câmera acompanhando a abertura
+                const overview = getOverviewCameraPose();
+                camera.position.lerp(overview.pos, 0.08);
+                controls.target.lerp(overview.target, 0.08);
+                camera.lookAt(controls.target);
+
+            } else {
+                finishIntro(false);
+            }
+        }
+
+        function finishIntro(immediate = false) {
+            introState.active = false;
+            introGroup.visible = false;
+            setStudioBrightness(1.0);
+            setTripodDeployment(1.0);
+            bannerSystemGroup.visible = true;
+
+            unrollProgress = 1.0;
+            targetUnrollProgress = 1.0;
+            isRollAnimating = false;
+            updateBannerDeformation(1.0, clock ? clock.getElapsedTime() : 0);
+            syncRollUI(1.0);
+
+            // Esconde overlay da intro e exibe UI interativa
+            const introOverlay = document.getElementById('intro-overlay');
+            const mainUI = document.getElementById('main-ui');
+            introOverlay.classList.add('opacity-0');
+            setTimeout(() => {
+                if (!introState.active) introOverlay.style.display = 'none';
+            }, immediate ? 50 : 650);
+
+            mainUI.classList.remove('opacity-0');
+
+            controls.enabled = true;
+            if (immediate) {
+                const overview = getOverviewCameraPose();
+                camera.position.copy(overview.pos);
+                controls.target.copy(overview.target);
+                controls.update();
+            }
+            setActiveSectionUI('geral');
+        }
+
+        function replayIntro() {
+            cameraTween = null;
+            triggerSectionHighlight(null);
+            document.getElementById('context-pill').classList.add('hidden');
+
+            introState.active = true;
+            introState.time = 0;
+            introState.lastShownPair = -1;
+            controls.enabled = false;
+
+            const introOverlay = document.getElementById('intro-overlay');
+            const mainUI = document.getElementById('main-ui');
+            introOverlay.style.display = 'flex';
+            requestAnimationFrame(() => {
+                introOverlay.classList.remove('opacity-0');
+            });
+            mainUI.classList.add('opacity-0');
+        }
+
+        // =========================================================================
+        // 9. MAPEAMENTO EXATO DE CÂMERA PARA CADA SEÇÃO DO BANNER
+        // =========================================================================
+        function getOverviewCameraPose() {
+            const aspect = window.innerWidth / Math.max(1, window.innerHeight);
+            const fovRad = THREE.MathUtils.degToRad(camera.fov);
+
+            // Enquadra do pé do tripé (y = 0) até o topo (y = 2.08)
+            const totalH = 2.28;
+            const totalW = 1.25;
+            const distV = (totalH / 2) / Math.tan(fovRad / 2);
+            const distH = (totalW / 2) / (Math.tan(fovRad / 2) * aspect);
+            const dist = Math.max(distV, distH) * 1.12;
+
+            return {
+                pos: new THREE.Vector3(0.18, 1.15, BANNER_Z + dist),
+                target: new THREE.Vector3(0, 1.06, BANNER_Z)
+            };
+        }
+
+        // Converte qualquer retângulo do Canvas2D (1600x2133) em pose exata de câmera 3D
+        function getSectionCameraPose(rect, padding = 1.24) {
+            const aspect = window.innerWidth / Math.max(1, window.innerHeight);
+            const fovRad = THREE.MathUtils.degToRad(camera.fov);
+
+            const worldW = (rect.w / CANVAS_W) * BANNER_W;
+            const worldH = (rect.h / CANVAS_H) * BANNER_H;
+
+            const centerU = (rect.x + rect.w / 2) / CANVAS_W;
+            const centerV = (rect.y + rect.h / 2) / CANVAS_H;
+
+            const targetX = (centerU - 0.5) * BANNER_W;
+            const targetY = BANNER_TOP_Y - centerV * BANNER_H;
+
+            // Compensa largura do menu lateral em telas desktop quando aberto
+            const desktopOffset = (isDrawerOpen && window.innerWidth >= 768) ? 0.045 : 0;
+
+            const distV = (worldH * padding / 2) / Math.tan(fovRad / 2);
+            const distH = (worldW * padding / 2) / (Math.tan(fovRad / 2) * aspect);
+            const dist = Math.max(distV, distH, 0.36);
+
+            return {
+                pos: new THREE.Vector3(targetX - desktopOffset * dist * 0.28, targetY, BANNER_Z + dist),
+                target: new THREE.Vector3(targetX - desktopOffset * dist * 0.28, targetY, BANNER_Z)
+            };
+        }
+
+        function focusSection(sectionId) {
+            // Se estiver na intro, finaliza imediatamente para responder ao clique do usuário
+            if (introState.active) {
+                finishIntro(true);
+            }
+
+            // Desenrola automaticamente caso o banner esteja enrolado
+            if (unrollProgress < 0.98 && sectionId !== 'geral') {
+                targetUnrollProgress = 1.0;
+                isRollAnimating = true;
+            }
+
+            let pose;
+            let rect = null;
+
+            if (sectionId === 'geral') {
+                pose = getOverviewCameraPose();
+            } else {
+                rect = SECTION_RECTS[sectionId];
+                if (!rect) return;
+                const pad = (sectionId === 'referencias' || sectionId === 'autores') ? 1.32 : 1.22;
+                pose = getSectionCameraPose(rect, pad);
+            }
+
+            // Inicia interpolação suave de câmera
+            cameraTween = {
+                startPos: camera.position.clone(),
+                endPos: pose.pos,
+                startTarget: controls.target.clone(),
+                endTarget: pose.target,
+                elapsed: 0,
+                duration: 1.05
+            };
+
+            triggerSectionHighlight(rect);
+            setActiveSectionUI(sectionId);
+
+            // Mostra atalho contextual entre Diagnóstico Molecular e o Card de Aplicações
+            const ctxPill = document.getElementById('context-pill');
+            const ctxText = document.getElementById('context-pill-text');
+            const ctxBtn = document.getElementById('context-pill-btn-label');
+
+            if (sectionId === 'molecular') {
+                ctxText.textContent = 'Card complementar no topo direito:';
+                ctxBtn.textContent = 'Ver Aplicações ↗';
+                ctxPill.dataset.target = 'aplicacoes';
+                ctxPill.classList.remove('hidden');
+            } else if (sectionId === 'aplicacoes') {
+                ctxText.textContent = 'Seção principal no canto inferior esquerdo:';
+                ctxBtn.textContent = '↙ Voltar a Diag. Molecular';
+                ctxPill.dataset.target = 'molecular';
+                ctxPill.classList.remove('hidden');
+            } else {
+                ctxPill.classList.add('hidden');
+            }
+
+            // Em celulares, recolhe o menu após clicar para liberar a visão do banner
+            if (window.innerWidth < 768) {
+                setDrawerState(false);
+            }
+        }
+
+        // =========================================================================
+        // 10. CONTROLES DA INTERFACE E UPLOAD DE IMAGEM PRÓPRIA
+        // =========================================================================
+        function syncRollUI(val) {
+            const pct = Math.round(clamp(val, 0, 1) * 100);
+            document.getElementById('slider-roll').value = pct;
+            document.getElementById('roll-percent').textContent = `${pct}%`;
+
+            const labelEl = document.getElementById('label-toggle-roll');
+            const iconEl = document.getElementById('icon-roll');
+            if (pct > 50) {
+                labelEl.textContent = 'Enrolar Banner';
+                iconEl.style.transform = 'rotate(0deg)';
+            } else {
+                labelEl.textContent = 'Desenrolar Banner';
+                iconEl.style.transform = 'rotate(180deg)';
+            }
+        }
+
+        function setActiveSectionUI(sectionId) {
+            activeSectionId = sectionId;
+            document.querySelectorAll('.nav-btn').forEach((btn) => {
+                const isMatch = btn.dataset.section === sectionId ||
+                    (sectionId === 'aplicacoes' && btn.dataset.section === 'molecular');
+                btn.classList.toggle('active', isMatch);
+            });
+        }
+
+        function setDrawerState(open) {
+            isDrawerOpen = open;
+            const drawer = document.getElementById('sections-drawer');
+            if (open) {
+                drawer.classList.remove('opacity-0', 'scale-95', 'pointer-events-none', '-translate-x-4');
+                drawer.classList.add('opacity-100', 'scale-100', 'pointer-events-auto', 'translate-x-0');
+            } else {
+                drawer.classList.add('opacity-0', 'scale-95', 'pointer-events-none', '-translate-x-4');
+                drawer.classList.remove('opacity-100', 'scale-100', 'pointer-events-auto', 'translate-x-0');
+            }
+        }
+
+        function bindUIEvents() {
+            // Popula os botões de foco de seções
+            const container = document.getElementById('section-buttons');
+            SECTIONS_MENU.forEach((sec) => {
+                const btn = document.createElement('button');
+                btn.className = 'nav-btn text-left w-full px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/15 flex items-center gap-2.5 cursor-pointer';
+                btn.dataset.section = sec.id;
+                btn.innerHTML = `
+          <span class="text-base leading-none shrink-0">${sec.icon}</span>
+          <div class="min-w-0">
+            <div class="text-xs font-bold truncate">${sec.label}</div>
+            <div class="text-[10.5px] text-gray-300 truncate">${sec.sub}</div>
+          </div>
+        `;
+                btn.addEventListener('click', () => focusSection(sec.id));
+                container.appendChild(btn);
+            });
+
+            // Estado inicial do drawer (aberto em desktop, recolhido em mobile)
+            setDrawerState(isDrawerOpen);
+
+            document.getElementById('btn-toggle-menu').addEventListener('click', () => {
+                setDrawerState(!isDrawerOpen);
+            });
+            document.getElementById('btn-close-drawer').addEventListener('click', () => {
+                setDrawerState(false);
+            });
+
+            // Pular / Rever Intro
+            document.getElementById('btn-skip-intro').addEventListener('click', () => finishIntro(true));
+            document.getElementById('btn-replay-intro').addEventListener('click', () => replayIntro());
+
+            // Reset de visão geral
+            document.getElementById('btn-reset-view').addEventListener('click', () => focusSection('geral'));
+
+            // Atalho contextual (Diagnóstico Molecular <-> Card de Aplicações)
+            document.getElementById('btn-jump-aplicacoes').addEventListener('click', () => {
+                const target = document.getElementById('context-pill').dataset.target || 'aplicacoes';
+                focusSection(target);
+            });
+
+            // Botão alternador Enrolar / Desenrolar
+            document.getElementById('btn-toggle-roll').addEventListener('click', () => {
+                if (introState.active) finishIntro(true);
+                targetUnrollProgress = unrollProgress > 0.5 ? 0.0 : 1.0;
+                isRollAnimating = true;
+                if (targetUnrollProgress === 0.0) {
+                    triggerSectionHighlight(null);
+                }
+            });
+
+            // Slider contínuo de enrolamento
+            const slider = document.getElementById('slider-roll');
+            slider.addEventListener('input', (e) => {
+                if (introState.active) finishIntro(true);
+                isUserDraggingSlider = true;
+                isRollAnimating = false;
+                const val = parseFloat(e.target.value) / 100;
+                unrollProgress = val;
+                targetUnrollProgress = val;
+                syncRollUI(val);
+                updateBannerDeformation(unrollProgress, clock.getElapsedTime());
+                if (val < 0.96) triggerSectionHighlight(null);
+            });
+            slider.addEventListener('change', () => {
+                isUserDraggingSlider = false;
+            });
+
+            // Upload opcional de imagem própria (.JPG/.PNG)
+            const fileInput = document.getElementById('input-custom-image');
+            const resetTexBtn = document.getElementById('btn-reset-texture');
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        try {
+                            const customTex = new THREE.Texture(img);
+                            customTex.colorSpace = THREE.SRGBColorSpace;
+                            customTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                            customTex.needsUpdate = true;
+
+                            if (currentBannerTexture && currentBannerTexture !== defaultBannerTexture) {
+                                currentBannerTexture.dispose();
+                            }
+                            currentBannerTexture = customTex;
+                            bannerFrontMesh.material.map = customTex;
+                            bannerFrontMesh.material.needsUpdate = true;
+                            resetTexBtn.classList.remove('hidden');
+                            showToast('Imagem própria aplicada ao banner 3D!');
+                        } catch (err) {
+                            showToast('Não foi possível aplicar a imagem selecionada.');
+                        }
+                    };
+                    img.onerror = () => showToast('Arquivo de imagem inválido.');
+                    img.src = ev.target.result;
+                };
+                reader.readAsDataURL(file);
+                fileInput.value = '';
+            });
+
+            resetTexBtn.addEventListener('click', () => {
+                if (currentBannerTexture && currentBannerTexture !== defaultBannerTexture) {
+                    currentBannerTexture.dispose();
+                }
+                currentBannerTexture = defaultBannerTexture;
+                bannerFrontMesh.material.map = defaultBannerTexture;
+                bannerFrontMesh.material.needsUpdate = true;
+                resetTexBtn.classList.add('hidden');
+                showToast('Textura fiel HD restaurada.');
+            });
+        }
+
+        // =========================================================================
+        // 11. INICIALIZAÇÃO DO THREE.JS E LOOP DE ANIMAÇÃO
+        // =========================================================================
+        function init() {
+            try {
+                const container = document.getElementById('canvas-container');
+
+                scene = new THREE.Scene();
+
+                camera = new THREE.PerspectiveCamera(
+                    40,
+                    window.innerWidth / Math.max(1, window.innerHeight),
+                    0.02,
+                    60
+                );
+                camera.position.set(0, 0.7, 0.95);
+
+                renderer = new THREE.WebGLRenderer({
+                    antialias: true,
+                    powerPreference: 'high-performance'
+                });
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.outputColorSpace = THREE.SRGBColorSpace;
+                renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                renderer.toneMappingExposure = 1.04;
+                renderer.shadowMap.enabled = true;
+                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                container.appendChild(renderer.domElement);
+
+                // OrbitControls com amortecimento suave e cancelamento imediato de animações automáticas
+                controls = new OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.065;
+                controls.enablePan = true;
+                controls.screenSpacePanning = true;
+                controls.minDistance = 0.24;  // Permite zoom bem próximo para ler referências
+                controls.maxDistance = 6.2;
+                controls.maxPolarAngle = Math.PI * 0.495; // Impede atravessar o piso do estúdio
+                controls.target.set(0, 1.06, BANNER_Z);
+                controls.enabled = false; // Habilitado ao término da intro
+
+                // Ao arrastar ou dar zoom manualmente, cancela qualquer tween de câmera imediatamente
+                controls.addEventListener('start', () => {
+                    cameraTween = null;
+                });
+
+                // Constrói todos os elementos 3D
+                buildStudioEnvironment();
+                buildTripodModel();
+                buildBannerModel();
+                buildIntroDNAObjects();
+                bindUIEvents();
+
+                // Garante que fontes web estejam carregadas e re-renderiza a textura caso terminem depois
+                if (document.fonts && document.fonts.ready) {
+                    document.fonts.ready.then(() => {
+                        if (currentBannerTexture === defaultBannerTexture) {
+                            const crispTex = createBannerCanvasTexture();
+                            defaultBannerTexture.dispose();
+                            defaultBannerTexture = crispTex;
+                            currentBannerTexture = crispTex;
+                            bannerFrontMesh.material.map = crispTex;
+                            bannerFrontMesh.material.needsUpdate = true;
+                        }
+                    });
+                }
+
+                // Evento responsivo de redimensionamento
+                window.addEventListener('resize', onWindowResize);
+
+                clock = new THREE.Clock();
+                animate();
+            } catch (err) {
+                console.error('Erro ao inicializar a cena 3D:', err);
+                showToast('Erro ao iniciar o WebGL. Verifique se o navegador suporta aceleração 3D.', 6000);
+            }
+        }
+
+        function onWindowResize() {
+            if (!camera || !renderer) return;
+            camera.aspect = window.innerWidth / Math.max(1, window.innerHeight);
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const dt = Math.min(clock.getDelta(), 0.05);
+            const elapsed = clock.getElapsedTime();
+
+            if (introState.active) {
+                updateIntroAnimation(dt);
+            } else {
+                // Animação suave de enrolar/desenrolar acionada pelos botões
+                if (isRollAnimating && !isUserDraggingSlider) {
+                    const diff = targetUnrollProgress - unrollProgress;
+                    if (Math.abs(diff) < 0.002) {
+                        unrollProgress = targetUnrollProgress;
+                        isRollAnimating = false;
+                    } else {
+                        // Velocidade natural com leve desaceleração
+                        const step = Math.sign(diff) * Math.min(Math.abs(diff), dt * 0.65 + Math.abs(diff) * dt * 2.8);
+                        unrollProgress = clamp(unrollProgress + step, 0, 1);
+                    }
+                    syncRollUI(unrollProgress);
+                }
+
+                // Atualiza malha da lona (espiral + leve balanço de tecido)
+                updateBannerDeformation(unrollProgress, elapsed);
+
+                // Interpolação suave da câmera ao focar seções
+                if (cameraTween) {
+                    cameraTween.elapsed += dt;
+                    const t = easeInOutCubic(cameraTween.elapsed / cameraTween.duration);
+                    camera.position.lerpVectors(cameraTween.startPos, cameraTween.endPos, t);
+                    controls.target.lerpVectors(cameraTween.startTarget, cameraTween.endTarget, t);
+                    if (cameraTween.elapsed >= cameraTween.duration) {
+                        cameraTween = null;
+                    }
+                }
+
+                // Atualiza pulso e fade-out do contorno luminoso da seção focada
+                if (highlightState.active) {
+                    highlightState.elapsed += dt;
+                    const hT = highlightState.elapsed / highlightState.duration;
+                    if (hT >= 1 || unrollProgress < 0.95) {
+                        highlightState.active = false;
+                        highlightGroup.visible = false;
+                    } else {
+                        const fadeIn = smoothstep(0.0, 0.12, hT);
+                        const fadeOut = 1 - smoothstep(0.65, 1.0, hT);
+                        const pulse = 0.72 + 0.28 * Math.sin(highlightState.elapsed * 7.5);
+                        highlightMat.opacity = fadeIn * fadeOut * pulse * 0.92;
+                    }
+                }
+
+                controls.update();
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Inicia após o carregamento completo da página
+        window.addEventListener('load', init);
+    </script>
+    <script src="./ecosystem-nav.js" defer data-page="banner.html" data-theme="dark" data-pos="banner"></script>
+</body>
+
+</html>

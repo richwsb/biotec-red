@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Plano de Fundo Natalino em Arte ASCII</title>
+  <!-- Tailwind CSS para utilitários de layout responsivo -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Garantia de tela cheia sem barras de rolagem e fundo azul-noturno profundo */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    html {
+      background-color: #060b14;
+    }
+
+    body {
+      background-color: transparent;
+    }
+
+    /* Canvas fixo em segundo plano sem interceptar cliques */
+    #ascii-christmas-bg {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      z-index: -1;
+      pointer-events: none;
+      display: block;
+      background-color: #060b14;
+    }
+  </style>
+</head>
+<body class="bg-transparent m-0 p-0 overflow-hidden select-none">
+  <!-- Elemento Canvas principal onde toda a cena ASCII é renderizada -->
+  <canvas
+    id="ascii-christmas-bg"
+    class="fixed inset-0 w-screen h-screen -z-10 pointer-events-none block bg-[#060b14]"
+    aria-hidden="true"
+  ></canvas>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const canvas = document.getElementById('ascii-christmas-bg');
+      const ctx = canvas.getContext('2d', { alpha: false });
+
+      // Paleta de cores natalinas e noturnas
+      const PALETTE = {
+        bg: '#060b14',
+        moon: '#fef08a',
+        moonGlow: '#fde047',
+        starBright: '#f8fafc',
+        starBlue: '#bae6fd',
+        starGold: '#fef08a',
+        starDim: '#64748b',
+        snowBright: '#f8fafc',
+        snowMid: '#cbd5e1',
+        snowShadow: '#94a3b8',
+        snowIce: '#bae6fd',
+        treeDark: '#15803d',
+        treeMid: '#16a34a',
+        treeLight: '#22c55e',
+        treeTip: '#4ade80',
+        trunk: '#92400e',
+        trunkHighlight: '#b45309',
+        starTopper: '#facc15',
+        starTopperCore: '#fef9c3',
+        garland: '#fde047',
+        ornaments: [
+          '#ef4444', // Vermelho natalino
+          '#facc15', // Dourado
+          '#22d3ee', // Ciano brilhante
+          '#f472b6'  // Rosa festivo
+        ],
+        cabinWood: '#b45309',
+        cabinWoodDark: '#78350f',
+        cabinRoofSnow: '#e2e8f0',
+        cabinWindow: '#fbbf24',
+        cabinWindowBright: '#fef08a',
+        cabinChimney: '#94a3b8',
+        smoke: ['#cbd5e1', '#94a3b8', '#64748b', '#475569'],
+        santaRed: '#ef4444',
+        santaTrim: '#f8fafc',
+        sleighGold: '#facc15',
+        reindeerBrown: '#d97706',
+        rudolphNose: '#ff2e2e'
+      };
+
+      // Estado da grade ASCII e dimensões da viewport
+      let width = 0;
+      let height = 0;
+      let dpr = 1;
+      let fontSize = 14;
+      let charW = 8.4;
+      let charH = 15;
+      let cols = 0;
+      let rows = 0;
+
+      // Buffers planos 1D para alta performance na renderização da grade
+      let charGrid = [];
+      let colorGrid = [];
+      let glowGrid = [];
+
+      // Estado interativo do vento controlado pelo cursor
+      let mouseNormalizedX = 0; // -1 (esquerda) a +1 (direita)
+      let currentWind = 0.15;   // Brisa suave padrão
+      let targetWind = 0.15;
+
+      // Coleções dinâmicas da cena
+      let stars = [];
+      let snowflakes = [];
+      let smokeParticles = [];
+      let trailParticles = [];
+      let groundHeights = [];
+
+      // Estado do trenó do Papai Noel
+      const santaState = {
+        active: false,
+        x: -60,
+        y: 6,
+        speed: 14, // colunas por segundo
+        cooldown: 2.2 // primeira aparição logo após abrir a página
+      };
+
+      /**
+       * Gerador pseudo-aleatório determinístico baseado em coordenadas
+       * Útil para enfeites e texturas consistentes da árvore sem piscar posições
+       */
+      function seededHash(x, y) {
+        const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
+        return n - Math.floor(n);
+      }
+
+      /**
+       * Escreve um caractere seguro na grade ASCII (ignora fora dos limites)
+       */
+      function setCell(c, r, ch, color, glow = false) {
+        const col = Math.round(c);
+        const row = Math.round(r);
+        if (col < 0 || col >= cols || row < 0 || row >= rows) return;
+        const idx = row * cols + col;
+        charGrid[idx] = ch;
+        colorGrid[idx] = color;
+        glowGrid[idx] = glow;
+      }
+
+      /**
+       * Escreve uma string horizontalmente a partir de (startCol, row)
+       */
+      function drawText(startCol, row, text, color, glow = false, skipSpaces = true) {
+        for (let i = 0; i < text.length; i++) {
+          const ch = text[i];
+          if (skipSpaces && ch === ' ') continue;
+          setCell(startCol + i, row, ch, color, glow);
+        }
+      }
+
+      /**
+       * Limpa toda a grade antes de desenhar o novo quadro
+       */
+      function clearGrid() {
+        const total = cols * rows;
+        for (let i = 0; i < total; i++) {
+          charGrid[i] = ' ';
+          colorGrid[i] = PALETTE.bg;
+          glowGrid[i] = false;
+        }
+      }
+
+      /**
+       * Recalcula métricas da fonte monoespaçada e redimensiona o canvas
+       */
+      function resize() {
+        try {
+          width = window.innerWidth;
+          height = window.innerHeight;
+          dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+          // Ajusta tamanho da fonte conforme largura da tela para boa densidade em mobile e desktop
+          if (width < 390) {
+            fontSize = 10;
+          } else if (width < 480) {
+            fontSize = 11;
+          } else if (width < 900) {
+            fontSize = 13;
+          } else {
+            fontSize = 14;
+          }
+
+          canvas.width = Math.floor(width * dpr);
+          canvas.height = Math.floor(height * dpr);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+          ctx.font = `600 ${fontSize}px "Courier New", Courier, monospace`;
+          const metrics = ctx.measureText('M');
+          charW = Math.max(metrics.width, fontSize * 0.6);
+          charH = Math.ceil(fontSize * 1.12);
+
+          cols = Math.max(20, Math.ceil(width / charW));
+          rows = Math.max(15, Math.ceil(height / charH));
+
+          const total = cols * rows;
+          charGrid = new Array(total).fill(' ');
+          colorGrid = new Array(total).fill(PALETTE.bg);
+          glowGrid = new Array(total).fill(false);
+
+          initSceneEntities();
+        } catch (err) {
+          console.error('Erro ao redimensionar grade ASCII:', err);
+        }
+      }
+
+      /**
+       * Inicializa estrelas, relevo de neve e flocos de neve proporcionais à tela
+       */
+      function initSceneEntities() {
+        // 1. Relevo suave de neve na base da tela
+        groundHeights = new Array(cols);
+        const baseSnowDepth = Math.max(2, Math.min(4, Math.floor(rows * 0.06)));
+        for (let c = 0; c < cols; c++) {
+          const wave = Math.sin(c * 0.07) * 0.9 + Math.cos(c * 0.03 + 1.2) * 0.7;
+          groundHeights[c] = Math.max(2, Math.round(baseSnowDepth + wave));
+        }
+
+        // 2. Estrelas espalhadas nos 72% superiores do céu
+        const skyRows = Math.floor(rows * 0.72);
+        const starCount = Math.floor((cols * skyRows) * 0.022);
+        const starChars = ['.', '+', '*', '.', '✦'];
+        const starColors = [PALETTE.starBright, PALETTE.starBlue, PALETTE.starGold, PALETTE.starDim];
+
+        stars = [];
+        for (let i = 0; i < starCount; i++) {
+          stars.push({
+            c: Math.floor(Math.random() * cols),
+            r: Math.floor(Math.random() * skyRows),
+            char: starChars[Math.floor(Math.random() * starChars.length)],
+            color: starColors[Math.floor(Math.random() * starColors.length)],
+            phase: Math.random() * Math.PI * 2,
+            speed: 1.2 + Math.random() * 2.8
+          });
+        }
+
+        // 3. Flocos de neve em 3 camadas de profundidade
+        const flakeCount = Math.min(260, Math.max(45, Math.floor((cols * rows) * 0.018)));
+        const layers = [
+          { chars: ['·', '.'], speedMin: 2.2, speedMax: 4.0, swayAmp: 0.8, windFactor: 0.45, color: PALETTE.snowShadow },
+          { chars: ['+', '•'], speedMin: 4.2, speedMax: 6.8, swayAmp: 1.5, windFactor: 0.85, color: PALETTE.snowMid },
+          { chars: ['*', '❄'], speedMin: 6.5, speedMax: 9.8, swayAmp: 2.3, windFactor: 1.35, color: PALETTE.snowBright }
+        ];
+
+        snowflakes = [];
+        for (let i = 0; i < flakeCount; i++) {
+          const layerIdx = i % 3;
+          const layer = layers[layerIdx];
+          snowflakes.push({
+            x: Math.random() * cols,
+            y: Math.random() * rows,
+            char: layer.chars[Math.floor(Math.random() * layer.chars.length)],
+            speed: layer.speedMin + Math.random() * (layer.speedMax - layer.speedMin),
+            swayAmp: layer.swayAmp * (0.7 + Math.random() * 0.6),
+            swayFreq: 0.8 + Math.random() * 1.4,
+            phase: Math.random() * Math.PI * 2,
+            windFactor: layer.windFactor,
+            color: layer.color,
+            glow: layerIdx === 2 && Math.random() > 0.65
+          });
+        }
+      }
+
+      /**
+       * Desenha estrelas piscando e a Lua Crescente em ASCII no canto superior esquerdo
+       */
+      function drawSkyAndMoon(time) {
+        // Estrelas cintilantes
+        for (let i = 0; i < stars.length; i++) {
+          const s = stars[i];
+          const twinkle = Math.sin(time * s.speed + s.phase);
+          if (twinkle < -0.55) continue; // Apaga brevemente no vale da onda
+
+          let displayChar = s.char;
+          let displayColor = s.color;
+          let glow = false;
+
+          if (twinkle > 0.78) {
+            displayChar = s.char === '.' ? '+' : '*';
+            displayColor = PALETTE.starBright;
+            glow = true;
+          } else if (twinkle < -0.15) {
+            displayChar = '.';
+            displayColor = PALETTE.starDim;
+          }
+
+          setCell(s.c, s.r, displayChar, displayColor, glow);
+        }
+
+        // Lua Crescente em ASCII no canto superior esquerdo
+        const moonX = cols < 50 ? 3 : 6;
+        const moonY = 2;
+        const moonArt = [
+          "   _.._   ",
+          " .' .-'`  ",
+          "/  /      ",
+          "|  |      ",
+          "\\  \\      ",
+          " '._'-._  ",
+          "    ```   "
+        ];
+
+        for (let r = 0; r < moonArt.length; r++) {
+          drawText(moonX, moonY + r, moonArt[r], PALETTE.moon, true);
+        }
+      }
+
+      /**
+       * Desenha o solo nevado na base da tela
+       */
+      function drawSnowGround() {
+        for (let c = 0; c < cols; c++) {
+          const h = groundHeights[c] || 3;
+          const topRow = rows - h;
+
+          // Linha superior da neve com textura suave
+          const topChar = (c % 5 === 0) ? '~' : (c % 3 === 0 ? '.' : '_');
+          setCell(c, topRow, topChar, PALETTE.snowBright, false);
+
+          // Camadas inferiores preenchidas com flocos assentados
+          for (let r = topRow + 1; r < rows; r++) {
+            const hash = seededHash(c, r);
+            const ch = hash > 0.86 ? '*' : (hash > 0.65 ? '·' : (hash > 0.35 ? '~' : ' '));
+            const colr = hash > 0.7 ? PALETTE.snowIce : PALETTE.snowMid;
+            setCell(c, r, ch, colr, false);
+          }
+        }
+      }
+
+      /**
+       * Desenha a grande Árvore de Natal centralizada, com estrela animada,
+       * luzes piscando, guirlandas, tronco e presentes embrulhados
+       */
+      function drawChristmasTree(time) {
+        const centerX = Math.floor(cols / 2);
+        const groundY = rows - (groundHeights[centerX] || 3);
+
+        // Altura adaptativa da árvore conforme o tamanho da janela
+        const treeHeight = Math.max(14, Math.min(28, Math.floor(rows * 0.56)));
+        const trunkHeight = treeHeight >= 20 ? 3 : 2;
+        const foliageHeight = treeHeight - trunkHeight;
+        const treeTopY = groundY - treeHeight;
+
+        // 1. Estrela dourada brilhante e animada no topo
+        const starPulse = Math.sin(time * 4.5);
+        const starY = treeTopY - 2;
+        if (starPulse > 0) {
+          drawText(centerX - 1, starY - 1, '\\|/', PALETTE.starTopper, true);
+          drawText(centerX - 2, starY, '--★--', PALETTE.starTopperCore, true);
+          drawText(centerX - 1, starY + 1, '/|\\', PALETTE.starTopper, true);
+        } else {
+          drawText(centerX - 1, starY - 1, ' * ', PALETTE.starTopperCore, true);
+          drawText(centerX - 2, starY, '-=★=-', PALETTE.starTopper, true);
+          drawText(centerX - 1, starY + 1, ' * ', PALETTE.starTopperCore, true);
+        }
+
+        // 2. Copa do pinheiro em camadas cônicas sobrepostas
+        const numTiers = 4;
+        const ornamentChars = ['o', '@', '*', '♦'];
+        const foliageChars = ['^', '~', '*', '^', 'v'];
+        let maxHalfWidth = 4;
+
+        for (let rowOffset = 0; rowOffset < foliageHeight; rowOffset++) {
+          const y = treeTopY + rowOffset;
+          const progress = rowOffset / foliageHeight;
+
+          // Calcula camada atual para criar o recorte clássico de galhos de pinheiro
+          const tierFloat = progress * numTiers;
+          const tierIndex = Math.floor(tierFloat);
+          const tierProgress = tierFloat - tierIndex;
+
+          const baseWidth = tierIndex * (cols < 55 ? 2.1 : 3.2);
+          const tierSpread = tierProgress * (cols < 55 ? 3.8 : 5.6);
+          const halfWidth = Math.max(1, Math.round(baseWidth + tierSpread));
+          if (halfWidth > maxHalfWidth) maxHalfWidth = halfWidth;
+
+          for (let dx = -halfWidth; dx <= halfWidth; dx++) {
+            const x = centerX + dx;
+            const hash = seededHash(x, y);
+
+            // Bordas externas do pinheiro (/ e \)
+            if (dx === -halfWidth) {
+              setCell(x, y, '/', PALETTE.treeTip, false);
+              continue;
+            }
+            if (dx === halfWidth) {
+              setCell(x, y, '\\', PALETTE.treeTip, false);
+              continue;
+            }
+
+            // Guirlandas diagonais suaves percorrendo a árvore
+            const garlandWave = Math.sin(dx * 0.45 + rowOffset * 0.75);
+            if (Math.abs(garlandWave) > 0.93 && rowOffset > 2) {
+              const gChar = (dx + rowOffset) % 2 === 0 ? '~' : '•';
+              setCell(x, y, gChar, PALETTE.garland, true);
+              continue;
+            }
+
+            // Enfeites e luzes coloridas piscando (vermelho, dourado, ciano, rosa)
+            if (hash > 0.83 && rowOffset > 1) {
+              const colorIdx = Math.floor(hash * 100) % PALETTE.ornaments.length;
+              const ornChar = ornamentChars[Math.floor(hash * 47) % ornamentChars.length];
+              const blinkPhase = hash * Math.PI * 6;
+              const isLit = Math.sin(time * 3.4 + blinkPhase) > -0.25;
+
+              if (isLit) {
+                setCell(x, y, ornChar, PALETTE.ornaments[colorIdx], true);
+              } else {
+                setCell(x, y, 'o', PALETTE.treeDark, false);
+              }
+              continue;
+            }
+
+            // Folhagem interna densa do pinheiro
+            const fChar = foliageChars[Math.floor(hash * 29) % foliageChars.length];
+            const fColor = hash > 0.55
+              ? PALETTE.treeLight
+              : (hash > 0.25 ? PALETTE.treeMid : PALETTE.treeDark);
+            setCell(x, y, fChar, fColor, false);
+          }
+        }
+
+        // 3. Tronco da árvore
+        const trunkTopY = treeTopY + foliageHeight;
+        for (let r = 0; r < trunkHeight; r++) {
+          drawText(centerX - 2, trunkTopY + r, '|###|', PALETTE.trunkHighlight, false);
+        }
+
+        // 4. Presentes embrulhados em ASCII na base da árvore
+        const giftBaseY = groundY;
+        if (cols >= 44) {
+          // Presente esquerdo 1 (Vermelho com fita dourada)
+          drawText(centerX - 10, giftBaseY - 2, '.---.', '#ef4444');
+          drawText(centerX - 10, giftBaseY - 1, '| + |', '#facc15', true);
+          drawText(centerX - 10, giftBaseY,     "'---'", '#ef4444');
+
+          // Presente esquerdo 2 (Ciano com laço branco)
+          drawText(centerX - 16, giftBaseY - 1, '[_|_]', '#22d3ee', true);
+          drawText(centerX - 16, giftBaseY,     '[===]', '#22d3ee');
+
+          // Presente direito 1 (Rosa com fita dourada)
+          drawText(centerX + 5, giftBaseY - 2, '.----.', '#f472b6');
+          drawText(centerX + 5, giftBaseY - 1, '| ++ |', '#fde047', true);
+          drawText(centerX + 5, giftBaseY,     "'----'", '#f472b6');
+
+          // Presente direito 2 (Dourado com laço vermelho)
+          drawText(centerX + 12, giftBaseY - 1, '{*}', '#facc15', true);
+          drawText(centerX + 12, giftBaseY,     '[#]', '#ef4444');
+        } else {
+          // Versão compacta dos presentes para telas muito estreitas
+          drawText(centerX - 8, giftBaseY - 1, '[+]', '#ef4444', true);
+          drawText(centerX + 5, giftBaseY - 1, '[*]', '#22d3ee', true);
+        }
+
+        return { centerX, maxHalfWidth };
+      }
+
+      /**
+       * Desenha uma pequena cabana aconchegante ao lado da árvore (quando há espaço)
+       * com janela iluminada em amarelo quente e fumaça subindo pela chaminé
+       */
+      function drawCozyCabin(time, dt, treeInfo) {
+        // Exibe a cabana apenas quando a tela tem largura suficiente para não poluir
+        if (cols < 84) {
+          smokeParticles = [];
+          return;
+        }
+
+        const cabinWidth = 18;
+        const rightSpace = cols - (treeInfo.centerX + treeInfo.maxHalfWidth);
+        let cabinX;
+
+        if (rightSpace >= cabinWidth + 8) {
+          cabinX = treeInfo.centerX + treeInfo.maxHalfWidth + Math.floor((rightSpace - cabinWidth) * 0.45);
+        } else {
+          cabinX = cols - cabinWidth - 4;
+        }
+
+        const groundY = rows - (groundHeights[cabinX + 8] || 3);
+        const cabinTopY = groundY - 8;
+
+        // Arte da cabana (9 linhas de altura)
+        const cabinRows = [
+          "          ||      ",
+          "         _||_     ",
+          "       ./    \\.   ",
+          "     ./  *  *  \\. ",
+          "   ./____________\\.",
+          "   |   _      _   |",
+          "   |  | |    |##| |",
+          "   |  |.|    |##| |",
+          "   |__|_|____|__|_|"
+        ];
+
+        for (let r = 0; r < cabinRows.length; r++) {
+          const line = cabinRows[r];
+          const y = cabinTopY + r;
+          for (let c = 0; c < line.length; c++) {
+            const ch = line[c];
+            if (ch === ' ') continue;
+
+            let color = PALETTE.cabinWood;
+            let glow = false;
+
+            if (r <= 1) {
+              // Chaminé de pedra
+              color = PALETTE.cabinChimney;
+            } else if (r >= 2 && r <= 4) {
+              // Telhado coberto de neve
+              color = ch === '*' ? PALETTE.snowIce : PALETTE.cabinRoofSnow;
+            } else if ((r === 6 || r === 7) && c >= 13 && c <= 16) {
+              // Janela iluminada em amarelo quente com leve cintilação de lareira
+              const flicker = Math.sin(time * 7.5) > 0.2;
+              color = (ch === '#' && flicker) ? PALETTE.cabinWindowBright : PALETTE.cabinWindow;
+              glow = ch === '#';
+            } else if ((r >= 6 && r <= 8) && c >= 6 && c <= 8) {
+              // Porta e maçaneta dourada
+              color = ch === '.' ? PALETTE.starTopper : PALETTE.cabinWoodDark;
+              glow = ch === '.';
+            }
+
+            setCell(cabinX + c, y, ch, color, glow);
+          }
+        }
+
+        // Emissão contínua de fumaça pela chaminé
+        const chimneyX = cabinX + 10.5;
+        const chimneyTopY = cabinTopY - 1;
+
+        if (Math.random() < dt * 4.2) {
+          smokeParticles.push({
+            x: chimneyX + (Math.random() - 0.5) * 0.8,
+            y: chimneyTopY,
+            age: 0,
+            maxAge: 3.2 + Math.random() * 1.4,
+            driftPhase: Math.random() * Math.PI * 2
+          });
+        }
+
+        // Atualiza e renderiza as partículas de fumaça subindo
+        for (let i = smokeParticles.length - 1; i >= 0; i--) {
+          const p = smokeParticles[i];
+          p.age += dt;
+          if (p.age >= p.maxAge) {
+            smokeParticles.splice(i, 1);
+            continue;
+          }
+
+          const lifeRatio = p.age / p.maxAge;
+          p.y -= dt * (2.1 - lifeRatio * 0.6);
+          p.x += dt * (currentWind * 1.4 + Math.sin(time * 2.5 + p.driftPhase) * 0.9);
+
+          let smokeChar = '.';
+          if (lifeRatio < 0.25) smokeChar = 'o';
+          else if (lifeRatio < 0.55) smokeChar = (Math.floor(p.age * 4) % 2 === 0) ? '(' : ')';
+          else if (lifeRatio < 0.82) smokeChar = '~';
+
+          const colorIdx = Math.min(
+            PALETTE.smoke.length - 1,
+            Math.floor(lifeRatio * PALETTE.smoke.length)
+          );
+
+          setCell(p.x, p.y, smokeChar, PALETTE.smoke[colorIdx], false);
+        }
+      }
+
+      /**
+       * Desenha o Trenó do Papai Noel com renas cruzando o céu periodicamente
+       * deixando um rastro mágico brilhante
+       */
+      function drawSantaSleigh(time, dt) {
+        const sleighArtWidth = 46;
+
+        if (!santaState.active) {
+          santaState.cooldown -= dt;
+          if (santaState.cooldown <= 0) {
+            santaState.active = true;
+            santaState.x = -sleighArtWidth - 2;
+            santaState.y = Math.max(3, Math.min(8, Math.floor(rows * 0.16)));
+            santaState.speed = Math.max(12, cols * 0.14);
+          }
+        } else {
+          santaState.x += santaState.speed * dt;
+          const bobY = Math.round(Math.sin(time * 3.5) * 0.8);
+          const baseY = santaState.y + bobY;
+          const baseX = Math.floor(santaState.x);
+
+          // Animação alternada das patas das renas galopando
+          const gallop = Math.floor(time * 8) % 2 === 0;
+          const legsLine = gallop
+            ? " '--------'==============='-/ | \\---/ | \\-'o"
+            : " '--------'==============='-\\ | /---\\ | /-'o";
+
+          const sleighLines = [
+            "    _.-.                    \\ /     \\ /     ",
+            "  .'____'.     _.-~-._     -(*)-   -(*)-    ",
+            " |  [__]  |.-'         '-._/ | \\___/ | \\_.  ",
+            legsLine
+          ];
+
+          for (let r = 0; r < sleighLines.length; r++) {
+            const line = sleighLines[r];
+            for (let c = 0; c < line.length; c++) {
+              const ch = line[c];
+              if (ch === ' ') continue;
+
+              let color = PALETTE.reindeerBrown;
+              let glow = false;
+
+              if (c <= 10) {
+                // Trenó e gorro do Papai Noel
+                color = (r === 0 || ch === '_') ? PALETTE.santaTrim : PALETTE.santaRed;
+                glow = r === 0;
+              } else if (c <= 26) {
+                // Corpo do trenó e detalhes dourados
+                color = ch === '=' ? PALETTE.sleighGold : PALETTE.santaRed;
+                glow = ch === '=';
+              } else if (c === line.length - 1 && r === 3) {
+                // Nariz vermelho brilhante do Rudolph na ponta!
+                color = PALETTE.rudolphNose;
+                glow = true;
+              } else if (r === 0 && (ch === '\\' || ch === '/')) {
+                // Galhadas das renas
+                color = PALETTE.sleighGold;
+              }
+
+              setCell(baseX + c, baseY + r, ch, color, glow);
+            }
+          }
+
+          // Emite partículas brilhantes do rastro mágico atrás do trenó
+          for (let k = 0; k < 2; k++) {
+            if (Math.random() < 0.75) {
+              trailParticles.push({
+                x: baseX + 2 + Math.random() * 6,
+                y: baseY + 1 + Math.random() * 2.5,
+                vy: 0.4 + Math.random() * 0.9,
+                vx: -1.5 - Math.random() * 2,
+                age: 0,
+                maxAge: 0.9 + Math.random() * 0.8,
+                char: ['*', '+', '·', '✦'][Math.floor(Math.random() * 4)],
+                color: Math.random() > 0.4 ? PALETTE.starTopperCore : PALETTE.starBlue
+              });
+            }
+          }
+
+          // Encerra travessia quando sair totalmente pela direita
+          if (baseX > cols + 6) {
+            santaState.active = false;
+            santaState.cooldown = 12 + Math.random() * 8;
+          }
+        }
+
+        // Atualiza e renderiza o rastro mágico
+        for (let i = trailParticles.length - 1; i >= 0; i--) {
+          const tp = trailParticles[i];
+          tp.age += dt;
+          if (tp.age >= tp.maxAge) {
+            trailParticles.splice(i, 1);
+            continue;
+          }
+          tp.x += tp.vx * dt;
+          tp.y += tp.vy * dt;
+
+          const ratio = tp.age / tp.maxAge;
+          const ch = ratio > 0.65 ? '.' : tp.char;
+          setCell(tp.x, tp.y, ch, tp.color, ratio < 0.5);
+        }
+      }
+
+      /**
+       * Atualiza e renderiza os flocos de neve contínuos reagindo ao vento do cursor
+       */
+      function drawSnowflakes(time, dt) {
+        // Interpola suavemente o vento atual em direção ao vento alvo do mouse
+        currentWind += (targetWind - currentWind) * Math.min(1, dt * 3.5);
+
+        for (let i = 0; i < snowflakes.length; i++) {
+          const f = snowflakes[i];
+
+          // Queda vertical + balanço senoidal + influência horizontal do vento do cursor
+          f.y += f.speed * dt;
+          const sway = Math.cos(time * f.swayFreq + f.phase) * f.swayAmp * dt;
+          f.x += sway + currentWind * f.windFactor * 6.5 * dt;
+
+          // Reposiciona no topo ou nas laterais quando ultrapassa os limites
+          if (f.y >= rows) {
+            f.y = -1;
+            f.x = Math.random() * cols;
+          }
+          if (f.x < 0) f.x += cols;
+          if (f.x >= cols) f.x -= cols;
+
+          // Não sobrescreve a Lua se passar exatamente por cima do centro dela
+          setCell(f.x, f.y, f.char, f.color, f.glow);
+        }
+      }
+
+      /**
+       * Desenha toda a grade ASCII no elemento <canvas> agrupando por cor para 60 FPS
+       */
+      function renderCanvas() {
+        // Fundo azul-noturno profundo
+        ctx.fillStyle = PALETTE.bg;
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.font = `600 ${fontSize}px "Courier New", Courier, monospace`;
+        ctx.textBaseline = 'top';
+
+        // Agrupa caracteres por (cor + estado de brilho) para reduzir mudanças de contexto
+        const normalBatches = new Map();
+        const glowBatches = new Map();
+
+        for (let r = 0; r < rows; r++) {
+          const rowOffset = r * cols;
+          const py = r * charH;
+
+          for (let c = 0; c < cols; c++) {
+            const idx = rowOffset + c;
+            const ch = charGrid[idx];
+            if (ch === ' ') continue;
+
+            const color = colorGrid[idx];
+            const isGlow = glowGrid[idx];
+            const targetMap = isGlow ? glowBatches : normalBatches;
+
+            let batch = targetMap.get(color);
+            if (!batch) {
+              batch = [];
+              targetMap.set(color, batch);
+            }
+            batch.push(ch, c * charW, py);
+          }
+        }
+
+        // Passo 1: Caracteres regulares (sem sombra)
+        ctx.shadowBlur = 0;
+        for (const [color, items] of normalBatches.entries()) {
+          ctx.fillStyle = color;
+          for (let i = 0; i < items.length; i += 3) {
+            ctx.fillText(items[i], items[i + 1], items[i + 2]);
+          }
+        }
+
+        // Passo 2: Elementos luminosos (estrela, luzes da árvore, janela, rastro do trenó)
+        ctx.shadowBlur = Math.max(6, Math.floor(fontSize * 0.65));
+        for (const [color, items] of glowBatches.entries()) {
+          ctx.fillStyle = color;
+          ctx.shadowColor = color;
+          for (let i = 0; i < items.length; i += 3) {
+            ctx.fillText(items[i], items[i + 1], items[i + 2]);
+          }
+        }
+        ctx.shadowBlur = 0;
+      }
+
+      // Loop principal de animação
+      let lastTimestamp = 0;
+      function animate(timestamp) {
+        if (!lastTimestamp) lastTimestamp = timestamp;
+        const dt = Math.min(0.05, (timestamp - lastTimestamp) / 1000);
+        lastTimestamp = timestamp;
+        const time = timestamp / 1000;
+
+        clearGrid();
+        drawSkyAndMoon(time);
+        drawSnowGround();
+        const treeInfo = drawChristmasTree(time);
+        drawCozyCabin(time, dt, treeInfo);
+        drawSantaSleigh(time, dt);
+        drawSnowflakes(time, dt);
+        renderCanvas();
+
+        requestAnimationFrame(animate);
+      }
+
+      // Reação sutil ao movimento do cursor na janela (mantendo pointer-events: none no canvas)
+      function handlePointerMove(clientX) {
+        if (width <= 0) return;
+        mouseNormalizedX = (clientX / width) * 2 - 1; // -1 a +1
+        targetWind = mouseNormalizedX * 1.35;
+      }
+
+      window.addEventListener('mousemove', (e) => {
+        handlePointerMove(e.clientX);
+      }, { passive: true });
+
+      window.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches.length > 0) {
+          handlePointerMove(e.touches[0].clientX);
+        }
+      }, { passive: true });
+
+      window.addEventListener('touchmove', (e) => {
+        if (e.touches && e.touches.length > 0) {
+          handlePointerMove(e.touches[0].clientX);
+        }
+      }, { passive: true });
+
+      // Retorna suavemente à brisa natural quando o cursor sai da janela
+      window.addEventListener('mouseleave', () => {
+        targetWind = 0.15;
+      }, { passive: true });
+
+      window.addEventListener('resize', resize, { passive: true });
+      window.addEventListener('orientationchange', () => setTimeout(resize, 120), { passive: true });
+
+      // Inicializa imediatamente sem depender do carregamento de recursos externos
+      function start() {
+        resize();
+        requestAnimationFrame(animate);
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start);
+      } else {
+        start();
+      }
+    })();
+  </script>
+  <script src="./ecosystem-nav.js" defer data-page="natal.html" data-theme="dark" data-pos="natal" data-idle-dim="true"></script>
+</body>
+</html>

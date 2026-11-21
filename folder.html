@@ -1,0 +1,1924 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Folder 3D Interativo — Empresa Borcelle • Sustentabilidade</title>
+
+    <!-- Google Fonts: Barlow Condensed (headlines) & Poppins (body & UI) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Poppins:wght@400;500;600;700&display=swap"
+        rel="stylesheet" />
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Import Map for Three.js & OrbitControls -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+      }
+    }
+  </script>
+
+    <style>
+        :root {
+            --forest: #245526;
+            --forest-dark: #1b411d;
+            --sage: #97C39A;
+            --paper: #ECF2EC;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+            background: radial-gradient(circle at 50% 42%, #f4f8f4 0%, #e5efe6 52%, #cedfce 100%);
+            user-select: none;
+        }
+
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            touch-action: none;
+        }
+
+        /* Frosted Glass UI Surfaces */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.76);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(36, 85, 38, 0.13);
+            box-shadow: 0 10px 30px -10px rgba(24, 58, 26, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+        }
+
+        /* Custom Range Slider */
+        input[type="range"].eco-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 999px;
+            background: linear-gradient(to right, var(--forest) 0%, var(--forest) var(--val, 0%), rgba(36, 85, 38, 0.18) var(--val, 0%), rgba(36, 85, 38, 0.18) 100%);
+            outline: none;
+            cursor: pointer;
+        }
+
+        input[type="range"].eco-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--forest);
+            border: 2.5px solid #ffffff;
+            box-shadow: 0 2px 8px rgba(36, 85, 38, 0.4);
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+
+        input[type="range"].eco-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.14);
+            background: var(--forest-dark);
+        }
+
+        input[type="range"].eco-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--forest);
+            border: 2.5px solid #ffffff;
+            box-shadow: 0 2px 8px rgba(36, 85, 38, 0.4);
+            transition: transform 0.15s ease;
+        }
+
+        /* Loading Overlay Transition */
+        #loader-overlay {
+            transition: opacity 0.45s ease, visibility 0.45s ease;
+        }
+
+        #loader-overlay.hidden-loader {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* Toast Notification */
+        #toast {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 3D Viewport Container -->
+    <div id="canvas-container" aria-label="Visualizador 3D do Folder Informativo"></div>
+
+    <!-- Loading Overlay (waits for fonts & crisp high-res canvas textures) -->
+    <div id="loader-overlay"
+        class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#eef3ee]/95 backdrop-blur-md">
+        <div class="w-12 h-12 rounded-2xl bg-[#245526] flex items-center justify-center shadow-lg mb-4 animate-pulse">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+        </div>
+        <p class="text-sm font-semibold text-[#245526] tracking-wide">Preparando folder 3D em alta resolução...</p>
+    </div>
+
+    <!-- Top HUD Bar -->
+    <header
+        class="fixed top-2.5 left-2.5 right-2.5 sm:top-5 sm:left-5 sm:right-5 z-20 flex items-start justify-between gap-2 pointer-events-none">
+        <!-- Top-Left Brand Badge -->
+        <div class="glass-panel rounded-2xl px-2.5 py-2 sm:px-4 sm:py-3 flex items-center gap-2 sm:gap-3 pointer-events-auto min-w-0">
+            <div
+                class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-[#245526] flex items-center justify-center shrink-0 shadow-sm">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5 text-[#97C39A]" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                        d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66l.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75C7 8 17 8 17 8Z" />
+                </svg>
+            </div>
+            <div class="leading-tight min-w-0">
+                <h1 class="text-xs sm:text-sm font-bold text-[#1d441f] tracking-tight truncate">Folder 3D</h1>
+                <p class="hidden sm:block text-[11px] sm:text-xs font-medium text-[#245526]/75 truncate">Empresa Borcelle • Sustentabilidade</p>
+            </div>
+        </div>
+
+        <!-- Top-Right Action Buttons -->
+        <div class="flex items-center gap-1.5 sm:gap-2 pointer-events-auto shrink-0">
+            <button id="btn-flip-side" type="button" title="Girar para ver o verso ou frente"
+                class="glass-panel rounded-xl px-2.5 py-2 sm:px-3.5 sm:py-2.5 text-[11px] sm:text-xs font-semibold text-[#245526] hover:bg-white/95 active:scale-95 transition flex items-center gap-1.5 cursor-pointer">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.1" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span id="flip-side-label">Ver Verso</span>
+            </button>
+
+            <button id="btn-reset-cam" type="button" title="Resetar posição da câmera"
+                class="glass-panel rounded-xl p-2 sm:px-3.5 sm:py-2.5 text-xs font-semibold text-[#245526] hover:bg-white/95 active:scale-95 transition flex items-center gap-1.5 cursor-pointer">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.1" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <span class="hidden sm:inline">Resetar Câmera</span>
+            </button>
+
+            <button id="btn-open-upload" type="button" title="Trocar imagens de frente e verso"
+                class="glass-panel rounded-xl p-2 sm:px-3.5 sm:py-2.5 text-xs font-semibold text-[#245526] hover:bg-white/95 active:scale-95 transition flex items-center gap-1.5 cursor-pointer">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.1" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span class="hidden md:inline">Trocar Imagens</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Toast Feedback -->
+    <div id="toast" role="status" aria-live="polite"
+        class="fixed top-16 sm:top-20 left-1/2 -translate-x-1/2 z-30 glass-panel rounded-full px-4 py-2 text-xs font-semibold text-[#245526] opacity-0 -translate-y-2 pointer-events-none whitespace-nowrap max-w-[92vw] truncate">
+    </div>
+
+    <!-- Bottom Floating Pill Toolbar -->
+    <footer
+        class="fixed bottom-[max(0.65rem,env(safe-area-inset-bottom))] left-2.5 right-2.5 sm:bottom-5 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-20 flex flex-col items-center gap-1.5 sm:gap-2 pointer-events-none">
+        <div
+            class="glass-panel rounded-2xl sm:rounded-3xl px-2.5 py-2 sm:px-4 sm:py-3 w-full max-w-[540px] flex flex-col gap-2 sm:gap-2.5 pointer-events-auto">
+            <!-- State Buttons -->
+            <div class="grid grid-cols-4 gap-1 sm:gap-1.5 bg-[#245526]/[0.07] p-1 rounded-xl sm:rounded-2xl" role="group"
+                aria-label="Estados de abertura do folder">
+                <button data-state="0"
+                    class="state-btn rounded-lg sm:rounded-xl py-1.5 sm:py-2 px-1 sm:px-2 text-[11px] sm:text-xs font-semibold transition-all cursor-pointer whitespace-nowrap">Fechado</button>
+                <button data-state="1"
+                    class="state-btn rounded-lg sm:rounded-xl py-1.5 sm:py-2 px-1 sm:px-2 text-[11px] sm:text-xs font-semibold transition-all cursor-pointer whitespace-nowrap">Meio</button>
+                <button data-state="2"
+                    class="state-btn rounded-lg sm:rounded-xl py-1.5 sm:py-2 px-1 sm:px-2 text-[11px] sm:text-xs font-semibold transition-all cursor-pointer whitespace-nowrap">Aberto</button>
+                <button data-state="3"
+                    class="state-btn rounded-lg sm:rounded-xl py-1.5 sm:py-2 px-1 sm:px-2 text-[11px] sm:text-xs font-semibold transition-all cursor-pointer whitespace-nowrap">Plano</button>
+            </div>
+
+            <!-- Continuous Fold Progress Slider -->
+            <div class="flex items-center gap-2.5 sm:gap-3 px-1">
+                <label for="fold-slider" class="text-[11px] font-semibold text-[#245526]/85 shrink-0">Abertura</label>
+                <input id="fold-slider" type="range" min="0" max="100" step="0.5" value="0" class="eco-slider w-full"
+                    aria-label="Controle manual de abertura do folder" />
+                <span id="fold-percent"
+                    class="text-[11px] font-bold text-[#245526] w-9 text-right tabular-nums">0%</span>
+            </div>
+        </div>
+
+        <!-- Subtle Hint Line -->
+        <p
+            class="text-[10px] sm:text-xs font-medium text-[#245526]/75 bg-white/50 backdrop-blur-sm px-3 py-0.5 sm:px-3.5 sm:py-1 rounded-full text-center">
+            <span class="sm:hidden">Toque para abrir • Arraste • Pinça</span>
+            <span class="hidden sm:inline">Clique no folder para abrir • Arraste para girar • Role para aproximar</span>
+        </p>
+    </footer>
+
+    <!-- Optional Custom Image Upload Modal -->
+    <div id="upload-modal"
+        class="fixed inset-0 z-40 hidden items-center justify-center bg-[#18381a]/40 backdrop-blur-sm p-3 sm:p-4">
+        <div class="glass-panel bg-white/95 rounded-3xl w-full max-w-md max-h-[90dvh] overflow-y-auto p-4 sm:p-6 shadow-2xl">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <h2 class="text-base font-bold text-[#245526]">Trocar Imagens do Folder</h2>
+                    <p class="text-xs text-[#245526]/70">Cada imagem é dividida automaticamente em 3 painéis.</p>
+                </div>
+                <button id="btn-close-modal" type="button"
+                    class="w-8 h-8 rounded-full hover:bg-[#245526]/10 flex items-center justify-center text-[#245526] cursor-pointer"
+                    aria-label="Fechar janela">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="space-y-3 my-4">
+                <label
+                    class="block rounded-2xl border-2 border-dashed border-[#245526]/25 hover:border-[#245526]/60 bg-[#f5faf5] p-3.5 cursor-pointer transition">
+                    <span class="block text-xs font-bold text-[#245526] mb-1">1. Parte Interna (3 colunas: Dicas •
+                        Caneca • Gotas)</span>
+                    <span id="inside-file-name" class="block text-[11px] text-[#245526]/70">Arte vetorial HD ativa —
+                        clique para enviar JPEG/PNG</span>
+                    <input id="input-inside-img" type="file" accept="image/*" class="hidden" />
+                </label>
+
+                <label
+                    class="block rounded-2xl border-2 border-dashed border-[#245526]/25 hover:border-[#245526]/60 bg-[#f5faf5] p-3.5 cursor-pointer transition">
+                    <span class="block text-xs font-bold text-[#245526] mb-1">2. Parte Externa (3 colunas: Aba • Verso •
+                        Capa)</span>
+                    <span id="outside-file-name" class="block text-[11px] text-[#245526]/70">Arte vetorial HD ativa —
+                        clique para enviar JPEG/PNG</span>
+                    <input id="input-outside-img" type="file" accept="image/*" class="hidden" />
+                </label>
+            </div>
+
+            <div class="flex items-center justify-between gap-2 pt-2">
+                <button id="btn-restore-default" type="button"
+                    class="rounded-xl px-3.5 py-2.5 text-xs font-semibold text-[#245526] bg-[#245526]/10 hover:bg-[#245526]/15 transition cursor-pointer">
+                    Restaurar Arte Original
+                </button>
+                <button id="btn-done-modal" type="button"
+                    class="rounded-xl px-4 py-2.5 text-xs font-semibold text-white bg-[#245526] hover:bg-[#1b411d] transition cursor-pointer">
+                    Concluir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Three.js Application Module -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // =========================================================================
+        // 1. DESIGN TOKENS & CONSTANTS
+        // =========================================================================
+        const COLORS = {
+            darkGreen: '#245526',
+            sageGreen: '#97C39A',
+            white: '#FFFFFF',
+            paperEdge: '#ECF2EC',
+            inkDark: '#232B24'
+        };
+
+        // Panel geometry dimensions (exact 900:1900 aspect ratio)
+        const PANEL_W = 2.0;
+        const PANEL_H = (1900 / 900) * PANEL_W; // ~4.2222
+        const PANEL_T = 0.022;
+        const TEX_W = 900;
+        const TEX_H = 1900;
+
+        // 4 Interactive States on continuous openProgress [0..1]
+        const STATE_PROGRESS = [0.0, 0.36, 0.78, 1.0];
+        const STATE_NAMES = ['Fechado', 'Meio Aberto', 'Aberto 3D', 'Plano 180°'];
+
+        // =========================================================================
+        // 2. CANVAS 2D HIGH-RESOLUTION VECTOR TEXTURE PAINTERS
+        // =========================================================================
+
+        /**
+         * Helper: Draw centered multiline text cleanly.
+         */
+        function drawCenteredLines(ctx, lines, cx, startY, lineHeight, font, color) {
+            ctx.save();
+            ctx.font = font;
+            ctx.fillStyle = color;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            lines.forEach((line, i) => {
+                ctx.fillText(line, cx, startY + i * lineHeight);
+            });
+            ctx.restore();
+        }
+
+        /**
+         * Helper: Draw the "Empresa Borcelle" overlapping triangular play logo.
+         * @param {boolean} darkSolid - true on sage background (Front Cover), false on dark green (Inside Right).
+         */
+        function drawBorcelleLogo(ctx, cx, cy, darkSolid) {
+            ctx.save();
+            ctx.translate(cx, cy);
+
+            const drawTri = (offsetX, size, fill, stroke, lineW) => {
+                const h = size * 1.12;
+                const w = size * 0.92;
+                ctx.beginPath();
+                ctx.moveTo(offsetX - w * 0.45, -h * 0.5);
+                ctx.lineTo(offsetX + w * 0.55, 0);
+                ctx.lineTo(offsetX - w * 0.45, h * 0.5);
+                ctx.closePath();
+                if (fill) {
+                    ctx.fillStyle = fill;
+                    ctx.fill();
+                }
+                if (stroke) {
+                    ctx.strokeStyle = stroke;
+                    ctx.lineWidth = lineW;
+                    ctx.lineJoin = 'miter';
+                    ctx.stroke();
+                }
+            };
+
+            // Leftmost solid triangle
+            drawTri(-30, 74, darkSolid ? COLORS.darkGreen : 'rgba(255,255,255,0.88)', null, 0);
+            // Middle semi-overlapping outlined triangle
+            drawTri(-6, 76, null, COLORS.white, 6);
+            // Rightmost crisp outlined triangle
+            drawTri(18, 76, null, COLORS.white, 6);
+
+            ctx.restore();
+
+            drawCenteredLines(
+                ctx,
+                ['Empresa', 'Borcelle'],
+                cx,
+                cy + 106,
+                54,
+                '700 46px "Poppins", sans-serif',
+                COLORS.white
+            );
+        }
+
+        /**
+         * PANEL 1: INSIDE LEFT (+Z of Left Panel)
+         * Dark Green #245526 — "DICAS:", stacked docs, PDF tip, recycling symbol, reuse paper tip
+         */
+        function paintInsideLeft(canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = COLORS.darkGreen;
+            ctx.fillRect(0, 0, TEX_W, TEX_H);
+
+            // Top heading
+            drawCenteredLines(ctx, ['DICAS:'], 450, 210, 120, '800 132px "Barlow Condensed", sans-serif', COLORS.white);
+
+            // Upper illustration: Tilted stacked paper sheets (-10 deg)
+            ctx.save();
+            ctx.translate(445, 535);
+            ctx.rotate(-10 * Math.PI / 180);
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+
+            const drawSheet = (x, y, w, h, fold) => {
+                ctx.beginPath();
+                ctx.moveTo(x + 14, y);
+                ctx.lineTo(x + w - fold, y);
+                ctx.lineTo(x + w, y + fold);
+                ctx.lineTo(x + w, y + h - 14);
+                ctx.quadraticCurveTo(x + w, y + h, x + w - 14, y + h);
+                ctx.lineTo(x + 14, y + h);
+                ctx.quadraticCurveTo(x, y + h, x, y + h - 14);
+                ctx.lineTo(x, y + 14);
+                ctx.quadraticCurveTo(x, y, x + 14, y);
+                ctx.closePath();
+            };
+
+            // Back sheet
+            drawSheet(-120, -145, 250, 320, 44);
+            ctx.fillStyle = COLORS.darkGreen;
+            ctx.fill();
+            ctx.strokeStyle = COLORS.sageGreen;
+            ctx.lineWidth = 17;
+            ctx.stroke();
+
+            // Front sheet shifted up-left
+            drawSheet(-162, -182, 250, 320, 68);
+            ctx.fillStyle = COLORS.darkGreen;
+            ctx.fill();
+            ctx.strokeStyle = COLORS.sageGreen;
+            ctx.lineWidth = 17;
+            ctx.stroke();
+
+            // Folded dog-ear crease on front sheet
+            ctx.beginPath();
+            ctx.moveTo(-162 + 250 - 68, -182);
+            ctx.lineTo(-162 + 250 - 68, -182 + 68);
+            ctx.lineTo(-162 + 250, -182 + 68);
+            ctx.stroke();
+
+            // 4 clean horizontal lines inside front sheet
+            const lineY = [-58, -10, 38, 86];
+            const lineW = [142, 142, 142, 68];
+            ctx.lineWidth = 16;
+            lineY.forEach((ly, idx) => {
+                ctx.beginPath();
+                ctx.moveTo(-110, ly);
+                ctx.lineTo(-110 + lineW[idx], ly);
+                ctx.stroke();
+            });
+            ctx.restore();
+
+            // Upper body text
+            drawCenteredLines(
+                ctx,
+                ['Evite ficar imprimindo', 'diversas folhas que', 'poderiam estar em PDF.'],
+                450,
+                875,
+                56,
+                '400 41px "Poppins", sans-serif',
+                COLORS.white
+            );
+
+            // Lower illustration: Classic solid 3-arrow recycling symbol
+            ctx.save();
+            ctx.translate(450, 1255);
+            for (let i = 0; i < 3; i++) {
+                ctx.save();
+                ctx.rotate((i * 120) * Math.PI / 180);
+
+                // One bent arrow side along the bottom-right-to-bottom-left segment
+                ctx.fillStyle = COLORS.sageGreen;
+
+                // Straight tail ribbon segment (upper-left leg of corner)
+                ctx.beginPath();
+                ctx.moveTo(-118, -86);
+                ctx.lineTo(-50, -142);
+                ctx.quadraticCurveTo(-34, -155, -14, -152);
+                ctx.lineTo(32, -146);
+                ctx.lineTo(-22, -52);
+                ctx.lineTo(-82, -88);
+                ctx.closePath();
+                // Let's draw an iconic, geometrically accurate Möbius recycling arrow leg!
+                ctx.beginPath();
+                // Outer ribbon corner + arrow pointing clockwise
+                ctx.moveTo(-42, -148);
+                ctx.lineTo(36, -148);
+                ctx.quadraticCurveTo(60, -148, 72, -126);
+                ctx.lineTo(106, -68);
+                ctx.lineTo(132, -83);
+                ctx.lineTo(94, -12);
+                ctx.lineTo(16, -16);
+                ctx.lineTo(42, -31);
+                ctx.lineTo(2, -98);
+                ctx.lineTo(-70, -98);
+                ctx.closePath();
+                ctx.fill();
+
+                // Subtle dark crease line for classic folded-paper recycling look
+                ctx.strokeStyle = COLORS.darkGreen;
+                ctx.lineWidth = 10;
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+                ctx.moveTo(2, -98);
+                ctx.lineTo(36, -148);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+            ctx.restore();
+
+            // Lower body text
+            drawCenteredLines(
+                ctx,
+                ['Folhas que não serão mais', 'utilizadas podem virar', 'rascunhos ou serem', 'recicladas.'],
+                450,
+                1520,
+                55,
+                '400 40px "Poppins", sans-serif',
+                COLORS.white
+            );
+        }
+
+        /**
+         * PANEL 2: INSIDE CENTER (+Z of Center Panel)
+         * Sage Green #97C39A — Coffee mug with steam, reusable cup tip, lightbulb with 7 rays, energy tip
+         */
+        function paintInsideCenter(canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = COLORS.sageGreen;
+            ctx.fillRect(0, 0, TEX_W, TEX_H);
+
+            // Upper illustration: Coffee mug + 3 wavy steam lines
+            ctx.save();
+            ctx.translate(442, 470);
+
+            // 3 wavy vertical steam lines rising above cup
+            ctx.strokeStyle = COLORS.darkGreen;
+            ctx.lineWidth = 9;
+            ctx.lineCap = 'round';
+            const steamX = [-22, 16, 54];
+            const steamTop = [-215, -242, -205];
+            steamX.forEach((sx, i) => {
+                ctx.beginPath();
+                ctx.moveTo(sx, -128);
+                ctx.bezierCurveTo(sx - 20, -158, sx + 22, -182, sx + 4, steamTop[i]);
+                ctx.stroke();
+            });
+
+            // Slightly tilted mug body (+11 deg clockwise)
+            ctx.rotate(11 * Math.PI / 180);
+
+            // Handle on right (solid dark green thick curve)
+            ctx.beginPath();
+            ctx.moveTo(96, -54);
+            ctx.bezierCurveTo(188, -68, 192, 62, 82, 74);
+            ctx.strokeStyle = COLORS.darkGreen;
+            ctx.lineWidth = 34;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // Inner handle cutout in sage green
+            ctx.beginPath();
+            ctx.moveTo(98, -32);
+            ctx.bezierCurveTo(154, -40, 154, 42, 88, 52);
+            ctx.strokeStyle = COLORS.sageGreen;
+            ctx.lineWidth = 14;
+            ctx.stroke();
+
+            // Tapered cup body filled Dark Green
+            ctx.beginPath();
+            ctx.moveTo(-104, -108);
+            ctx.lineTo(104, -108);
+            ctx.lineTo(86, 118);
+            ctx.quadraticCurveTo(80, 148, 0, 152);
+            ctx.quadraticCurveTo(-80, 148, -86, 118);
+            ctx.closePath();
+            ctx.fillStyle = COLORS.darkGreen;
+            ctx.fill();
+
+            // Curved light-green top rim ellipse highlight
+            ctx.beginPath();
+            ctx.ellipse(0, -106, 98, 17, 0, 0, Math.PI * 2);
+            ctx.fillStyle = COLORS.sageGreen;
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.ellipse(0, -105, 86, 10, 0, 0, Math.PI * 2);
+            ctx.fillStyle = COLORS.darkGreen;
+            ctx.fill();
+
+            ctx.restore();
+
+            // Upper body text
+            drawCenteredLines(
+                ctx,
+                ['Leve sua própria garrafa e', 'caneca e evite o uso de', 'copos descartáveis.'],
+                450,
+                800,
+                56,
+                '400 41px "Poppins", sans-serif',
+                COLORS.white
+            );
+
+            // Lower illustration: Lightbulb outline + 7 radiating light rays
+            ctx.save();
+            ctx.translate(450, 1185);
+            ctx.strokeStyle = COLORS.darkGreen;
+            ctx.lineWidth = 17;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            // Bulb glass silhouette
+            ctx.beginPath();
+            ctx.arc(0, -26, 98, Math.PI * 0.78, Math.PI * 2.22, false);
+            ctx.bezierCurveTo(78, 52, 54, 72, 48, 102);
+            ctx.lineTo(-48, 102);
+            ctx.bezierCurveTo(-54, 72, -78, 52, -75, 36);
+            ctx.stroke();
+
+            // Screw base horizontal grooves & rounded bottom
+            ctx.beginPath();
+            ctx.moveTo(-46, 102);
+            ctx.lineTo(46, 102);
+            ctx.lineTo(42, 136);
+            ctx.quadraticCurveTo(40, 154, 22, 154);
+            ctx.lineTo(-22, 154);
+            ctx.quadraticCurveTo(-40, 154, -42, 136);
+            ctx.closePath();
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(-42, 128);
+            ctx.lineTo(42, 128);
+            ctx.stroke();
+
+            // 7 short radiating light rays around top/sides
+            const rayAngles = [-180, -150, -120, -90, -60, -30, 0];
+            rayAngles.forEach((deg) => {
+                const rad = deg * Math.PI / 180;
+                const r1 = 132;
+                const r2 = 162;
+                ctx.beginPath();
+                ctx.moveTo(Math.cos(rad) * r1, -26 + Math.sin(rad) * r1);
+                ctx.lineTo(Math.cos(rad) * r2, -26 + Math.sin(rad) * r2);
+                ctx.stroke();
+            });
+            ctx.restore();
+
+            // Lower body text
+            drawCenteredLines(
+                ctx,
+                [
+                    'Use tecnologias que',
+                    'economizem energia, sistemas',
+                    'de automação para controle',
+                    'de consumo e equipamentos',
+                    'mais eficientes.'
+                ],
+                450,
+                1475,
+                54,
+                '400 39px "Poppins", sans-serif',
+                COLORS.white
+            );
+        }
+
+        /**
+         * PANEL 3: INSIDE RIGHT (+Z of Right Panel)
+         * Dark Green #245526 — Two water drops, water tip, "JUNTOS PODEMOS SALVAR O PLANETA!", logo
+         */
+        function paintInsideRight(canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = COLORS.darkGreen;
+            ctx.fillRect(0, 0, TEX_W, TEX_H);
+
+            // Helper: Draw teardrop outline + curved inner highlight arc
+            const drawDrop = (cx, topY, w, h, strokeW) => {
+                const bottomY = topY + h;
+                const bulgeY = topY + h * 0.67;
+
+                ctx.save();
+                ctx.strokeStyle = COLORS.sageGreen;
+                ctx.lineWidth = strokeW;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+
+                ctx.beginPath();
+                ctx.moveTo(cx, topY);
+                ctx.bezierCurveTo(cx + w * 0.16, topY + h * 0.25, cx + w * 0.55, bulgeY - h * 0.12, cx + w * 0.5, bulgeY);
+                ctx.bezierCurveTo(cx + w * 0.48, bottomY + h * 0.02, cx - w * 0.48, bottomY + h * 0.02, cx - w * 0.5, bulgeY);
+                ctx.bezierCurveTo(cx - w * 0.55, bulgeY - h * 0.12, cx - w * 0.16, topY + h * 0.25, cx, topY);
+                ctx.closePath();
+                ctx.stroke();
+
+                // Inner highlight arc near lower-right curve
+                ctx.beginPath();
+                ctx.arc(cx, bulgeY - h * 0.02, w * 0.31, Math.PI * 0.12, Math.PI * 0.42);
+                ctx.lineWidth = strokeW * 0.82;
+                ctx.stroke();
+                ctx.restore();
+            };
+
+            // Larger left drop & smaller upper-right drop
+            drawDrop(385, 290, 210, 315, 19);
+            drawDrop(555, 222, 118, 178, 16);
+
+            // Upper body text
+            drawCenteredLines(
+                ctx,
+                [
+                    'Implemente práticas para',
+                    'economizar água, como',
+                    'sistemas de reuso e',
+                    'monitoramento do consumo.'
+                ],
+                450,
+                775,
+                56,
+                '400 41px "Poppins", sans-serif',
+                COLORS.white
+            );
+
+            // Middle-lower display headline
+            drawCenteredLines(
+                ctx,
+                ['JUNTOS PODEMOS', 'SALVAR O PLANETA!'],
+                450,
+                1215,
+                112,
+                '700 102px "Barlow Condensed", sans-serif',
+                COLORS.white
+            );
+
+            // Bottom brand logo
+            drawBorcelleLogo(ctx, 450, 1545, false);
+        }
+
+        /**
+         * PANEL 4: OUTSIDE RIGHT = FRONT COVER (-Z of Left Panel)
+         * Sage Green #97C39A — Borcelle logo, "RECICLE REDUZA REUSE", Earth cradled by two hands
+         */
+        function paintOutsideRightFrontCover(canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = COLORS.sageGreen;
+            ctx.fillRect(0, 0, TEX_W, TEX_H);
+
+            // Top brand logo (Dark Green solid left triangle)
+            drawBorcelleLogo(ctx, 450, 210, true);
+
+            // Stacked huge condensed display headline
+            drawCenteredLines(ctx, ['RECICLE'], 450, 655, 180, '700 184px "Barlow Condensed", sans-serif', COLORS.darkGreen);
+            drawCenteredLines(ctx, ['REDUZA'], 450, 845, 180, '700 184px "Barlow Condensed", sans-serif', COLORS.white);
+            drawCenteredLines(ctx, ['REUSE'], 450, 1035, 180, '700 184px "Barlow Condensed", sans-serif', COLORS.darkGreen);
+
+            // Bottom illustration: Earth globe cradled symmetrically by two flat-vector hands
+            const gx = 450;
+            const gy = 1365;
+            const gr = 238;
+
+            ctx.save();
+            // Clip Earth contents to circle
+            ctx.beginPath();
+            ctx.arc(gx, gy, gr, 0, Math.PI * 2);
+            ctx.save();
+            ctx.clip();
+
+            // Sky-blue ocean
+            ctx.fillStyle = '#60B5D8';
+            ctx.fillRect(gx - gr - 10, gy - gr - 10, gr * 2 + 20, gr * 2 + 20);
+
+            // Subtle shaded ocean arc along bottom
+            ctx.beginPath();
+            ctx.arc(gx, gy - 16, gr, 0, Math.PI * 2);
+            ctx.fillStyle = '#6EC2E3';
+            ctx.fill();
+
+            // Organic stylized continents with crisp dark outlines
+            const drawContinent = (pathFn, fill) => {
+                ctx.beginPath();
+                pathFn();
+                ctx.closePath();
+                ctx.fillStyle = fill;
+                ctx.fill();
+                ctx.strokeStyle = COLORS.inkDark;
+                ctx.lineWidth = 9;
+                ctx.lineJoin = 'round';
+                ctx.stroke();
+            };
+
+            // Upper-left light green landmass
+            drawContinent(() => {
+                ctx.moveTo(gx - 260, gy - 120);
+                ctx.bezierCurveTo(gx - 180, gy - 230, gx - 45, gy - 210, gx - 58, gy - 120);
+                ctx.bezierCurveTo(gx - 68, gy - 55, gx - 165, gy - 35, gx - 215, gy - 10);
+                ctx.lineTo(gx - 260, gy - 10);
+            }, '#A8DA7C');
+
+            // Upper-right lush teal-green landmass
+            drawContinent(() => {
+                ctx.moveTo(gx + 15, gy - 255);
+                ctx.bezierCurveTo(gx - 25, gy - 175, gx + 20, gy - 105, gx + 105, gy - 90);
+                ctx.bezierCurveTo(gx + 170, gy - 78, gx + 195, gy - 15, gx + 260, gy - 35);
+                ctx.lineTo(gx + 260, gy - 255);
+            }, '#3E9A68');
+
+            // Lower-right bright green landmass
+            drawContinent(() => {
+                ctx.moveTo(gx + 255, gy + 5);
+                ctx.bezierCurveTo(gx + 155, gy + 5, gx + 70, gy - 35, gx + 20, gy + 20);
+                ctx.bezierCurveTo(gx - 25, gy + 70, gx + 25, gy + 185, gx + 125, gy + 210);
+                ctx.lineTo(gx + 255, gy + 160);
+            }, '#A8DA7C');
+
+            // Bottom center-left small green continent
+            drawContinent(() => {
+                ctx.moveTo(gx - 160, gy + 125);
+                ctx.bezierCurveTo(gx - 95, gy + 95, gx - 5, gy + 135, gx + 45, gy + 215);
+                ctx.lineTo(gx - 120, gy + 265);
+                ctx.lineTo(gx - 230, gy + 190);
+            }, '#7CC45E');
+
+            ctx.restore(); // End globe clip
+
+            // Crisp dark Earth outline
+            ctx.beginPath();
+            ctx.arc(gx, gy, gr, 0, Math.PI * 2);
+            ctx.strokeStyle = COLORS.inkDark;
+            ctx.lineWidth = 10;
+            ctx.stroke();
+
+            // Symmetrical cradling hands (left and mirrored right)
+            const drawHand = (mirror) => {
+                ctx.save();
+                ctx.translate(gx, gy);
+                ctx.scale(mirror ? -1 : 1, 1);
+
+                ctx.fillStyle = '#F6DDD3';
+                ctx.strokeStyle = COLORS.inkDark;
+                ctx.lineWidth = 10;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+
+                // Main palm + outer fingers + wrist silhouette
+                ctx.beginPath();
+                // Start at bottom-inner wrist
+                ctx.moveTo(-62, 392);
+                // Bottom wrist flat edge to outer wrist
+                ctx.lineTo(-195, 392);
+                // Rise up outer wrist & back of hand
+                ctx.bezierCurveTo(-195, 325, -248, 285, -284, 212);
+                // Curve up outermost finger hugging the globe
+                ctx.bezierCurveTo(-320, 140, -330, 52, -312, 4);
+                ctx.bezierCurveTo(-304, -18, -280, -18, -274, 4);
+                // Dip slightly and curve back along inner palm edge
+                ctx.bezierCurveTo(-266, 32, -264, 92, -238, 142);
+                // Rise to curved inner thumb embracing bottom-left of Earth
+                ctx.bezierCurveTo(-222, 174, -206, 172, -192, 134);
+                ctx.bezierCurveTo(-175, 86, -155, 62, -134, 72);
+                ctx.bezierCurveTo(-114, 82, -108, 120, -116, 165);
+                // Down inner palm to inner wrist
+                ctx.bezierCurveTo(-112, 232, -62, 295, -62, 392);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Finger separation contours on left side of hand
+                ctx.beginPath();
+                ctx.moveTo(-298, 28);
+                ctx.bezierCurveTo(-298, 102, -266, 178, -214, 216);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(-268, 48);
+                ctx.bezierCurveTo(-262, 114, -235, 168, -190, 198);
+                ctx.stroke();
+
+                // Subtle inner palm crease
+                ctx.beginPath();
+                ctx.moveTo(-116, 168);
+                ctx.bezierCurveTo(-125, 215, -148, 245, -182, 256);
+                ctx.stroke();
+
+                ctx.restore();
+            };
+
+            drawHand(false); // Left hand
+            drawHand(true);  // Right hand
+            ctx.restore();
+        }
+
+        /**
+         * PANEL 5: OUTSIDE CENTER = BACK COVER (-Z of Center Panel)
+         * Dark Green #245526 — "VOCÊ SABIA..." headline + "Para saber mais acesse:" + 3 contact rows
+         */
+        function paintOutsideCenterBackCover(canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = COLORS.darkGreen;
+            ctx.fillRect(0, 0, TEX_W, TEX_H);
+
+            // Upper-to-middle bold condensed headline
+            drawCenteredLines(
+                ctx,
+                [
+                    'VOCÊ SABIA',
+                    'QUE É POSSIVEL',
+                    'AJUDAR O',
+                    'PLANETA COM',
+                    'PEQUENAS',
+                    'ATITUDES NA',
+                    'SUA EMPRESA?'
+                ],
+                450,
+                290,
+                130,
+                '700 118px "Barlow Condensed", sans-serif',
+                COLORS.white
+            );
+
+            // Contact label
+            drawCenteredLines(
+                ctx,
+                ['Para saber mais acesse:'],
+                450,
+                1330,
+                50,
+                '700 44px "Poppins", sans-serif',
+                COLORS.white
+            );
+
+            // 3 Contact rows with thin circular #97C39A icons
+            const iconX = 205;
+            const textX = 268;
+            const rows = [
+                { y: 1455, text: 'www.grandesite.com.br', type: 'globe' },
+                { y: 1572, text: '@grandesite', type: 'instagram' },
+                { y: 1689, text: '(12) 3456-7890', type: 'phone' }
+            ];
+
+            rows.forEach((row) => {
+                ctx.save();
+                ctx.strokeStyle = COLORS.sageGreen;
+                ctx.fillStyle = COLORS.sageGreen;
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+
+                // Outer badge ring
+                ctx.beginPath();
+                ctx.arc(iconX, row.y, 36, 0, Math.PI * 2);
+                ctx.stroke();
+
+                if (row.type === 'globe') {
+                    const r = 21;
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(iconX, row.y, r, 0, Math.PI * 2);
+                    ctx.stroke();
+                    // Vertical meridian ellipse
+                    ctx.beginPath();
+                    ctx.ellipse(iconX, row.y, r * 0.48, r, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                    // Equator & latitudes
+                    ctx.beginPath();
+                    ctx.moveTo(iconX - r, row.y);
+                    ctx.lineTo(iconX + r, row.y);
+                    ctx.moveTo(iconX - r * 0.85, row.y - r * 0.48);
+                    ctx.lineTo(iconX + r * 0.85, row.y - r * 0.48);
+                    ctx.moveTo(iconX - r * 0.85, row.y + r * 0.48);
+                    ctx.lineTo(iconX + r * 0.85, row.y + r * 0.48);
+                    ctx.stroke();
+                } else if (row.type === 'instagram') {
+                    ctx.lineWidth = 3.2;
+                    const s = 18;
+                    ctx.beginPath();
+                    ctx.roundRect(iconX - s, row.y - s, s * 2, s * 2, 9);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(iconX, row.y, 8.5, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(iconX + 10.5, row.y - 10.5, 2.3, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (row.type === 'phone') {
+                    ctx.save();
+                    ctx.translate(iconX, row.y);
+                    ctx.beginPath();
+                    ctx.moveTo(-12, -16);
+                    ctx.quadraticCurveTo(-18, -12, -15, -2);
+                    ctx.quadraticCurveTo(-10, 12, 4, 16);
+                    ctx.quadraticCurveTo(13, 18, 17, 12);
+                    ctx.lineTo(11, 5);
+                    ctx.quadraticCurveTo(8, 8, 4, 6);
+                    ctx.quadraticCurveTo(-2, 3, -5, -4);
+                    ctx.quadraticCurveTo(-7, -8, -4, -10);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                // Row label text
+                ctx.font = '400 37px "Poppins", sans-serif';
+                ctx.fillStyle = COLORS.white;
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(row.text, textX, row.y + 2);
+                ctx.restore();
+            });
+        }
+
+        /**
+         * PANEL 6: OUTSIDE LEFT = INNER FLAP (-Z of Right Panel)
+         * Sage Green #97C39A — White pin/bubble "+" badge, "SUSTENTABILIDADE NAS EMPRESAS", kawaii Earth
+         */
+        function paintOutsideLeftInnerFlap(canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = COLORS.sageGreen;
+            ctx.fillRect(0, 0, TEX_W, TEX_H);
+
+            // Top icon: Thick white circular pin/bubble with pointed bottom-left corner + "+" inside
+            ctx.save();
+            ctx.translate(450, 355);
+            const R = 185;
+            ctx.beginPath();
+            ctx.arc(0, 0, R, Math.PI * 0.5, Math.PI * 1.0, true); // 270 deg major arc
+            // Draw exact rounded speech-bubble with bottom-left corner
+            ctx.beginPath();
+            ctx.moveTo(-R, 0);
+            ctx.arc(0, 0, R, Math.PI, Math.PI * 2.5, false); // clockwise from 9 o'clock around top & right to 6 o'clock
+            ctx.lineTo(-R + 26, R);
+            ctx.quadraticCurveTo(-R, R, -R, R - 26);
+            ctx.closePath();
+            ctx.strokeStyle = COLORS.white;
+            ctx.lineWidth = 44;
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+
+            // Thick centered white "+" sign
+            ctx.beginPath();
+            ctx.moveTo(-98, 0);
+            ctx.lineTo(98, 0);
+            ctx.moveTo(0, -98);
+            ctx.lineTo(0, 98);
+            ctx.lineWidth = 42;
+            ctx.lineCap = 'butt';
+            ctx.stroke();
+            ctx.restore();
+
+            // Middle display headline
+            drawCenteredLines(ctx, ['SUSTENTA'], 450, 725, 160, '700 166px "Barlow Condensed", sans-serif', COLORS.darkGreen);
+            drawCenteredLines(ctx, ['BILIDADE'], 450, 890, 160, '700 166px "Barlow Condensed", sans-serif', COLORS.darkGreen);
+            drawCenteredLines(ctx, ['NAS EMPRESAS'], 450, 1030, 100, '700 96px "Barlow Condensed", sans-serif', COLORS.white);
+
+            // Bottom illustration: Cute kawaii cartoon Earth globe!
+            const cx = 450;
+            const cy = 1435;
+            const r = 258;
+
+            ctx.save();
+
+            // Left hanging cute cartoon arm
+            ctx.strokeStyle = '#2A3138';
+            ctx.fillStyle = '#2A3138';
+            ctx.lineWidth = 14;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            ctx.beginPath();
+            ctx.moveTo(cx - 242, cy + 52);
+            ctx.quadraticCurveTo(cx - 292, cy + 148, cx - 282, cy + 225);
+            ctx.stroke();
+            // Left cute mitten hand
+            ctx.beginPath();
+            ctx.ellipse(cx - 282, cy + 238, 17, 25, 0.15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(cx - 270, cy + 228);
+            ctx.lineTo(cx - 258, cy + 244);
+            ctx.lineWidth = 10;
+            ctx.stroke();
+
+            // Earth Circle clipped
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.clip();
+
+            // Ocean blue
+            ctx.fillStyle = '#48A8E0';
+            ctx.fillRect(cx - r - 10, cy - r - 10, r * 2 + 20, r * 2 + 20);
+
+            // Soft bottom-edge ocean shadow
+            ctx.beginPath();
+            ctx.arc(cx - 25, cy - 28, r * 1.03, 0, Math.PI * 2);
+            ctx.fillStyle = '#53B4EB';
+            ctx.fill();
+
+            // Bright green cartoon continents (placed harmoniously around the kawaii face)
+            const paintBlob = (pts, color) => {
+                ctx.beginPath();
+                ctx.moveTo(pts[0][0], pts[0][1]);
+                for (let i = 0; i < pts.length; i++) {
+                    const p1 = pts[i];
+                    const p2 = pts[(i + 1) % pts.length];
+                    const mx = (p1[0] + p2[0]) / 2;
+                    const my = (p1[1] + p2[1]) / 2;
+                    ctx.quadraticCurveTo(p1[0], p1[1], mx, my);
+                }
+                ctx.closePath();
+                ctx.fillStyle = color;
+                ctx.fill();
+            };
+
+            // Top-left America-inspired landmass
+            paintBlob([
+                [cx - 285, cy - 125], [cx - 175, cy - 155], [cx - 120, cy - 75],
+                [cx - 150, cy - 10], [cx - 190, cy + 10], [cx - 270, cy - 20]
+            ], '#A6D762');
+
+            // Top-center Greenland-like island
+            paintBlob([
+                [cx - 115, cy - 225], [cx - 25, cy - 210], [cx - 45, cy - 150], [cx - 125, cy - 165]
+            ], '#A6D762');
+
+            // Lower-left South America landmass
+            paintBlob([
+                [cx - 190, cy + 45], [cx - 105, cy + 75], [cx - 110, cy + 175],
+                [cx - 165, cy + 215], [cx - 205, cy + 135]
+            ], '#A6D762');
+
+            // Center-right Africa/Eurasia landmass
+            paintBlob([
+                [cx - 15, cy - 105], [cx + 95, cy - 155], [cx + 225, cy - 115],
+                [cx + 255, cy - 15], [cx + 150, cy + 25], [cx + 90, cy + 95],
+                [cx + 35, cy + 125], [cx - 30, cy + 55], [cx - 25, cy - 25]
+            ], '#92CA52');
+
+            // Lower-right Australia-inspired island
+            paintBlob([
+                [cx + 145, cy + 85], [cx + 245, cy + 75], [cx + 255, cy + 175], [cx + 165, cy + 170]
+            ], '#A6D762');
+
+            ctx.restore(); // End Earth clip
+
+            // Right raised arm waving cute two-finger peace sign (drawn over edge)
+            ctx.strokeStyle = '#2A3138';
+            ctx.lineWidth = 14;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(cx + 188, cy + 22);
+            ctx.bezierCurveTo(cx + 280, cy + 20, cx + 318, cy - 32, cx + 298, cy - 102);
+            ctx.stroke();
+
+            // Cute peace-sign hand
+            ctx.fillStyle = '#2A3138';
+            ctx.beginPath();
+            ctx.arc(cx + 292, cy - 105, 19, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.lineWidth = 12;
+            ctx.beginPath();
+            ctx.moveTo(cx + 286, cy - 112);
+            ctx.lineTo(cx + 266, cy - 148); // Peace finger 1
+            ctx.moveTo(cx + 296, cy - 114);
+            ctx.lineTo(cx + 305, cy - 154); // Peace finger 2
+            ctx.stroke();
+
+            // Kawaii Face!
+            // Left winking eye (upward happy arch)
+            ctx.strokeStyle = '#2A3138';
+            ctx.lineWidth = 14;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.arc(cx - 88, cy - 42, 34, Math.PI * 1.12, Math.PI * 1.88, false);
+            ctx.stroke();
+
+            // Right large glossy dark oval eye
+            ctx.save();
+            ctx.translate(cx + 80, cy - 52);
+            ctx.rotate(-0.14);
+            ctx.fillStyle = '#2A3138';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 29, 39, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // White specular shine dots
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.ellipse(-9, -11, 10, 14, -0.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(8, 12, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // Rosy pink oval cheeks
+            ctx.fillStyle = 'rgba(244, 154, 174, 0.88)';
+            ctx.beginPath();
+            ctx.ellipse(cx - 114, cy + 2, 30, 16, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(cx + 110, cy + 2, 30, 16, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Cheerful curved smile
+            ctx.strokeStyle = '#2A3138';
+            ctx.lineWidth = 14;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.arc(cx - 2, cy + 26, 62, Math.PI * 0.22, Math.PI * 0.78, false);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        /**
+         * Generates a seamless procedural matte cardstock paper grain bump/roughness map.
+         */
+        function createPaperGrainTexture() {
+            const size = 512;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // Base neutral mid-gray
+            ctx.fillStyle = '#c8c8c8';
+            ctx.fillRect(0, 0, size, size);
+
+            // Fine organic grain speckles
+            const imgData = ctx.getImageData(0, 0, size, size);
+            const data = imgData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                const noise = (Math.random() - 0.5) * 34;
+                const val = Math.max(0, Math.min(255, 200 + noise));
+                data[i] = val;
+                data[i + 1] = val;
+                data[i + 2] = val;
+                data[i + 3] = 255;
+            }
+            ctx.putImageData(imgData, 0, 0);
+
+            // Subtle micro cardstock fibers
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+            ctx.lineWidth = 1;
+            for (let f = 0; f < 420; f++) {
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                const len = 4 + Math.random() * 14;
+                const ang = Math.random() * Math.PI * 2;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len);
+                ctx.stroke();
+            }
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(2, 4);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        /**
+         * Helper to build an ultra-crisp sRGB CanvasTexture from a painter function.
+         */
+        function createPanelTexture(painterFn, maxAnisotropy) {
+            const canvas = document.createElement('canvas');
+            canvas.width = TEX_W;
+            canvas.height = TEX_H;
+            painterFn(canvas);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.colorSpace = THREE.SRGBColorSpace;
+            tex.anisotropy = maxAnisotropy;
+            tex.generateMipmaps = true;
+            tex.minFilter = THREE.LinearMipmapLinearFilter;
+            tex.magFilter = THREE.LinearFilter;
+            tex.needsUpdate = true;
+            return { tex, canvas };
+        }
+
+        // =========================================================================
+        // 3. THREE.JS SCENE, LIGHTING, GEOMETRY & CHOREOGRAPHY
+        // =========================================================================
+        let scene, camera, renderer, controls;
+        let brochureRoot, leftPivot, rightPivot;
+        let leftMesh, centerMesh, rightMesh;
+        let paperGrainTex, maxAnisotropy = 1;
+
+        // References to the 6 printable materials for optional custom image slicing
+        let faceMaterials = {};
+        let defaultPainters = {};
+
+        // Interactive state & animation variables
+        let currentState = 0;       // 0: Fechado, 1: Meio Aberto, 2: Aberto 3D, 3: Plano
+        let openProgress = 0.0;     // Current interpolated fold progress [0..1]
+        let targetProgress = 0.0;   // Target fold progress [0..1]
+        let isViewingBack = false;
+        let isHoveringBrochure = false;
+
+        // Smooth camera framing transition (cancels immediately on user orbit drag)
+        const camAnim = {
+            active: false,
+            startPos: new THREE.Vector3(),
+            endPos: new THREE.Vector3(),
+            startTarget: new THREE.Vector3(),
+            endTarget: new THREE.Vector3(),
+            elapsed: 0,
+            duration: 0.72
+        };
+
+        const clock = new THREE.Clock();
+        const raycaster = new THREE.Raycaster();
+        const pointerNDC = new THREE.Vector2();
+        let pointerDownPos = null;
+
+        // UI Elements
+        const container = document.getElementById('canvas-container');
+        const foldSlider = document.getElementById('fold-slider');
+        const foldPercent = document.getElementById('fold-percent');
+        const stateBtns = Array.from(document.querySelectorAll('.state-btn'));
+        const btnFlipSide = document.getElementById('btn-flip-side');
+        const flipSideLabel = document.getElementById('flip-side-label');
+        const btnResetCam = document.getElementById('btn-reset-cam');
+        const loaderOverlay = document.getElementById('loader-overlay');
+        const toastEl = document.getElementById('toast');
+
+        let toastTimer = null;
+        function showToast(msg) {
+            toastEl.textContent = msg;
+            toastEl.classList.remove('opacity-0', '-translate-y-2');
+            toastEl.classList.add('opacity-100', 'translate-y-0');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toastEl.classList.add('opacity-0', '-translate-y-2');
+                toastEl.classList.remove('opacity-100', 'translate-y-0');
+            }, 2400);
+        }
+
+        /**
+         * Smoothstep helper for silky folding transitions.
+         */
+        function smoothstep(edge0, edge1, x) {
+            const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+            return t * t * (3 - 2 * t);
+        }
+
+        /**
+         * Linear interpolation helper.
+         */
+        function lerp(a, b, t) {
+            return a + (b - a) * t;
+        }
+
+        /**
+         * SEQUENTIAL ANTI-COLLISION FOLD CHOREOGRAPHY
+         * Maps continuous openProgress [0..1] to exact (leftAngle, rightAngle, Z-offsets, X-centering).
+         *
+         * Opening (0 -> 1):
+         *   - 0.00 -> 0.36: Left Panel (Front Cover) opens FIRST while Right Panel stays tucked inside.
+         *   - 0.36 -> 0.78: Right Panel (Inner Flap) opens out to standing 3D presentation angle (-0.28 rad),
+         *                   Left settles at +0.28 rad.
+         *   - 0.78 -> 1.00: Both panels unfold completely flat (0 rad, 0 rad).
+         * Closing (1 -> 0):
+         *   - Automatically reverses: Right Panel tucks in FIRST, then Front Cover closes cleanly over it!
+         */
+        function applyBrochureFold(p) {
+            const MAX_FOLD = Math.PI - 0.018;
+            let leftAngle, rightAngle;
+
+            if (p <= 0.36) {
+                const t = smoothstep(0.0, 0.36, p);
+                leftAngle = lerp(MAX_FOLD, 0.22, t);
+                rightAngle = -MAX_FOLD;
+            } else if (p <= 0.78) {
+                const t = smoothstep(0.36, 0.78, p);
+                leftAngle = lerp(0.22, 0.28, t);
+                rightAngle = lerp(-MAX_FOLD, -0.28, t);
+            } else {
+                const t = smoothstep(0.78, 1.0, p);
+                leftAngle = lerp(0.28, 0.0, t);
+                rightAngle = lerp(-0.28, 0.0, t);
+            }
+
+            const leftFoldFrac = leftAngle / MAX_FOLD;
+            const rightFoldFrac = Math.abs(rightAngle) / MAX_FOLD;
+
+            // Apply hinged rotations
+            leftPivot.rotation.y = leftAngle;
+            rightPivot.rotation.y = rightAngle;
+
+            // Realistic stacked paper thickness Z-offsets (prevents Z-fighting & clipping)
+            rightPivot.position.z = rightFoldFrac * (PANEL_T * 1.35);
+            leftPivot.position.z = leftFoldFrac * (PANEL_T * 2.75);
+
+            // Dynamically keep visual horizontal center of mass centered at world X = 0
+            const leftOuterX = -PANEL_W / 2 - PANEL_W * Math.cos(leftAngle);
+            const rightOuterX = PANEL_W / 2 + PANEL_W * Math.cos(Math.abs(rightAngle));
+            const minX = Math.min(-PANEL_W / 2, leftOuterX);
+            const maxX = Math.max(PANEL_W / 2, rightOuterX);
+            const centerShiftX = -(minX + maxX) * 0.5;
+            brochureRoot.position.x = centerShiftX;
+        }
+
+        /**
+         * Computes ideal camera framing position for a given fold state and front/back side.
+         */
+        function getIdealCameraPos(stateIdx, backSide) {
+            const isNarrow = window.innerWidth < 640;
+            const mobileScale = isNarrow ? 1.38 : 1.0;
+
+            // Distances tailored from close-up folded cover to wide open spread
+            const presets = [
+                { x: 0.55, y: 0.32, z: 6.15 }, // 0: Fechado
+                { x: 0.35, y: 0.42, z: 7.35 }, // 1: Meio Aberto
+                { x: 0.00, y: 0.48, z: 8.35 }, // 2: Aberto 3D
+                { x: 0.00, y: 0.16, z: 8.80 }  // 3: Plano 180°
+            ];
+            const base = presets[stateIdx] || presets[0];
+            const zSign = backSide ? -1 : 1;
+            return new THREE.Vector3(
+                base.x * zSign,
+                base.y,
+                base.z * mobileScale * zSign
+            );
+        }
+
+        /**
+         * Smoothly animates the camera to a target position/lookAt (yields immediately on user drag).
+         */
+        function animateCameraTo(endPos, endTarget = new THREE.Vector3(0, 0, 0), duration = 0.72) {
+            camAnim.active = true;
+            camAnim.startPos.copy(camera.position);
+            camAnim.endPos.copy(endPos);
+            camAnim.startTarget.copy(controls.target);
+            camAnim.endTarget.copy(endTarget);
+            camAnim.elapsed = 0;
+            camAnim.duration = duration;
+        }
+
+        /**
+         * Updates HUD state buttons & slider visuals.
+         */
+        function syncHUD(progressVal, activeStateIdx) {
+            const pct = Math.round(progressVal * 100);
+            foldSlider.value = pct;
+            foldSlider.style.setProperty('--val', `${pct}%`);
+            foldPercent.textContent = `${pct}%`;
+
+            stateBtns.forEach((btn) => {
+                const idx = Number(btn.dataset.state);
+                if (idx === activeStateIdx) {
+                    btn.classList.add('bg-[#245526]', 'text-white', 'shadow-sm');
+                    btn.classList.remove('text-[#245526]', 'hover:bg-[#245526]/10');
+                } else {
+                    btn.classList.remove('bg-[#245526]', 'text-white', 'shadow-sm');
+                    btn.classList.add('text-[#245526]', 'hover:bg-[#245526]/10');
+                }
+            });
+        }
+
+        /**
+         * Transitions brochure to one of the 4 named states.
+         */
+        function setBrochureState(stateIdx, withCameraFrame = true) {
+            currentState = stateIdx;
+            targetProgress = STATE_PROGRESS[stateIdx];
+            syncHUD(targetProgress, stateIdx);
+
+            if (withCameraFrame) {
+                animateCameraTo(getIdealCameraPos(stateIdx, isViewingBack));
+            }
+        }
+
+        /**
+         * Builds the Three.js scene, studio lights, shadow floor, and 3-panel brochure rig.
+         */
+        function initScene() {
+            scene = new THREE.Scene();
+
+            // Perspective camera
+            camera = new THREE.PerspectiveCamera(
+                38,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                100
+            );
+            camera.position.copy(getIdealCameraPos(0, false));
+
+            // Renderer with alpha so radial studio CSS background shows seamlessly
+            renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: true,
+                powerPreference: 'high-performance'
+            });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.04;
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
+
+            // OrbitControls
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.065;
+            controls.minDistance = 2.2;
+            controls.maxDistance = 13.0;
+            controls.minPolarAngle = 0.22;
+            controls.maxPolarAngle = Math.PI - 0.22;
+            controls.target.set(0, 0, 0);
+
+            // Politely yield camera animation immediately if user interacts
+            controls.addEventListener('start', () => {
+                camAnim.active = false;
+            });
+
+            // Studio Lighting Setup
+            const hemiLight = new THREE.HemisphereLight(0xf9fff9, 0xc3d5c5, 1.35);
+            hemiLight.position.set(0, 10, 0);
+            scene.add(hemiLight);
+
+            // Soft Directional Key Light (casts crisp soft shadow onto studio floor)
+            const keyLight = new THREE.DirectionalLight(0xfffdf8, 1.35);
+            keyLight.position.set(4.5, 7.5, 6.5);
+            keyLight.castShadow = true;
+            keyLight.shadow.mapSize.set(2048, 2048);
+            keyLight.shadow.camera.near = 1;
+            keyLight.shadow.camera.far = 25;
+            const d = 5.5;
+            keyLight.shadow.camera.left = -d;
+            keyLight.shadow.camera.right = d;
+            keyLight.shadow.camera.top = d;
+            keyLight.shadow.camera.bottom = -d;
+            keyLight.shadow.bias = -0.0005;
+            keyLight.shadow.radius = 4;
+            scene.add(keyLight);
+
+            // Back Fill Light (ensures back cover & exterior look bright when orbiting 360°)
+            const backLight = new THREE.DirectionalLight(0xf0f8f1, 1.05);
+            backLight.position.set(-4.0, 4.5, -6.5);
+            scene.add(backLight);
+
+            // Subtle Rim Light to highlight matte cardstock edges & paper creases
+            const rimLight = new THREE.DirectionalLight(0xffffff, 0.45);
+            rimLight.position.set(-6.0, 2.0, 3.0);
+            scene.add(rimLight);
+
+            // Subtle Shadow-Catching Studio Floor Plane
+            const floorGeo = new THREE.PlaneGeometry(24, 24);
+            const floorMat = new THREE.ShadowMaterial({
+                color: 0x1e4020,
+                opacity: 0.16
+            });
+            const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+            floorMesh.rotation.x = -Math.PI / 2;
+            floorMesh.position.y = -PANEL_H / 2 - 0.24;
+            floorMesh.receiveShadow = true;
+            scene.add(floorMesh);
+
+            // Shared tactile matte paper grain texture
+            paperGrainTex = createPaperGrainTexture();
+
+            // Store painters for restoring defaults later
+            defaultPainters = {
+                insideLeft: paintInsideLeft,
+                insideCenter: paintInsideCenter,
+                insideRight: paintInsideRight,
+                outsideRightFrontCover: paintOutsideRightFrontCover,
+                outsideCenterBackCover: paintOutsideCenterBackCover,
+                outsideLeftInnerFlap: paintOutsideLeftInnerFlap
+            };
+
+            // Build all 6 high-res textures
+            const texInsideLeft = createPanelTexture(paintInsideLeft, maxAnisotropy).tex;
+            const texInsideCenter = createPanelTexture(paintInsideCenter, maxAnisotropy).tex;
+            const texInsideRight = createPanelTexture(paintInsideRight, maxAnisotropy).tex;
+            const texOutsideRight = createPanelTexture(paintOutsideRightFrontCover, maxAnisotropy).tex;
+            const texOutsideCenter = createPanelTexture(paintOutsideCenterBackCover, maxAnisotropy).tex;
+            const texOutsideLeft = createPanelTexture(paintOutsideLeftInnerFlap, maxAnisotropy).tex;
+
+            const makeFaceMat = (mapTex) => new THREE.MeshStandardMaterial({
+                map: mapTex,
+                bumpMap: paperGrainTex,
+                bumpScale: 0.0042,
+                roughnessMap: paperGrainTex,
+                roughness: 0.80,
+                metalness: 0.015
+            });
+
+            const edgeMat = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(COLORS.paperEdge),
+                roughness: 0.88,
+                metalness: 0.0
+            });
+
+            faceMaterials = {
+                insideLeft: makeFaceMat(texInsideLeft),
+                insideCenter: makeFaceMat(texInsideCenter),
+                insideRight: makeFaceMat(texInsideRight),
+                outsideRightFrontCover: makeFaceMat(texOutsideRight),
+                outsideCenterBackCover: makeFaceMat(texOutsideCenter),
+                outsideLeftInnerFlap: makeFaceMat(texOutsideLeft)
+            };
+
+            // BoxGeometry material order: [+X, -X, +Y, -Y, +Z (Inside), -Z (Outside)]
+            const panelGeo = new THREE.BoxGeometry(PANEL_W, PANEL_H, PANEL_T);
+
+            // Brochure Root Group
+            brochureRoot = new THREE.Group();
+            brochureRoot.position.y = 0.08;
+            scene.add(brochureRoot);
+
+            // CENTER PANEL (x = 0)
+            // +Z = Inside Center (Mug/Lightbulb), -Z = Outside Center (Back Cover)
+            centerMesh = new THREE.Mesh(panelGeo, [
+                edgeMat, edgeMat, edgeMat, edgeMat,
+                faceMaterials.insideCenter,
+                faceMaterials.outsideCenterBackCover
+            ]);
+            centerMesh.castShadow = true;
+            centerMesh.receiveShadow = true;
+            brochureRoot.add(centerMesh);
+
+            // RIGHT PIVOT (x = +W/2) -> holds Right Panel shifted +W/2
+            // +Z = Inside Right (Drops/Juntos), -Z = Outside Left (Inner Flap "+ SUSTENTABILIDADE")
+            rightPivot = new THREE.Group();
+            rightPivot.position.set(PANEL_W / 2, 0, 0);
+            brochureRoot.add(rightPivot);
+
+            rightMesh = new THREE.Mesh(panelGeo, [
+                edgeMat, edgeMat, edgeMat, edgeMat,
+                faceMaterials.insideRight,
+                faceMaterials.outsideLeftInnerFlap
+            ]);
+            rightMesh.position.set(PANEL_W / 2, 0, 0);
+            rightMesh.castShadow = true;
+            rightMesh.receiveShadow = true;
+            rightPivot.add(rightMesh);
+
+            // LEFT PIVOT (x = -W/2) -> holds Left Panel shifted -W/2
+            // +Z = Inside Left ("DICAS:"), -Z = Outside Right (Front Cover "RECICLE REDUZA REUSE")
+            leftPivot = new THREE.Group();
+            leftPivot.position.set(-PANEL_W / 2, 0, 0);
+            brochureRoot.add(leftPivot);
+
+            leftMesh = new THREE.Mesh(panelGeo, [
+                edgeMat, edgeMat, edgeMat, edgeMat,
+                faceMaterials.insideLeft,
+                faceMaterials.outsideRightFrontCover
+            ]);
+            leftMesh.position.set(-PANEL_W / 2, 0, 0);
+            leftMesh.castShadow = true;
+            leftMesh.receiveShadow = true;
+            leftPivot.add(leftMesh);
+
+            // Initial state: Fechado (Front Cover cleanly facing camera)
+            openProgress = 0.0;
+            targetProgress = 0.0;
+            applyBrochureFold(0.0);
+            syncHUD(0.0, 0);
+        }
+
+        // =========================================================================
+        // 4. INTERACTION EVENTS (RAYCASTER CLICK-TO-OPEN, HOVER, HUD, MODAL)
+        // =========================================================================
+        function updatePointerNDC(event) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            pointerNDC.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            pointerNDC.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        }
+
+        function hitTestBrochure(event) {
+            updatePointerNDC(event);
+            raycaster.setFromCamera(pointerNDC, camera);
+            const hits = raycaster.intersectObjects([leftMesh, centerMesh, rightMesh], false);
+            return hits.length > 0;
+        }
+
+        function bindEvents() {
+            const domEl = renderer.domElement;
+
+            // Click-to-open with drag threshold (< 6px so orbiting never triggers clicks)
+            domEl.addEventListener('pointerdown', (e) => {
+                if (e.button !== 0 && e.pointerType === 'mouse') return;
+                pointerDownPos = { x: e.clientX, y: e.clientY };
+            });
+
+            domEl.addEventListener('pointerup', (e) => {
+                if (!pointerDownPos) return;
+                const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+                pointerDownPos = null;
+
+                if (dist < 6 && hitTestBrochure(e)) {
+                    // Cycle smoothly: Fechado (0) -> Meio Aberto (1) -> Aberto 3D (2) -> Fechado (0)
+                    const nextState = currentState === 0 ? 1 : currentState === 1 ? 2 : 0;
+                    setBrochureState(nextState, true);
+                    showToast(STATE_NAMES[nextState]);
+                }
+            });
+
+            // Hover cursor & subtle tactile highlight feedback
+            domEl.addEventListener('pointermove', (e) => {
+                if (e.pointerType !== 'mouse') return;
+                const hit = hitTestBrochure(e);
+                if (hit !== isHoveringBrochure) {
+                    isHoveringBrochure = hit;
+                    domEl.style.cursor = hit ? 'pointer' : 'grab';
+                }
+            });
+
+            // HUD State Buttons
+            stateBtns.forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const idx = Number(btn.dataset.state);
+                    setBrochureState(idx, true);
+                });
+            });
+
+            // Continuous Fold Slider (scrubs staggered choreography directly)
+            foldSlider.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value) / 100;
+                targetProgress = val;
+                // Highlight closest matching preset badge if within 2%
+                let matched = -1;
+                STATE_PROGRESS.forEach((sp, i) => {
+                    if (Math.abs(sp - val) < 0.025) matched = i;
+                });
+                currentState = matched !== -1 ? matched : (val < 0.2 ? 0 : val < 0.55 ? 1 : val < 0.9 ? 2 : 3);
+                syncHUD(val, matched);
+            });
+
+            // Flip Camera (Ver Verso / Ver Frente)
+            btnFlipSide.addEventListener('click', () => {
+                isViewingBack = !isViewingBack;
+                flipSideLabel.textContent = isViewingBack ? 'Ver Frente' : 'Ver Verso';
+                const dist = Math.max(4.6, Math.min(10.0, camera.position.length()));
+                const zSign = isViewingBack ? -1 : 1;
+                const targetPos = new THREE.Vector3(0.25 * zSign, 0.35, dist * zSign);
+                animateCameraTo(targetPos, new THREE.Vector3(0, 0, 0), 0.82);
+                showToast(isViewingBack ? 'Visualizando o verso' : 'Visualizando a frente');
+            });
+
+            // Reset Camera
+            btnResetCam.addEventListener('click', () => {
+                isViewingBack = false;
+                flipSideLabel.textContent = 'Ver Verso';
+                animateCameraTo(getIdealCameraPos(currentState, false), new THREE.Vector3(0, 0, 0), 0.72);
+                showToast('Câmera centralizada');
+            });
+
+            // Responsive Resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Optional Image Upload Modal Controls
+            const modal = document.getElementById('upload-modal');
+            const openModal = () => { modal.classList.remove('hidden'); modal.classList.add('flex'); };
+            const closeModal = () => { modal.classList.add('hidden'); modal.classList.remove('flex'); };
+
+            document.getElementById('btn-open-upload').addEventListener('click', openModal);
+            document.getElementById('btn-close-modal').addEventListener('click', closeModal);
+            document.getElementById('btn-done-modal').addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+
+            /**
+             * Slices an uploaded wide trifold image evenly into 3 vertical 900x1900 textures.
+             */
+            function sliceImageIntoPanels(file, targetMaterialKeys, labelEl) {
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const sliceW = img.width / 3;
+                        const sliceH = img.height;
+
+                        targetMaterialKeys.forEach((key, colIdx) => {
+                            const c = document.createElement('canvas');
+                            c.width = TEX_W;
+                            c.height = TEX_H;
+                            const ctx = c.getContext('2d');
+                            ctx.drawImage(
+                                img,
+                                colIdx * sliceW, 0, sliceW, sliceH,
+                                0, 0, TEX_W, TEX_H
+                            );
+
+                            const newTex = new THREE.CanvasTexture(c);
+                            newTex.colorSpace = THREE.SRGBColorSpace;
+                            newTex.anisotropy = maxAnisotropy;
+                            newTex.needsUpdate = true;
+
+                            const mat = faceMaterials[key];
+                            if (mat.map) mat.map.dispose();
+                            mat.map = newTex;
+                            mat.needsUpdate = true;
+                        });
+
+                        labelEl.textContent = `Carregado: ${file.name}`;
+                        showToast('Textura aplicada nos 3 painéis!');
+                    };
+                    img.src = ev.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            document.getElementById('input-inside-img').addEventListener('change', (e) => {
+                sliceImageIntoPanels(
+                    e.target.files[0],
+                    ['insideLeft', 'insideCenter', 'insideRight'],
+                    document.getElementById('inside-file-name')
+                );
+            });
+
+            document.getElementById('input-outside-img').addEventListener('change', (e) => {
+                // Physical trifold imposition: Outside Left -> Inner Flap, Outside Center -> Back Cover, Outside Right -> Front Cover
+                sliceImageIntoPanels(
+                    e.target.files[0],
+                    ['outsideLeftInnerFlap', 'outsideCenterBackCover', 'outsideRightFrontCover'],
+                    document.getElementById('outside-file-name')
+                );
+            });
+
+            document.getElementById('btn-restore-default').addEventListener('click', () => {
+                Object.keys(defaultPainters).forEach((key) => {
+                    const mat = faceMaterials[key];
+                    if (mat.map) mat.map.dispose();
+                    mat.map = createPanelTexture(defaultPainters[key], maxAnisotropy).tex;
+                    mat.needsUpdate = true;
+                });
+                document.getElementById('inside-file-name').textContent = 'Arte vetorial HD ativa — clique para enviar JPEG/PNG';
+                document.getElementById('outside-file-name').textContent = 'Arte vetorial HD ativa — clique para enviar JPEG/PNG';
+                document.getElementById('input-inside-img').value = '';
+                document.getElementById('input-outside-img').value = '';
+                showToast('Arte original restaurada!');
+            });
+        }
+
+        // =========================================================================
+        // 5. ANIMATION LOOP & BOOTSTRAP
+        // =========================================================================
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const dt = Math.min(clock.getDelta(), 0.05);
+            const elapsed = clock.elapsedTime;
+
+            // Smoothly interpolate fold progress toward targetProgress
+            if (Math.abs(targetProgress - openProgress) > 0.0004) {
+                const speed = 5.4;
+                openProgress += (targetProgress - openProgress) * Math.min(1, dt * speed);
+                if (Math.abs(targetProgress - openProgress) <= 0.0005) {
+                    openProgress = targetProgress;
+                }
+                applyBrochureFold(openProgress);
+            }
+
+            // Subtle living studio float + hover elevation
+            const hoverLift = isHoveringBrochure ? 0.045 : 0.0;
+            const targetY = 0.08 + Math.sin(elapsed * 1.45) * 0.028 + hoverLift;
+            brochureRoot.position.y += (targetY - brochureRoot.position.y) * Math.min(1, dt * 6);
+
+            // Update camera framing animation if active
+            if (camAnim.active) {
+                camAnim.elapsed += dt;
+                const t = Math.min(1, camAnim.elapsed / camAnim.duration);
+                const eased = 1 - Math.pow(1 - t, 3); // Cubic ease-out
+                camera.position.lerpVectors(camAnim.startPos, camAnim.endPos, eased);
+                controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, eased);
+                if (t >= 1) camAnim.active = false;
+            }
+
+            // Keep "Ver Verso / Ver Frente" button synced with manual OrbitControls rotation
+            const currentlyBehind = camera.position.z < -0.5;
+            if (currentlyBehind !== isViewingBack && !camAnim.active) {
+                isViewingBack = currentlyBehind;
+                flipSideLabel.textContent = isViewingBack ? 'Ver Frente' : 'Ver Verso';
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        /**
+         * Wait for Google Fonts to load before painting high-resolution Canvas 2D textures.
+         */
+        async function bootstrap() {
+            try {
+                await Promise.all([
+                    document.fonts.load('700 48px "Barlow Condensed"'),
+                    document.fonts.load('800 48px "Barlow Condensed"'),
+                    document.fonts.load('400 32px "Poppins"'),
+                    document.fonts.load('700 32px "Poppins"'),
+                    document.fonts.ready
+                ]);
+            } catch (err) {
+                console.warn('Font preload fallback:', err);
+            }
+
+            try {
+                initScene();
+                bindEvents();
+                animate();
+            } catch (err) {
+                console.error('Erro ao iniciar visualizador 3D:', err);
+                showToast('Erro ao carregar WebGL neste navegador.');
+            } finally {
+                setTimeout(() => {
+                    loaderOverlay.classList.add('hidden-loader');
+                }, 180);
+            }
+        }
+
+        window.addEventListener('load', bootstrap);
+    </script>
+    <script src="./ecosystem-nav.js" defer data-page="folder.html" data-theme="light" data-pos="folder"></script>
+</body>
+
+</html>
