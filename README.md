@@ -74,9 +74,9 @@ Simulador interativo passo a passo:
 
 ---
 
-## 🌐 Ecossistema Conectado em 7 Ambientes (`ecosystem-nav.js`)
+## 🌐 Ecossistema Conectado em 8 Ambientes (`ecosystem-nav.js`)
 
-O script universal `ecosystem-nav.js` (Web Component em Shadow DOM isolado) conecta os 7 ambientes do projeto através de um **dock fixo no canto inferior direito em posição única invariante** (tanto no desktop quanto no celular) e com **paleta adaptativa automática por página (`PAGE_THEMES`)**:
+O script universal `ecosystem-nav.js` (Web Component em Shadow DOM isolado) conecta os 8 ambientes do projeto através de um **dock fixo no canto inferior direito em posição única invariante** (tanto no desktop quanto no celular) e com **paleta adaptativa automática por página (`PAGE_THEMES`)**:
 
 1. **`index.html` — Portal Principal UFPA** (*Tactical Biotech* • `#FACC15`)
 2. **`dna.html` — Dupla-Hélice B-DNA 3D** (*Molecular Cyan/Emerald* • `#22D3EE`) — visualização estrutural com os modos **Montada** e **Explodida**, filtros por componente e inspeção por raycasting.
@@ -85,12 +85,21 @@ O script universal `ecosystem-nav.js` (Web Component em Shadow DOM isolado) cone
 5. **`folder.html` — Folder 3D Sustentabilidade** (*Editorial Forest & Sage Light* • `#245526`) — folheto dobrável frente e verso com controle contínuo e upload de artes.
 6. **`mistery.html` — Arquivo Confidencial** (*Noir Brass & Manila* • `#C99E32`) — jogo de investigação criminal com dossiês, interrogatórios, mural de fios e veredito.
 7. **`natal.html` (& `rvore_de_natal_3d_ascii.html`) — Noite Natalina & Árvore 3D ASCII** (*Glacial Night & Starlight Gold* • `#38BDF8` / `#FACC15`) — cena natalina 2D reativa ao vento e **Easter Egg de 5 toques seguidos na estrela da árvore**, ativando a transição cinematográfica para a **Árvore de Natal 3D Volumétrica ASCII (`FELIZ NATAL 2026`)**.
+8. **`qeop.html` — DNA Forense 3D: Mistérios Genéticos** (*Espectroscopia UV-Violeta* • `#C084FC`) — jogo com 9 estudos de caso reais (STR autossômico, cromossomos X/Y, DNA felino e mtDNA de 12 bases), rascunho investigativo tátil, cena 3D reativa e síntese sonora procedural.
 
 ---
 
 ## 📂 Estrutura de Arquivos
 
 ```text
+ev/
+├── .github/
+│   └── workflows/
+│       └── ci.yml               # Validação automática de sintaxe JS e links relativos
+├── .editorconfig                # Padrão de codificação (UTF-8, LF e indentação)
+├── .gitattributes               # Normalização de quebras de linha e binários para Git
+├── .gitignore                   # Exclusão de arquivos locais, logs e skills externas
+├── .nojekyll                    # Compatibilidade direta com GitHub Pages (sem Jekyll)
 ├── index.html                   # Portal principal autocontido (6 módulos + SVG memory cards)
 ├── src/
 │   └── App.jsx                  # Código-fonte modular React sincronizado 100% com o index.html
@@ -100,11 +109,15 @@ O script universal `ecosystem-nav.js` (Web Component em Shadow DOM isolado) cone
 ├── banner.html                  # Banner Roll-Up 3D UFPA com tripé corrigido e intro DNA
 ├── folder.html                  # Folder 3D dobrável frente e verso
 ├── mistery.html                 # Jogo Noir Arquivo Confidencial (+ mistery-*.js e MISTERY-DESIGN.md)
+├── qeop.html                    # Jogo DNA Forense 3D — Mistérios Genéticos (STR, X/Y, mtDNA + Three.js)
 ├── natal.html                   # Vila Natalina 2D ASCII + Modo 3D 2026 (Easter Egg na estrela)
 ├── rvore_de_natal_3d_ascii.html # Experiência standalone da Árvore 3D ASCII integrada ao ecossistema
 ├── DESIGN.md                    # Documentação do Design System do Portal & Ecossistema
 ├── MISTERY-DESIGN.md            # Contrato visual e de áudio do Arquivo Confidencial
+├── QEOP-DESIGN.md               # Contrato visual, 3D, áudio e game feel do DNA Forense 3D
 ├── DNA E DIAGNÓSTICO BIOTEC...  # Pôster acadêmico oficial da extensão UFPA (alta resolução)
+├── qrcode-biotec-red.png        # QR Code para acesso rápido em dispositivos móveis
+├── qrcode-biotec-red.svg        # Vetor SVG do QR Code
 └── README.md                    # Documentação técnica e científica do projeto
 ```
 
@@ -121,6 +134,11 @@ npx serve .
 # ou
 python -m http.server 8000
 ```
+
+### Opção 3: Publicação no GitHub Pages
+1. Suba o repositório para o GitHub na branch `main`.
+2. Em **Settings → Pages**, selecione **Deploy from a branch** → branch `main` → pasta `/ (root)`.
+3. O arquivo `.nojekyll` garante o carregamento direto de todas as páginas e assets estáticos.
 
 ---
 

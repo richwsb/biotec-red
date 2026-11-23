@@ -1,7 +1,7 @@
 ---
 version: 2.1.0
 name: Extensao-Biotecnologia-Vermelha-UFPA
-description: Sistema de Design Tático-Científico e Biomolecular para a plataforma educacional interativa "Extensão Biotecnologia Vermelha" (UFPA / ICB / FABIOTEC) e seu ecossistema conectado em 7 ambientes (Portal UFPA, B-DNA 3D, BioForense 3D, Banner 3D, Folder 3D, Arquivo Confidencial e Cena Natalina ASCII 2D/3D). Combina fundo escuro de alto contraste com paletas autorais por ambiente, tipografia técnica (Space Grotesk, Inter, JetBrains Mono), arquitetura multipage em 6 módulos e ilustrações vetoriais em SVG.
+description: Sistema de Design Tático-Científico e Biomolecular para a plataforma educacional interativa "Extensão Biotecnologia Vermelha" (UFPA / ICB / FABIOTEC) e seu ecossistema conectado em 8 ambientes (Portal UFPA, B-DNA 3D, BioForense 3D, Banner 3D, Folder 3D, Arquivo Confidencial, Cena Natalina ASCII 2D/3D e DNA Forense 3D — Mistérios Genéticos). Combina fundo escuro de alto contraste com paletas autorais por ambiente, tipografia técnica (Space Grotesk, Inter, JetBrains Mono), arquitetura multipage em 6 módulos e ilustrações vetoriais em SVG.
 
 colors:
   primary: "#FACC15"
@@ -91,12 +91,12 @@ Nos Módulos 1, 2 e 3, cada conceito teórico é apresentado em **cards modulare
 
 ## 3. Ecossistema Conectado (`ecosystem-nav.js`): Posição Invariante & Paletas Adaptativas
 
-O componente Web Component `<biotec-ecosystem-nav>` (Shadow DOM isolado) unifica os **7 ambientes** da extensão com **memória muscular preservada** e **identidade cromática contextual**:
+O componente Web Component `<biotec-ecosystem-nav>` (Shadow DOM isolado) unifica os **8 ambientes** da extensão com **memória muscular preservada** e **identidade cromática contextual**:
 
 - **Posição Canônica Única e Invariante:** `.eco-dock` ancorado sempre no **canto inferior direito**:
   - Desktop: `bottom: calc(16px + env(safe-area-inset-bottom, 0px)); right: calc(16px + env(safe-area-inset-right, 0px));`
   - Mobile (`<= 640px`): `bottom: calc(12px + env(safe-area-inset-bottom, 0px)); right: calc(12px + env(safe-area-inset-right, 0px));` (alvos de toque `>= 44px`).
-- **Regra de Zero Colisão:** todos os HUDs locais (`dna.html`, `pcr.html`, `banner.html`, `folder.html`, `mistery.html`, `natal.html`) reservam o quadrante inferior direito via espaçamento responsivo dedicado.
+- **Regra de Zero Colisão:** todos os HUDs locais (`dna.html`, `pcr.html`, `banner.html`, `folder.html`, `mistery.html`, `natal.html`, `qeop.html`) reservam o quadrante inferior direito via espaçamento responsivo dedicado.
 - **Paletas Sincronizadas (`PAGE_THEMES` via CSS Custom Properties `--eco-*`):**
 
 | Ambiente | Identidade | Superfície Dock (`--eco-bg`) | Borda (`--eco-border`) | Acento Primário (`--eco-accent`) | Hover (`--eco-accent-hover`) | Contraste no Botão |
@@ -108,3 +108,4 @@ O componente Web Component `<biotec-ecosystem-nav>` (Shadow DOM isolado) unifica
 | `folder.html` | Editorial Forest & Sage Light | `rgba(252, 254, 252, 0.88)` | `rgba(36, 85, 38, 0.28)` | `#245526` | `#1B411D` | `#FFFFFF` |
 | `mistery.html` | Noir Brass & Manila (`MISTERY-DESIGN.md`) | `rgba(26, 22, 18, 0.90)` | `rgba(201, 158, 50, 0.42)` | `#C99E32` | `#E7C873` | `#120F0D` |
 | `natal.html` / `rvore_de_natal_3d_ascii.html` | Glacial Night & Starlight Gold (2D + 3D) | `rgba(6, 11, 20, 0.84)` | `rgba(56, 189, 248, 0.35)` | `#38BDF8` (+ `#FACC15`) | `#7DD3FC` | `#04070D` |
+| `qeop.html` | Espectroscopia UV Forense (`QEOP-DESIGN.md`) | `rgba(17, 9, 34, 0.90)` | `rgba(192, 132, 252, 0.40)` | `#C084FC` (+ `#E879F9`) | `#E879F9` | `#080410` |

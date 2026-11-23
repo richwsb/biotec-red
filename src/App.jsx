@@ -231,6 +231,20 @@ const ECOSYSTEM_APPS = [
     accentBadge: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
     description: 'Experiência visual em arte ASCII em tempo real com neve reativa, vila natalina 2D e modo 3D Volumétrico 2026.',
   },
+  {
+    id: 'qeop',
+    code: 'EXP 07',
+    file: 'qeop.html',
+    href: './qeop.html',
+    title: 'DNA Forense 3D — Mistérios Genéticos',
+    shortLabel: 'Mistérios DNA',
+    tag: 'JOGO FORENSE 3D',
+    accentBorder: 'hover:border-purple-400',
+    accentBar: 'bg-purple-400',
+    accentText: 'text-purple-400',
+    accentBadge: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
+    description: 'Desvende 9 estudos de caso reais (STR autossômico, cromossomos X/Y, DNA felino e mtDNA de 12 bases) sobre dupla-hélice 3D UV-violeta.',
+  },
 ];
 
 function openEcosystemHub() {
@@ -2198,7 +2212,7 @@ function Module1DNAView({ onSelectModule }) {
               onClick={openEcosystemHub}
               className="px-5 py-3 bg-zinc-950 hover:border-cyan-400 hover:text-cyan-300 border border-cyan-500/40 text-cyan-300 font-mono uppercase font-semibold text-xs tracking-[0.1em] transition-[border-color,color] duration-200"
             >
-              ◈ ECOSSISTEMA 3D (6 APPS)
+              ◈ ECOSSISTEMA 3D (7 APPS)
             </button>
           </div>
 
@@ -2217,9 +2231,9 @@ function Module1DNAView({ onSelectModule }) {
               </div>
             </div>
             <div className="p-2.5 sm:p-3.5 min-w-0">
-              <div className="text-sm sm:text-2xl font-display font-bold text-cyan-400">7 APPS</div>
+              <div className="text-sm sm:text-2xl font-display font-bold text-cyan-400">8 APPS</div>
               <div className="text-[9px] sm:text-[10px] font-mono uppercase tracking-[0.06em] sm:tracking-[0.1em] text-zinc-400 mt-0.5">
-                Portal + 6 Extras
+                Portal + 7 Extras
               </div>
             </div>
           </div>
@@ -5468,23 +5482,42 @@ function GamesHubModule({ badges, onCompletePairing, onWinMemory, onCompleteQuiz
         })}
       </div>
 
-      {/* Ponte para o Jogo Investigativo Completo do Ecossistema */}
-      <a
-        href="./mistery.html"
-        className="mb-8 p-4 bg-zinc-950 border border-amber-500/40 hover:border-amber-400 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
-      >
-        <div className="flex items-start sm:items-center gap-3">
-          <span className="px-2.5 py-1 bg-amber-500/15 border border-amber-400/40 text-amber-300 font-mono text-[10px] font-bold uppercase tracking-[0.14em] shrink-0">
-            JOGO DO ECOSSISTEMA
+      {/* Pontes para os Jogos do Ecossistema */}
+      <div className="grid md:grid-cols-2 gap-3 mb-8">
+        <a
+          href="./mistery.html"
+          className="p-4 bg-zinc-950 border border-amber-500/40 hover:border-amber-400 transition-colors flex flex-col justify-between gap-3 group"
+        >
+          <div className="space-y-1.5">
+            <span className="inline-block px-2.5 py-1 bg-amber-500/15 border border-amber-400/40 text-amber-300 font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+              EXP 05 • INVESTIGAÇÃO NOIR COMPLETA
+            </span>
+            <p className="text-xs sm:text-sm font-sans text-zinc-200 leading-relaxed">
+              <strong className="text-amber-300">Arquivo Confidencial:</strong> Dossiês criminais completos com interrogatórios, evidências físicas, mural de fios e quadro de acusação final.
+            </p>
+          </div>
+          <span className="px-3.5 py-2 bg-amber-400 group-hover:bg-amber-300 text-black font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-center">
+            JOGAR ARQUIVO CONFIDENCIAL ↗
           </span>
-          <span className="text-xs sm:text-sm font-sans text-zinc-200">
-            <strong className="text-amber-300">Arquivo Confidencial:</strong> Assuma um dossiê completo de investigação criminal com interrogatórios, evidências, caderno do detetive e acusação final.
+        </a>
+
+        <a
+          href="./qeop.html"
+          className="p-4 bg-zinc-950 border border-purple-500/40 hover:border-purple-400 transition-colors flex flex-col justify-between gap-3 group"
+        >
+          <div className="space-y-1.5">
+            <span className="inline-block px-2.5 py-1 bg-purple-500/15 border border-purple-400/40 text-purple-300 font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+              EXP 07 • CASOS GENÉTICOS RÁPIDOS EM 3D
+            </span>
+            <p className="text-xs sm:text-sm font-sans text-zinc-200 leading-relaxed">
+              <strong className="text-purple-300">DNA Forense 3D — Mistérios Genéticos:</strong> Compare alelos STR, cromossomos X/Y e sequências mtDNA de 12 bases em 9 casos rápidos com hélice 3D reativa.
+            </p>
+          </div>
+          <span className="px-3.5 py-2 bg-purple-400 group-hover:bg-purple-300 text-black font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-center">
+            JOGAR DNA FORENSE 3D ↗
           </span>
-        </div>
-        <span className="px-3.5 py-2 bg-amber-400 group-hover:bg-amber-300 text-black font-mono text-[11px] font-bold uppercase tracking-[0.1em] shrink-0 text-center">
-          JOGAR ARQUIVO CONFIDENCIAL ↗
-        </span>
-      </a>
+        </a>
+      </div>
 
       {/* Renderização do Jogo Ativo */}
       {activeGame === 'pairing' && <MolecularPairingLab onCompleteMission={onCompletePairing} />}
@@ -5965,6 +5998,14 @@ function EcosystemAppIcon({ id }) {
           <path d="M8 11h6" />
         </svg>
       );
+    case 'qeop':
+      return (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 3h6" />
+          <path d="M10 3v5l-4.5 9A2 2 0 0 0 7.3 20h9.4a2 2 0 0 0 1.8-3L14 8V3" />
+          <circle cx="12" cy="14" r="2" />
+        </svg>
+      );
     default:
       return (
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -5988,7 +6029,7 @@ function EcosystemShowcaseSection() {
           <div>
             <div className="inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.16em] text-yellow-400 mb-2">
               <span className="w-2 h-2 bg-yellow-400"></span>
-              <span>ECOSSISTEMA INTERATIVO // 6 EXPERIÊNCIAS CONECTADAS</span>
+              <span>ECOSSISTEMA INTERATIVO // 7 EXPERIÊNCIAS CONECTADAS</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-display font-bold tracking-[-0.02em] text-zinc-100">
               Ambientes 3D, Laboratório &amp; Experiências Especiais
@@ -6251,7 +6292,7 @@ export default function App() {
               <div className="pt-3 border-t border-zinc-800">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-cyan-400">
-                    ECOSSISTEMA INTERATIVO // 6 EXPERIÊNCIAS STANDALONE
+                    ECOSSISTEMA INTERATIVO // 7 EXPERIÊNCIAS STANDALONE
                   </span>
                   <button
                     type="button"
@@ -6301,7 +6342,7 @@ export default function App() {
                   }}
                   className="w-full sm:w-auto px-4 py-2.5 text-xs font-mono font-bold uppercase tracking-[0.12em] text-cyan-300 bg-zinc-950 border border-cyan-500/50 hover:border-cyan-400 transition-colors"
                 >
-                  ◈ MAPA DO ECOSSISTEMA (7 AMBIENTES)
+                  ◈ MAPA DO ECOSSISTEMA (8 AMBIENTES)
                 </button>
               </div>
             </div>

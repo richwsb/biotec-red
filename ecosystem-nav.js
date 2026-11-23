@@ -107,6 +107,20 @@
       icon:
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 9 22 9.5 16.5 14 18.2 21 12 17.2 5.8 21 7.5 14 2 9.5 9 9 12 2"/></svg>',
     },
+    {
+      id: 'qeop',
+      file: 'qeop.html',
+      code: 'EXP 07',
+      title: 'DNA Forense 3D — Mistérios Genéticos',
+      shortTitle: 'Mistérios DNA',
+      category: 'interativo',
+      categoryLabel: 'Jogo Forense 3D',
+      accent: '#C084FC',
+      description:
+        'Desvende 9 mistérios genéticos reais (STR autossômico, cromossomos X/Y, DNA felino e mtDNA de 12 bases) sobre cena 3D UV-violeta reativa.',
+      icon:
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v5l-4.5 9A2 2 0 0 0 7.3 20h9.4a2 2 0 0 0 1.8-3L14 8V3"/><circle cx="12" cy="14" r="2"/></svg>',
+    },
   ];
 
   const PAGE_THEMES = {
@@ -277,6 +291,30 @@
       dialogMuted: '#94A3B8',
       cardHover: '#101D33',
       seenColor: '#34D399',
+    },
+    'qeop.html': {
+      colorScheme: 'dark',
+      bg: 'rgba(17, 9, 34, 0.90)',
+      border: 'rgba(192, 132, 252, 0.40)',
+      borderHover: 'rgba(232, 121, 249, 0.82)',
+      text: '#F5F0FF',
+      textMuted: '#D2C2EC',
+      sep: 'rgba(196, 152, 255, 0.22)',
+      pillHover: 'rgba(168, 85, 247, 0.18)',
+      accent: '#C084FC',
+      accentHover: '#E879F9',
+      accentContrast: '#080410',
+      accentSecondary: '#E879F9',
+      chipBg: 'rgba(8, 4, 16, 0.26)',
+      shadow: '0 12px 32px rgba(4, 1, 10, 0.68), 0 0 0 1px rgba(192, 132, 252, 0.10) inset',
+      dialogBg: '#080410',
+      dialogSurface: '#110922',
+      dialogSurfaceAlt: '#0B0617',
+      dialogBorder: '#36215E',
+      dialogText: '#F5F0FF',
+      dialogMuted: '#D2C2EC',
+      cardHover: '#190E31',
+      seenColor: '#5EEAD4',
     },
   };
 
@@ -1223,7 +1261,7 @@
             </svg>
             ${theme.accentSecondary !== theme.accent ? '<span class="eco-star-dot" aria-hidden="true"></span>' : ''}
             <span>Ecossistema</span>
-            <span class="eco-count-chip eco-hide-xs">${isHome ? '6 APPS' : `${curIdx}/${ECOSYSTEM_PAGES.length - 1}`}</span>
+            <span class="eco-count-chip eco-hide-xs">${isHome ? `${ECOSYSTEM_PAGES.length - 1} APPS` : `${curIdx}/${ECOSYSTEM_PAGES.length - 1}`}</span>
           </button>
         </nav>
 
@@ -1249,16 +1287,16 @@
           <div class="eco-toolbar">
             <div class="eco-filters" role="group" aria-label="Filtrar experiências do ecossistema">
               <button type="button" class="eco-filter-btn is-active" data-filter-cat="all" aria-pressed="true">
-                Todos (7)
+                Todos (${ECOSYSTEM_PAGES.length})
               </button>
               <button type="button" class="eco-filter-btn" data-filter-cat="portal" aria-pressed="false">
-                Portal (1)
+                Portal (${ECOSYSTEM_PAGES.filter((p) => p.category === 'portal').length})
               </button>
               <button type="button" class="eco-filter-btn" data-filter-cat="3d" aria-pressed="false">
-                Experiências 3D (4)
+                Experiências 3D (${ECOSYSTEM_PAGES.filter((p) => p.category === '3d').length})
               </button>
               <button type="button" class="eco-filter-btn" data-filter-cat="interativo" aria-pressed="false">
-                Jogos &amp; Arte (2)
+                Jogos &amp; Arte (${ECOSYSTEM_PAGES.filter((p) => p.category === 'interativo').length})
               </button>
             </div>
 

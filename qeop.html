@@ -1,0 +1,4320 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#080410" />
+  <title>DNA Forense 3D — Mistérios Genéticos | Extensão UFPA</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23110922' stroke='%23a855f7' stroke-width='2'/><path d='M9 7c5 0 5 18 14 18M9 25c5 0 5-18 14-18M12 11h8M12 21h8' stroke='%23e879f9' stroke-width='2' fill='none' stroke-linecap='round'/></svg>" />
+
+  <!-- Tipografia Científica Alinhada ao Ecossistema UFPA -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+
+  <!-- Three.js r128 (pinado para estabilidade offline-friendly) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <style>
+    /* ============================================================
+       QEOP-DESIGN.md — ESPECTROSCOPIA UV & ELETROFORESE FORENSE
+       ============================================================ */
+    :root {
+      color-scheme: dark;
+
+      /* Superfícies Tonais (Profundidade sem glassmorphism genérico) */
+      --bg-abyss: #080410;
+      --surface-bench: #110922;
+      --surface-tray: #190e31;
+      --surface-gel: #0b0617;
+      --surface-hover: #241446;
+      --surface-hud: rgba(17, 9, 34, 0.92);
+
+      /* Hairlines e Sombras Reais */
+      --hairline: rgba(196, 152, 255, 0.22);
+      --hairline-strong: rgba(226, 194, 255, 0.44);
+      --shadow-bench: 0 18px 44px rgba(4, 1, 10, 0.68), 0 2px 8px rgba(4, 1, 10, 0.45);
+      --shadow-card: 0 6px 18px rgba(4, 1, 10, 0.42);
+
+      /* Texto de Alto Contraste (WCAG AA/AAA) */
+      --text-primary: #f5f0ff;
+      --text-secondary: #d2c2ec;
+      --text-muted: #b39ddb;
+
+      /* Acentos UV-Violeta */
+      --accent-primary: #a855f7;
+      --accent-bright: #e879f9;
+      --accent-cta: #7c3aed;
+      --accent-cta-hover: #6d28d9;
+      --focus-ring: #f0abfc;
+
+      /* Bases Nitrogenadas (Contraste > 7:1 sobre --surface-gel) */
+      --base-A: #5eead4;
+      --base-T: #f472b6;
+      --base-C: #93c5fd;
+      --base-G: #fcd34d;
+
+      /* Estados Semânticos */
+      --state-match: #5eead4;
+      --state-match-bg: rgba(13, 62, 58, 0.52);
+      --state-match-border: rgba(94, 234, 212, 0.72);
+      --state-mismatch: #fb7185;
+      --state-mismatch-bg: rgba(78, 16, 40, 0.54);
+      --state-mismatch-border: rgba(251, 113, 133, 0.72);
+      --state-pinned: #f0abfc;
+      --state-pinned-bg: rgba(74, 24, 104, 0.52);
+      --state-pinned-border: rgba(240, 171, 252, 0.78);
+
+      /* Tipografia e Ritmo */
+      --font-display: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --hud-clearance: 84px;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    ::selection {
+      background: rgba(168, 85, 247, 0.42);
+      color: var(--text-primary);
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    html {
+      min-height: 100%;
+      scroll-padding-top: var(--hud-clearance);
+      scrollbar-width: thin;
+      scrollbar-color: #5b319c var(--bg-abyss);
+    }
+
+    body {
+      min-height: 100dvh;
+      background:
+        radial-gradient(ellipse 68% 45% at 15% 10%, rgba(124, 58, 237, 0.16), transparent 60%),
+        radial-gradient(ellipse 58% 45% at 85% 88%, rgba(232, 121, 249, 0.11), transparent 60%),
+        var(--bg-abyss);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 1rem;
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2, h3, h4 {
+      font-family: var(--font-display);
+      text-wrap: balance;
+      letter-spacing: -0.02em;
+    }
+
+    p {
+      text-wrap: pretty;
+    }
+
+    button {
+      font-family: inherit;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    .tabular {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .skip-link {
+      position: fixed;
+      top: -100px;
+      left: 1rem;
+      z-index: 200;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 1rem;
+      border-radius: 0.75rem;
+      background: var(--accent-cta);
+      color: #ffffff;
+      border: 1px solid var(--focus-ring);
+      font-family: var(--font-mono);
+      font-size: 0.8125rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: top 0.15s var(--ease-out);
+    }
+
+    .skip-link:focus {
+      top: 1rem;
+    }
+
+    /* ============================================================
+       CENÁRIO 3D DE FUNDO & VINHETA DE LEGIBILIDADE
+       ============================================================ */
+    #three-bg-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    #three-bg-container canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .uv-vignette {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(8, 4, 16, 0.22) 0%, rgba(8, 4, 16, 0.76) 100%);
+    }
+
+    /* ============================================================
+       CAMADA PRINCIPAL & RESERVA ANTI-COLISÃO PARA .eco-dock
+       ============================================================ */
+    #ui-layer {
+      position: relative;
+      z-index: 10;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      /* Folga segura no canto inferior direito para o dock de ecosystem-nav.js */
+      padding-bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* ============================================================
+       HUD SUPERIOR STICKY
+       ============================================================ */
+    .game-hud {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      width: 100%;
+      padding: calc(0.65rem + env(safe-area-inset-top, 0px)) 0.75rem 0.5rem;
+    }
+
+    .hud-shell {
+      max-width: 52rem;
+      margin: 0 auto;
+      background: var(--surface-hud);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--hairline);
+      border-radius: 1rem;
+      padding: 0.5rem 0.75rem;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+    }
+
+    .hud-brand-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.625rem;
+      min-height: 44px;
+      padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+      border-radius: 0.75rem;
+      background: transparent;
+      border: 1px solid transparent;
+      text-align: left;
+      transition: background-color 0.16s ease, border-color 0.16s ease;
+    }
+
+    .hud-brand-btn:hover {
+      background: var(--surface-tray);
+      border-color: var(--hairline);
+    }
+
+    .hud-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 0.625rem;
+      background: var(--surface-tray);
+      border: 1px solid var(--hairline-strong);
+      color: var(--accent-bright);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .hud-brand-title {
+      font-family: var(--font-display);
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.15;
+    }
+
+    .hud-brand-sub {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      line-height: 1.2;
+    }
+
+    .hud-progress-area {
+      flex: 1 1 200px;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .hud-progress-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .hud-counter {
+      color: var(--text-secondary);
+    }
+
+    .hud-stats {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .hud-score {
+      color: var(--state-match);
+    }
+
+    .hud-streak {
+      color: var(--accent-bright);
+    }
+
+    .hud-bar-track {
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--surface-gel);
+      border: 1px solid var(--hairline);
+      overflow: hidden;
+    }
+
+    .hud-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent-cta) 0%, var(--accent-primary) 55%, var(--accent-bright) 100%);
+      transition: width 0.35s var(--ease-out);
+    }
+
+    .hud-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+
+    .hud-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      min-height: 44px;
+      min-width: 44px;
+      padding: 0 0.75rem;
+      border-radius: 0.75rem;
+      background: var(--surface-tray);
+      border: 1px solid var(--hairline);
+      color: var(--text-primary);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      transition: background-color 0.16s ease, border-color 0.16s ease, transform 0.12s ease;
+    }
+
+    .hud-btn:hover {
+      background: var(--surface-hover);
+      border-color: var(--hairline-strong);
+    }
+
+    .hud-btn:active {
+      transform: scale(0.97);
+    }
+
+    .hud-btn[aria-pressed="true"] {
+      background: var(--state-pinned-bg);
+      border-color: var(--state-pinned-border);
+      color: var(--state-pinned);
+    }
+
+    .hud-btn-icon-only {
+      padding: 0;
+      width: 44px;
+    }
+
+    .hud-btn svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      color: var(--accent-bright);
+    }
+
+    .hud-btn.is-muted svg {
+      color: var(--text-muted);
+    }
+
+    /* ============================================================
+       ÁREA PRINCIPAL E SUPERFÍCIES DE BANCADA
+       ============================================================ */
+    .main-stage {
+      flex: 1;
+      width: 100%;
+      padding: 0.75rem 0.75rem 1.5rem;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+    }
+
+    @media (min-width: 640px) {
+      .main-stage {
+        padding: 1.25rem 1.25rem 2rem;
+        align-items: center;
+      }
+    }
+
+    .bench-panel {
+      width: 100%;
+      max-width: 52rem;
+      background: var(--surface-bench);
+      border: 1px solid var(--hairline);
+      border-radius: 1.25rem;
+      padding: 1.25rem;
+      box-shadow: var(--shadow-bench);
+    }
+
+    .bench-panel--narrow {
+      max-width: 44rem;
+    }
+
+    @media (min-width: 640px) {
+      .bench-panel {
+        padding: 1.75rem 2rem;
+      }
+    }
+
+    /* Botões Principais e Secundários */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.55rem;
+      min-height: 48px;
+      padding: 0.75rem 1.35rem;
+      border-radius: 0.875rem;
+      border: 1px solid rgba(232, 121, 249, 0.45);
+      background: var(--accent-cta);
+      color: #ffffff;
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+      box-shadow: 0 8px 22px rgba(124, 58, 237, 0.36);
+      transition: background-color 0.16s ease, transform 0.14s var(--ease-out), box-shadow 0.16s ease;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-cta-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 10px 26px rgba(124, 58, 237, 0.46);
+    }
+
+    .btn-primary:active:not(:disabled) {
+      transform: translateY(0) scale(0.985);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      min-height: 44px;
+      padding: 0.625rem 1.1rem;
+      border-radius: 0.875rem;
+      background: var(--surface-tray);
+      border: 1px solid var(--hairline);
+      color: var(--text-primary);
+      font-size: 0.875rem;
+      font-weight: 600;
+      transition: background-color 0.16s ease, border-color 0.16s ease, transform 0.12s ease;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--surface-hover);
+      border-color: var(--hairline-strong);
+    }
+
+    .btn-secondary:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      min-height: 44px;
+      padding: 0.5rem 0.9rem;
+      border-radius: 0.75rem;
+      background: transparent;
+      border: 1px solid var(--hairline);
+      color: var(--text-secondary);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+    }
+
+    .btn-ghost:hover:not(:disabled) {
+      background: var(--surface-tray);
+      color: var(--text-primary);
+      border-color: var(--hairline-strong);
+    }
+
+    /* ============================================================
+       TELA 1: INÍCIO ENXUTO (SEM MURO DE CARDS ANINHADOS)
+       ============================================================ */
+    .start-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 1.35rem;
+    }
+
+    .start-meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.65rem;
+    }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      background: var(--surface-tray);
+      border: 1px solid var(--hairline);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-bright);
+      flex-shrink: 0;
+    }
+
+    .start-title {
+      font-size: clamp(1.65rem, 4vw, 2.35rem);
+      font-weight: 700;
+      line-height: 1.12;
+      color: var(--text-primary);
+    }
+
+    .start-subtitle {
+      display: block;
+      margin-top: 0.25rem;
+      font-size: clamp(1.05rem, 2.2vw, 1.3rem);
+      font-weight: 600;
+      color: var(--accent-bright);
+    }
+
+    .start-lead {
+      font-size: 0.96875rem;
+      line-height: 1.62;
+      color: var(--text-secondary);
+      max-width: 64ch;
+    }
+
+    .start-lead strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    /* Legenda Compacta das 4 Bases (faixa plana, sem aninhamento pesado) */
+    .base-key-strip {
+      border-top: 1px solid var(--hairline);
+      border-bottom: 1px solid var(--hairline);
+      padding: 0.9rem 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .base-key-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .base-key-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.5rem;
+    }
+
+    @media (min-width: 640px) {
+      .base-key-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+
+    .base-key-item {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.5rem 0.65rem;
+      border-radius: 0.75rem;
+      background: var(--surface-gel);
+      border: 1px solid var(--hairline);
+    }
+
+    .base-glyph {
+      width: 32px;
+      height: 32px;
+      border-radius: 0.5rem;
+      display: grid;
+      place-items: center;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 1rem;
+      background: var(--surface-tray);
+      border: 1px solid var(--hairline);
+      flex-shrink: 0;
+    }
+
+    .base-A { color: var(--base-A); }
+    .base-T { color: var(--base-T); }
+    .base-C { color: var(--base-C); }
+    .base-G { color: var(--base-G); }
+
+    .base-key-name {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.2;
+    }
+
+    .base-key-class {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      line-height: 1.2;
+    }
+
+    .start-telemetry {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.25rem;
+      padding: 0.75rem 1rem;
+      border-radius: 0.875rem;
+      background: var(--surface-tray);
+      border: 1px solid var(--hairline);
+      font-family: var(--font-mono);
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+    }
+
+    .start-telemetry strong {
+      color: var(--text-primary);
+    }
+
+    .start-cta-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .start-secondary-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.55rem;
+    }
+
+    @media (max-width: 440px) {
+      .start-secondary-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .start-hint {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    /* ============================================================
+       TELA 2: ESTUDO DE CASO ATIVO
+       ============================================================ */
+    .case-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .case-header {
+      border-bottom: 1px solid var(--hairline);
+      padding-bottom: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .case-meta-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .case-code-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 0.5rem;
+      background: var(--surface-tray);
+      border: 1px solid var(--hairline-strong);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--accent-bright);
+    }
+
+    .case-marker-meta {
+      font-family: var(--font-mono);
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+    }
+
+    .case-title {
+      font-size: clamp(1.3rem, 2.8vw, 1.65rem);
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--text-primary);
+    }
+
+    .case-review-banner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.65rem;
+      padding: 0.75rem 0.9rem;
+      border-radius: 0.875rem;
+      background: var(--surface-tray);
+      border: 1px solid var(--hairline-strong);
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+
+    .case-narrative {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      font-size: 0.96875rem;
+      line-height: 1.62;
+      color: var(--text-primary);
+      max-width: 68ch;
+    }
+
+    .tip-strip {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.7rem;
+      padding: 0.8rem 0.95rem;
+      border-radius: 0.875rem;
+      background: rgba(124, 58, 237, 0.14);
+      border: 1px solid rgba(232, 121, 249, 0.34);
+      font-size: 0.875rem;
+      line-height: 1.5;
+      color: var(--text-primary);
+    }
+
+    .tip-strip svg {
+      width: 18px;
+      height: 18px;
+      color: var(--accent-bright);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .tip-label {
+      font-weight: 700;
+      color: var(--accent-bright);
+    }
+
+    /* Faixa do Marcador & Ferramenta Investigativa */
+    .marker-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.65rem;
+      padding: 0.75rem 0.95rem;
+      border-radius: 0.875rem;
+      background: var(--surface-tray);
+      border: 1px solid var(--hairline);
+    }
+
+    .marker-info {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .marker-info-accent {
+      color: var(--accent-bright);
+      font-family: var(--font-mono);
+    }
+
+    .marker-info-sub {
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+
+    .marker-unit-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.3rem 0.65rem;
+      border-radius: 0.5rem;
+      background: var(--surface-gel);
+      border: 1px solid var(--hairline);
+      font-family: var(--font-mono);
+      font-size: 0.8125rem;
+      font-weight: 700;
+    }
+
+    /* Barra de Rascunho Investigativo */
+    .scratchpad-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.55rem;
+      padding: 0.55rem 0.8rem;
+      border-radius: 0.75rem;
+      background: var(--surface-gel);
+      border: 1px solid var(--hairline);
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+    }
+
+    .scratchpad-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .scratchpad-hint svg {
+      width: 16px;
+      height: 16px;
+      color: var(--accent-bright);
+      flex-shrink: 0;
+    }
+
+    .scratchpad-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-tool {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      min-height: 44px;
+      padding: 0 0.75rem;
+      border-radius: 0.65rem;
+      background: var(--surface-tray);
+      border: 1px solid var(--hairline);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .btn-tool:hover {
+      background: var(--surface-hover);
+      border-color: var(--hairline-strong);
+    }
+
+    .btn-tool[aria-pressed="true"] {
+      background: var(--state-pinned-bg);
+      border-color: var(--state-pinned-border);
+      color: var(--state-pinned);
+    }
+
+    .btn-tool svg {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+    }
+
+    /* Cabeçalhos das Seções de DNA */
+    .dna-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .dna-group-heading {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-secondary);
+    }
+
+    .dna-group-heading svg {
+      width: 15px;
+      height: 15px;
+      color: var(--accent-bright);
+    }
+
+    .subject-card {
+      background: var(--surface-tray);
+      border: 1px solid var(--hairline);
+      border-radius: 1rem;
+      padding: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .subject-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .subject-name {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--font-display);
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .subject-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      background: var(--accent-bright);
+      flex-shrink: 0;
+    }
+
+    /* ============================================================
+       BARRAS PROPORCIONAIS DE ALELOS STR (INTERATIVAS)
+       ============================================================ */
+    .allele-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .allele-row {
+      width: 100%;
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      padding: 0.55rem 0.7rem;
+      border-radius: 0.75rem;
+      background: var(--surface-gel);
+      border: 1px solid var(--hairline);
+      text-align: left;
+      transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.12s ease;
+    }
+
+    button.allele-row:hover:not(:disabled) {
+      border-color: var(--hairline-strong);
+      background: #140b29;
+    }
+
+    button.allele-row:active:not(:disabled) {
+      transform: scale(0.99);
+    }
+
+    button.allele-row:disabled {
+      cursor: default;
+    }
+
+    .allele-label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      width: 4rem;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .allele-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 3rem;
+      height: 2.125rem;
+      padding: 0 0.5rem;
+      border-radius: 0.55rem;
+      background: rgba(124, 58, 237, 0.34);
+      border: 1px solid rgba(232, 121, 249, 0.42);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.9375rem;
+      flex-shrink: 0;
+      transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .str-track-wrap {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .str-track {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 3px;
+      width: 100%;
+      padding: 4px;
+      border-radius: 0.5rem;
+      background: #07030e;
+      border: 1px solid rgba(196, 152, 255, 0.16);
+    }
+
+    .str-block {
+      height: 12px;
+      border-radius: 3px;
+      background: linear-gradient(180deg, #e879f9 0%, #a855f7 65%, #7c3aed 100%);
+      transition: background 0.2s ease;
+    }
+
+    .str-track-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .status-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .status-tag svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+
+    /* Estados Pinned / Paired (Pré-Veredito) e Match / Mismatch (Pós-Veredito) */
+    .allele-row.state-pinned {
+      border-color: var(--state-pinned-border);
+      background: var(--state-pinned-bg);
+    }
+
+    .allele-row.state-pinned .allele-badge {
+      background: rgba(232, 121, 249, 0.28);
+      border-color: var(--state-pinned);
+    }
+
+    .allele-row.state-paired {
+      border-color: var(--state-match-border);
+      background: rgba(24, 58, 66, 0.45);
+    }
+
+    .allele-row.state-paired .allele-badge {
+      background: rgba(94, 234, 212, 0.24);
+      border-color: var(--state-match);
+    }
+
+    .allele-row.state-match {
+      border-color: var(--state-match-border);
+      background: var(--state-match-bg);
+    }
+
+    .allele-row.state-match .allele-badge {
+      background: rgba(16, 185, 129, 0.36);
+      border-color: var(--state-match);
+      color: #ffffff;
+    }
+
+    .allele-row.state-match .str-block {
+      background: linear-gradient(180deg, #5eead4 0%, #10b981 100%);
+    }
+
+    .allele-row.state-mismatch {
+      border-color: var(--state-mismatch-border);
+      background: var(--state-mismatch-bg);
+    }
+
+    .allele-row.state-mismatch .allele-badge {
+      background: rgba(244, 63, 94, 0.32);
+      border-color: var(--state-mismatch);
+      color: #fff1f2;
+    }
+
+    .allele-row.state-mismatch .str-block {
+      background: linear-gradient(180deg, #fda4af 0%, #f43f5e 100%);
+    }
+
+    .tag-match { color: var(--state-match); }
+    .tag-mismatch { color: var(--state-mismatch); }
+    .tag-pinned { color: var(--state-pinned); }
+
+    /* ============================================================
+       SEQUÊNCIAS DE 12 BASES (3 BLOCOS DE 4 + RÉGUA INTERATIVA)
+       ============================================================ */
+    .seq-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .seq-group {
+      display: inline-flex;
+      align-items: stretch;
+      gap: 0.25rem;
+      padding: 0.35rem 0.45rem;
+      border-radius: 0.75rem;
+      background: var(--surface-gel);
+      border: 1px solid var(--hairline);
+    }
+
+    .seq-cell-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2rem;
+    }
+
+    .seq-pos-index {
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      line-height: 1;
+    }
+
+    .seq-base-cell {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      height: 36px;
+      padding: 0 0.25rem;
+      border-radius: 0.45rem;
+      border: 1px solid transparent;
+      background: transparent;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 1rem;
+      transition: background-color 0.16s ease, border-color 0.16s ease, transform 0.14s ease;
+    }
+
+    @media (min-width: 640px) {
+      .seq-base-cell {
+        min-width: 32px;
+        height: 38px;
+        font-size: 1.0625rem;
+      }
+    }
+
+    button.seq-base-cell:hover {
+      background: var(--surface-hover);
+      border-color: var(--hairline-strong);
+    }
+
+    .seq-base-cell.is-col-flagged {
+      background: var(--state-pinned-bg);
+      border-color: var(--state-pinned);
+      box-shadow: inset 0 -2px 0 var(--state-pinned);
+    }
+
+    .seq-base-cell.base-match {
+      background: rgba(94, 234, 212, 0.14);
+      border-color: rgba(94, 234, 212, 0.55);
+    }
+
+    .seq-base-cell.base-diff {
+      background: rgba(244, 63, 94, 0.32);
+      border-color: var(--state-mismatch);
+      box-shadow: inset 0 -2px 0 var(--state-mismatch);
+      transform: translateY(-1px);
+    }
+
+    /* ============================================================
+       PERGUNTA PERICIAL & OPÇÕES DE RESPOSTA
+       ============================================================ */
+    .verdict-box {
+      padding: 1rem 1.1rem;
+      border-radius: 0.95rem;
+      background: rgba(124, 58, 237, 0.16);
+      border: 1px solid var(--hairline-strong);
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .verdict-label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent-bright);
+    }
+
+    .verdict-question {
+      font-family: var(--font-display);
+      font-size: clamp(1.02rem, 2.2vw, 1.1875rem);
+      font-weight: 700;
+      line-height: 1.35;
+      color: var(--text-primary);
+    }
+
+    .options-binary {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+
+    .options-quad {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+
+    @media (min-width: 640px) {
+      .options-quad {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .btn-choice {
+      min-height: 52px;
+      padding: 0.85rem 1rem;
+      border-radius: 0.95rem;
+      background: var(--surface-tray);
+      border: 1.5px solid var(--hairline);
+      box-shadow: var(--shadow-card);
+      transition: border-color 0.18s ease, background-color 0.18s ease, transform 0.14s var(--ease-out);
+    }
+
+    .btn-choice--binary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.65rem;
+      font-family: var(--font-display);
+      font-size: 1.0625rem;
+      font-weight: 700;
+    }
+
+    .btn-choice--quad {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.7rem;
+      text-align: left;
+    }
+
+    .btn-choice:hover:not(:disabled) {
+      border-color: var(--accent-bright);
+      background: var(--surface-hover);
+      transform: translateY(-2px);
+    }
+
+    .btn-choice:active:not(:disabled) {
+      transform: translateY(0) scale(0.985);
+    }
+
+    .btn-choice:disabled {
+      cursor: default;
+    }
+
+    .choice-icon-badge {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .choice-icon-badge svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .choice-icon-yes {
+      background: rgba(94, 234, 212, 0.16);
+      border: 1px solid rgba(94, 234, 212, 0.5);
+      color: var(--state-match);
+    }
+
+    .choice-icon-no {
+      background: rgba(251, 113, 133, 0.16);
+      border: 1px solid rgba(251, 113, 133, 0.5);
+      color: var(--state-mismatch);
+    }
+
+    .choice-key-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      height: 28px;
+      padding: 0 0.45rem;
+      border-radius: 0.5rem;
+      background: rgba(124, 58, 237, 0.28);
+      border: 1px solid var(--hairline-strong);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--accent-bright);
+    }
+
+    .choice-shortcut-hint {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .btn-choice.choice-correct {
+      border-color: var(--state-match-border);
+      background: var(--state-match-bg);
+    }
+
+    .btn-choice.choice-wrong {
+      border-color: var(--state-mismatch-border);
+      background: var(--state-mismatch-bg);
+    }
+
+    .btn-choice.choice-dimmed {
+      opacity: 0.56;
+    }
+
+    /* ============================================================
+       PAINEL DE JUSTIFICATIVA CIENTÍFICA
+       ============================================================ */
+    .feedback-panel {
+      border-radius: 1rem;
+      padding: 1.1rem;
+      border: 1px solid var(--hairline);
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+    }
+
+    .feedback-panel.is-correct {
+      background: var(--state-match-bg);
+      border-color: var(--state-match-border);
+    }
+
+    .feedback-panel.is-wrong {
+      background: var(--state-mismatch-bg);
+      border-color: var(--state-mismatch-border);
+    }
+
+    .feedback-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+
+    .feedback-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 0.75rem;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .feedback-icon svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .feedback-icon.is-correct {
+      background: rgba(94, 234, 212, 0.18);
+      border: 1px solid var(--state-match-border);
+      color: var(--state-match);
+    }
+
+    .feedback-icon.is-wrong {
+      background: rgba(251, 113, 133, 0.18);
+      border: 1px solid var(--state-mismatch-border);
+      color: var(--state-mismatch);
+    }
+
+    .feedback-title {
+      font-size: 1.0625rem;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    .feedback-title.is-correct { color: var(--state-match); }
+    .feedback-title.is-wrong { color: var(--state-mismatch); }
+
+    .feedback-sub {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      margin-top: 0.2rem;
+    }
+
+    .feedback-body {
+      padding: 0.9rem 1rem;
+      border-radius: 0.75rem;
+      background: var(--surface-gel);
+      border: 1px solid var(--hairline);
+    }
+
+    .feedback-body-label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent-bright);
+      margin-bottom: 0.3rem;
+    }
+
+    .feedback-body-text {
+      font-size: 0.9375rem;
+      line-height: 1.6;
+      color: var(--text-primary);
+    }
+
+    .feedback-footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    /* ============================================================
+       TELA 3: RELATÓRIO FINAL
+       ============================================================ */
+    .report-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .report-header {
+      border-bottom: 1px solid var(--hairline);
+      padding-bottom: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 0.9rem;
+    }
+
+    .report-score-row {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    @media (min-width: 640px) {
+      .report-score-row {
+        flex-direction: row;
+        text-align: left;
+      }
+    }
+
+    .score-ring {
+      width: 104px;
+      height: 104px;
+      border-radius: 999px;
+      background: var(--surface-gel);
+      border: 3px solid var(--accent-bright);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .score-ring-value {
+      font-family: var(--font-mono);
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.1;
+    }
+
+    .score-ring-label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent-bright);
+      text-transform: uppercase;
+    }
+
+    .report-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.65rem;
+    }
+
+    @media (min-width: 640px) {
+      .report-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .report-case-card {
+      width: 100%;
+      padding: 0.85rem 0.95rem;
+      border-radius: 0.875rem;
+      background: var(--surface-tray);
+      border: 1px solid var(--hairline);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+      text-align: left;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .report-case-card:hover {
+      background: var(--surface-hover);
+      border-color: var(--hairline-strong);
+    }
+
+    .report-case-card.is-correct {
+      border-color: rgba(94, 234, 212, 0.35);
+    }
+
+    .report-case-card.is-wrong {
+      border-color: rgba(251, 113, 133, 0.35);
+    }
+
+    .report-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.75rem;
+    }
+
+    /* ============================================================
+       MODAIS (GUIA RÁPIDO & MAPA DE CASOS) — FOCUS TRAP & BACKDROP
+       ============================================================ */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      background: rgba(5, 2, 12, 0.82);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    .modal-dialog {
+      width: 100%;
+      max-width: 34rem;
+      max-height: min(88dvh, 720px);
+      overflow-y: auto;
+      background: var(--surface-bench);
+      border: 1px solid var(--hairline-strong);
+      border-radius: 1.25rem;
+      padding: 1.35rem;
+      box-shadow: var(--shadow-bench);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .modal-dialog--wide {
+      max-width: 44rem;
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding-bottom: 0.85rem;
+      border-bottom: 1px solid var(--hairline);
+    }
+
+    .modal-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .modal-sub {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--accent-bright);
+      margin-top: 0.15rem;
+    }
+
+    .guide-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+    }
+
+    .guide-item {
+      padding: 0.9rem 1rem;
+      border-radius: 0.875rem;
+      background: var(--surface-tray);
+      border: 1px solid var(--hairline);
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .guide-item-title {
+      font-family: var(--font-display);
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .guide-item-tag {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--accent-bright);
+    }
+
+    .guide-item p {
+      font-size: 0.875rem;
+      line-height: 1.55;
+      color: var(--text-secondary);
+    }
+
+    .guide-item strong {
+      color: var(--text-primary);
+    }
+
+    /* Mapa de Casos */
+    .case-map-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.6rem;
+    }
+
+    @media (min-width: 560px) {
+      .case-map-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .case-map-btn {
+      width: 100%;
+      min-height: 68px;
+      padding: 0.8rem 0.9rem;
+      border-radius: 0.875rem;
+      background: var(--surface-tray);
+      border: 1px solid var(--hairline);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      text-align: left;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .case-map-btn:hover {
+      background: var(--surface-hover);
+      border-color: var(--hairline-strong);
+    }
+
+    .case-map-btn.is-active {
+      border-color: var(--accent-bright);
+      background: var(--surface-hover);
+    }
+
+    .case-map-code {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .case-map-title {
+      font-family: var(--font-display);
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.25;
+    }
+
+    .case-map-marker {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-top: 0.15rem;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.25rem 0.55rem;
+      border-radius: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      border: 1px solid var(--hairline);
+      flex-shrink: 0;
+    }
+
+    .status-pill svg {
+      width: 13px;
+      height: 13px;
+    }
+
+    .status-pill.is-correct {
+      background: var(--state-match-bg);
+      border-color: var(--state-match-border);
+      color: var(--state-match);
+    }
+
+    .status-pill.is-wrong {
+      background: var(--state-mismatch-bg);
+      border-color: var(--state-mismatch-border);
+      color: var(--state-mismatch);
+    }
+
+    .status-pill.is-current {
+      background: var(--state-pinned-bg);
+      border-color: var(--state-pinned-border);
+      color: var(--state-pinned);
+    }
+
+    .status-pill.is-pending {
+      background: var(--surface-gel);
+      color: var(--text-muted);
+    }
+
+    .shortcuts-footer {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem 0.9rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--hairline);
+    }
+
+    kbd {
+      font-family: var(--font-mono);
+      padding: 0.1rem 0.38rem;
+      border-radius: 0.35rem;
+      background: var(--surface-gel);
+      border: 1px solid var(--hairline-strong);
+      color: var(--text-primary);
+      font-size: 0.75rem;
+    }
+
+    /* ============================================================
+       TRANSIÇÕES & MOVIMENTO REDUZIDO
+       ============================================================ */
+    @keyframes panelEnter {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .panel-enter {
+      animation: panelEnter 0.28s var(--ease-out) forwards;
+    }
+
+    .ui-pop {
+      animation: panelEnter 0.22s var(--ease-out);
+    }
+
+    body.reduced-motion .panel-enter,
+    body.reduced-motion .ui-pop {
+      animation: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+
+    body.reduced-motion * {
+      transition-duration: 0.08s !important;
+      scroll-behavior: auto !important;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .panel-enter,
+      .ui-pop {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+      }
+
+      * {
+        transition-duration: 0.08s !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .hud-btn-label-sm-hide {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Pular para o conteúdo principal</a>
+
+  <!-- Cenário 3D Reativo (Three.js r128) -->
+  <div id="three-bg-container" aria-hidden="true"></div>
+  <div class="uv-vignette" aria-hidden="true"></div>
+
+  <!-- Anunciador Acessível para Leitores de Tela -->
+  <div id="sr-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+  <div id="ui-layer">
+    <!-- HUD SUPERIOR -->
+    <header id="game-hud" class="game-hud">
+      <div class="hud-shell">
+        <button
+          id="btn-hud-home"
+          type="button"
+          class="hud-brand-btn"
+          title="Voltar à tela inicial do jogo"
+        >
+          <span class="hud-mark" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4c4 0 4 16 8 16s4-16 8-16"/>
+              <path d="M4 20c4 0 4-16 8-16s4 16 8 16"/>
+              <line x1="7" y1="8.5" x2="17" y2="8.5"/>
+              <line x1="7" y1="15.5" x2="17" y2="15.5"/>
+            </svg>
+          </span>
+          <span>
+            <span class="hud-brand-title" style="display:block;">DNA Forense 3D</span>
+            <span class="hud-brand-sub" style="display:block;">Mistérios Genéticos</span>
+          </span>
+        </button>
+
+        <div id="hud-progress-area" class="hud-progress-area" hidden>
+          <div class="hud-progress-meta tabular">
+            <span id="hud-case-counter" class="hud-counter">Caso 1 de 9</span>
+            <span class="hud-stats">
+              <span id="hud-score" class="hud-score">Acertos: 0/9</span>
+              <span id="hud-streak" class="hud-streak">Seq: 0</span>
+            </span>
+          </div>
+          <div class="hud-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="9" aria-valuenow="1" id="hud-progressbar">
+            <div id="hud-progress-bar" class="hud-bar-fill" style="width: 11%;"></div>
+          </div>
+        </div>
+
+        <nav class="hud-actions" aria-label="Controles do laboratório">
+          <button
+            id="btn-hud-cases"
+            type="button"
+            class="hud-btn tabular"
+            title="Abrir Mapa de Casos (Atalho: C)"
+            aria-haspopup="dialog"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="16" rx="2"/>
+              <path d="M7 9h10"/>
+              <path d="M7 13h6"/>
+            </svg>
+            <span>Casos <span id="hud-cases-badge">(0/9)</span></span>
+          </button>
+
+          <button
+            id="btn-hud-guide"
+            type="button"
+            class="hud-btn"
+            title="Abrir Guia Rápido de DNA (Atalho: G)"
+            aria-haspopup="dialog"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span class="hud-btn-label-sm-hide">Guia</span>
+          </button>
+
+          <button
+            id="btn-motion-toggle"
+            type="button"
+            class="hud-btn hud-btn-icon-only"
+            title="Reduzir movimento e animações 3D"
+            aria-label="Alternar modo de movimento reduzido"
+            aria-pressed="false"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3v3"/>
+              <path d="M12 18v3"/>
+              <path d="M3 12h3"/>
+              <path d="M18 12h3"/>
+              <circle cx="12" cy="12" r="4"/>
+            </svg>
+          </button>
+
+          <button
+            id="btn-sound-toggle"
+            type="button"
+            class="hud-btn hud-btn-icon-only"
+            title="Ativar ou silenciar áudio (Atalho: M)"
+            aria-label="Silenciar áudio"
+            aria-pressed="false"
+          >
+            <svg id="icon-sound-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            </svg>
+            <svg id="icon-sound-off" hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <line x1="23" y1="9" x2="17" y2="15"/>
+              <line x1="17" y1="9" x2="23" y2="15"/>
+            </svg>
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <!-- PALCO CENTRAL -->
+    <main id="main-content" class="main-stage" tabindex="-1">
+
+      <!-- TELA 1: INÍCIO ENXUTO -->
+      <section id="screen-start" class="bench-panel bench-panel--narrow start-stack panel-enter" aria-labelledby="start-heading">
+        <div class="start-meta-row">
+          <div class="status-chip tabular">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span>Fase Fácil • 9 Casos Forenses • UFPA / FABIOTEC</span>
+          </div>
+          <span class="status-chip tabular" id="start-save-badge">Pronto para perícia</span>
+        </div>
+
+        <div>
+          <h1 id="start-heading" class="start-title">
+            DNA Forense 3D
+            <span class="start-subtitle">Mistérios Genéticos</span>
+          </h1>
+          <p class="start-lead" style="margin-top: 0.75rem;">
+            Assuma a bancada de espectroscopia UV e desvende <strong>9 estudos de caso reais</strong> usando marcadores STR autossômicos, cromossomos X/Y, DNA felino e sequências mitocondriais de 12 bases.
+          </p>
+        </div>
+
+        <!-- Legenda Plana das 4 Bases Nitrogenadas (Cor + Letra + Classe Química) -->
+        <div class="base-key-strip" aria-label="Referência das 4 bases nitrogenadas">
+          <div class="base-key-header">
+            <span>Código Molecular das 4 Bases</span>
+            <span>Pareamento A–T • C–G</span>
+          </div>
+          <div class="base-key-grid">
+            <div class="base-key-item">
+              <span class="base-glyph base-A" aria-hidden="true">A</span>
+              <div>
+                <div class="base-key-name">Adenina</div>
+                <div class="base-key-class">Purina • Menta</div>
+              </div>
+            </div>
+            <div class="base-key-item">
+              <span class="base-glyph base-T" aria-hidden="true">T</span>
+              <div>
+                <div class="base-key-name">Timina</div>
+                <div class="base-key-class">Pirimidina • Rosa</div>
+              </div>
+            </div>
+            <div class="base-key-item">
+              <span class="base-glyph base-C" aria-hidden="true">C</span>
+              <div>
+                <div class="base-key-name">Citosina</div>
+                <div class="base-key-class">Pirimidina • Azul</div>
+              </div>
+            </div>
+            <div class="base-key-item">
+              <span class="base-glyph base-G" aria-hidden="true">G</span>
+              <div>
+                <div class="base-key-name">Guanina</div>
+                <div class="base-key-class">Purina • Âmbar</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Telemetria da Sessão Salva (visível apenas quando há histórico) -->
+        <div id="start-telemetry" class="start-telemetry tabular" hidden>
+          <span>Progresso: <strong id="tel-progress">0/9</strong></span>
+          <span>Acertos atuais: <strong id="tel-current-score">0</strong></span>
+          <span>Melhor marca: <strong id="tel-best-score">0/9</strong></span>
+          <span>Melhor sequência: <strong id="tel-best-streak">0</strong></span>
+        </div>
+
+        <div class="start-cta-group">
+          <button id="btn-continue-game" type="button" class="btn-primary" hidden>
+            <span id="btn-continue-label">Continuar Investigação</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="5" y1="12" x2="19" y2="12"/>
+              <polyline points="12 5 19 12 12 19"/>
+            </svg>
+          </button>
+
+          <button id="btn-start-game" type="button" class="btn-primary">
+            <span id="btn-start-label">Iniciar Investigação</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="5" y1="12" x2="19" y2="12"/>
+              <polyline points="12 5 19 12 12 19"/>
+            </svg>
+          </button>
+
+          <div class="start-secondary-row">
+            <button id="btn-start-cases" type="button" class="btn-secondary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="16" rx="2"/>
+                <path d="M7 9h10"/>
+                <path d="M7 13h6"/>
+              </svg>
+              <span>Escolher Caso (1–9)</span>
+            </button>
+            <button id="btn-start-guide" type="button" class="btn-secondary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              <span>Guia Rápido de Leitura</span>
+            </button>
+          </div>
+
+          <p class="start-hint">
+            Toque em alelos ou bases para marcar pistas antes do veredito. Arraste o fundo para girar a dupla-hélice 3D.
+          </p>
+        </div>
+      </section>
+
+      <!-- TELA 2: ESTUDO DE CASO ATIVO -->
+      <section id="screen-case" class="bench-panel case-stack" hidden aria-labelledby="case-title">
+        <header class="case-header">
+          <div class="case-meta-bar">
+            <span id="case-badge-number" class="case-code-pill tabular">CASO 01</span>
+            <span id="case-badge-marker" class="case-marker-meta">TH01 • Autossômico</span>
+          </div>
+          <h2 id="case-title" class="case-title">A Dúvida de Clara</h2>
+        </header>
+
+        <div id="case-review-banner" class="case-review-banner" hidden>
+          <span>Modo Revisão: este caso já foi respondido nesta rodada.</span>
+          <button id="btn-jump-next-pending" type="button" class="btn-ghost">Ir para próximo caso pendente</button>
+        </div>
+
+        <div id="case-narrative" class="case-narrative"></div>
+
+        <div class="tip-strip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+          <div>
+            <span class="tip-label">Dica de leitura: </span>
+            <span id="case-reading-tip"></span>
+          </div>
+        </div>
+
+        <!-- Barra do Marcador -->
+        <div id="case-marker-banner" class="marker-toolbar"></div>
+
+        <!-- Barra de Ferramenta Investigativa Ativa -->
+        <div id="case-scratchpad-bar" class="scratchpad-bar">
+          <div class="scratchpad-hint">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"/>
+              <path d="m20 20-3.5-3.5"/>
+            </svg>
+            <span id="scratchpad-hint-text">Clique nos alelos abaixo para marcar e parear valores antes do veredito.</span>
+          </div>
+          <div class="scratchpad-actions">
+            <button id="btn-toggle-ruler" type="button" class="btn-tool" aria-pressed="false" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 7h18v10H3z"/>
+                <path d="M7 7v4"/>
+                <path d="M11 7v3"/>
+                <path d="M15 7v4"/>
+                <path d="M19 7v3"/>
+              </svg>
+              <span>Régua 1–12</span>
+            </button>
+            <button id="btn-clear-marks" type="button" class="btn-tool" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 6h18"/>
+                <path d="M8 6V4h8v2"/>
+                <path d="M19 6l-1 14H6L5 6"/>
+              </svg>
+              <span>Limpar marcas</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- DNA Analisado -->
+        <div class="dna-group">
+          <h3 class="dna-group-heading">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 3h6"/>
+              <path d="M10 3v6.5L5.2 18.2A2 2 0 0 0 7 21h10a2 2 0 0 0 1.8-2.8L14 9.5V3"/>
+            </svg>
+            <span>DNA Analisado</span>
+          </h3>
+          <div id="case-primary-dna" class="dna-group"></div>
+        </div>
+
+        <!-- DNA de Comparação -->
+        <div id="case-comparison-section" class="dna-group">
+          <h3 class="dna-group-heading">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M16 3h5v5"/>
+              <path d="M8 21H3v-5"/>
+              <path d="M21 3l-7 7"/>
+              <path d="M3 21l7-7"/>
+            </svg>
+            <span>DNA de Comparação</span>
+          </h3>
+          <div id="case-comparison-dna" class="dna-group"></div>
+        </div>
+
+        <!-- Pergunta Pericial -->
+        <div class="verdict-box">
+          <span class="verdict-label">Veredito Pericial</span>
+          <p id="case-question" class="verdict-question"></p>
+        </div>
+
+        <!-- Opções de Resposta -->
+        <div id="case-options-container"></div>
+
+        <!-- Painel de Justificativa Imediata -->
+        <div id="case-feedback-panel" class="feedback-panel" hidden>
+          <div class="feedback-head">
+            <div id="feedback-icon" class="feedback-icon" aria-hidden="true"></div>
+            <div>
+              <h3 id="feedback-heading" class="feedback-title"></h3>
+              <p id="feedback-sub" class="feedback-sub"></p>
+            </div>
+          </div>
+
+          <div class="feedback-body">
+            <div class="feedback-body-label">Justificativa Científica</div>
+            <p id="feedback-justification" class="feedback-body-text"></p>
+          </div>
+
+          <div class="feedback-footer">
+            <button id="btn-prev-case" type="button" class="btn-ghost">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+              </svg>
+              <span>Caso Anterior</span>
+            </button>
+            <button id="btn-next-case" type="button" class="btn-primary">
+              <span id="btn-next-label">Próximo Caso</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="12 5 19 12 12 19"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TELA 3: RELATÓRIO FINAL -->
+      <section id="screen-report" class="bench-panel report-stack" hidden aria-labelledby="report-heading">
+        <div class="report-header">
+          <span class="status-chip">Relatório Pericial Concluído</span>
+          <h2 id="report-heading" class="case-title" style="font-size: clamp(1.5rem, 3vw, 2rem);">Resultado da Investigação</h2>
+
+          <div class="report-score-row">
+            <div class="score-ring tabular">
+              <span id="report-score-big" class="score-ring-value">0/9</span>
+              <span class="score-ring-label">Acertos</span>
+            </div>
+            <div style="max-width: 30rem;">
+              <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">
+                Título Pericial Alcançado
+              </div>
+              <div id="report-rank-title" style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; margin-top: 0.2rem;"></div>
+              <p id="report-rank-desc" style="font-size: 0.9375rem; color: var(--text-secondary); margin-top: 0.35rem;"></p>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <h3 class="dna-group-heading">
+            <span>Resumo dos 9 Casos (clique em qualquer caso para revisar)</span>
+          </h3>
+          <div id="report-cases-list" class="report-grid"></div>
+        </div>
+
+        <div class="report-actions">
+          <button id="btn-play-again" type="button" class="btn-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="1 4 1 10 7 10"/>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+            </svg>
+            <span>Nova Rodada</span>
+          </button>
+          <button id="btn-report-guide" type="button" class="btn-secondary">
+            <span>Abrir Guia Rápido</span>
+          </button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL: GUIA RÁPIDO -->
+  <div id="modal-guide" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-guide-title" hidden>
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <div>
+          <h2 id="modal-guide-title" class="modal-title">Guia Rápido de Leitura Molecular</h2>
+          <div class="modal-sub">Regras essenciais de herança e identificação</div>
+        </div>
+        <button id="btn-close-guide" type="button" class="hud-btn hud-btn-icon-only" aria-label="Fechar Guia Rápido">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="guide-list">
+        <div class="guide-item">
+          <div class="guide-item-title">
+            <span>1. STR Autossômico (Repetições em Barras)</span>
+            <span class="guide-item-tag">CASOS 1, 2, 4, 6, 7</span>
+          </div>
+          <p>
+            Cada barra mostra quantas vezes um bloco se repete (ex.: <strong>6×</strong> ou <strong>10×</strong>). Filhos biológicos herdam <strong>1 alelo da mãe e 1 alelo do pai</strong>. Para ser o mesmo indivíduo, os dois alelos precisam ser idênticos.
+          </p>
+        </div>
+
+        <div class="guide-item">
+          <div class="guide-item-title">
+            <span>2. Cromossomo Y (Linhagem Paterna)</span>
+            <span class="guide-item-tag">CASO 5 • DYS391</span>
+          </div>
+          <p>
+            Apenas homens possuem cromossomo Y (1 alelo único). O pai transmite seu cromossomo Y praticamente intacto ao filho homem — o número de repetições deve coincidir.
+          </p>
+        </div>
+
+        <div class="guide-item">
+          <div class="guide-item-title">
+            <span>3. Cromossomo X (Pai para Filhas)</span>
+            <span class="guide-item-tag">CASO 8 • DXS8378</span>
+          </div>
+          <p>
+            Como o pai (XY) tem apenas um cromossomo X, ele passa exatamente esse mesmo alelo X para todas as filhas. Meias-irmãs paternas compartilham ao menos 1 alelo igual.
+          </p>
+        </div>
+
+        <div class="guide-item">
+          <div class="guide-item-title">
+            <span>4. mtDNA (DNA Mitocondrial — 12 Bases)</span>
+            <span class="guide-item-tag">CASOS 3 e 9 • HVR1</span>
+          </div>
+          <p>
+            Herdado exclusivamente da mãe, sem recombinação. Irmãos da mesma mãe têm a sequência 100% idêntica; use a <strong>Régua 1–12</strong> para comparar posição por posição.
+          </p>
+        </div>
+      </div>
+
+      <div class="shortcuts-footer">
+        <span><kbd>1</kbd> / <kbd>S</kbd> Sim</span>
+        <span><kbd>2</kbd> / <kbd>N</kbd> Não</span>
+        <span><kbd>A</kbd>–<kbd>D</kbd> Caso 9</span>
+        <span><kbd>R</kbd> Régua 1–12</span>
+        <span><kbd>C</kbd> Casos</span>
+        <span><kbd>M</kbd> Áudio</span>
+      </div>
+
+      <button id="btn-close-guide-footer" type="button" class="btn-primary" style="width: 100%;">
+        Voltar ao Laboratório
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL: MAPA DE CASOS & REVISÃO -->
+  <div id="modal-cases" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-cases-title" hidden>
+    <div class="modal-dialog modal-dialog--wide">
+      <div class="modal-head">
+        <div>
+          <h2 id="modal-cases-title" class="modal-title">Mapa de Casos Forenses</h2>
+          <div id="modal-cases-summary" class="modal-sub tabular">0 de 9 resolvidos • 0 acertos</div>
+        </div>
+        <button id="btn-close-cases" type="button" class="hud-btn hud-btn-icon-only" aria-label="Fechar Mapa de Casos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div id="case-map-grid" class="case-map-grid"></div>
+
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.65rem; padding-top: 0.35rem; border-top: 1px solid var(--hairline);">
+        <button id="btn-reset-round" type="button" class="btn-ghost">Reiniciar Rodada (0/9)</button>
+        <button id="btn-close-cases-footer" type="button" class="btn-secondary">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LÓGICA DO JOGO, 9 CASOS CIENTÍFICOS, ÁUDIO, SAVE E THREE.JS -->
+  <script>
+    'use strict';
+
+    /* ============================================================
+       1. ÍCONES SVG UNIFICADOS (ZERO EMOJI / GLIFOS SOLTOS)
+       ============================================================ */
+    const SvgIcons = {
+      check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>',
+      cross: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+      pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>',
+      link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+      arrowRight: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>'
+    };
+
+    /* ============================================================
+       2. DADOS DOS 9 ESTUDOS DE CASO (100% CIENTÍFICOS)
+       ============================================================ */
+    const CASES = [
+      {
+        id: 1,
+        title: 'A Dúvida de Clara',
+        type: 'STR',
+        helixCategory: 'autosomal',
+        markerName: 'TH01',
+        markerType: 'Autossômico',
+        repeatUnit: 'TCAT',
+        readingTip: 'Filhos herdam 1 alelo (número de repetições) da mãe e 1 alelo do pai.',
+        paragraphs: [
+          'Clara, estudante de 19 anos, sempre ouviu comentários por não ter traços parecidos com os de seus pais, Helena e Marcos. Ao separar documentos para a faculdade, ela notou uma rasura antiga na data de sua certidão de nascimento.',
+          'Para tirar a dúvida de vez, a família realizou um exame comparativo no marcador autossômico TH01 (bloco repetido T C A T). Clara quer descobrir se herdou seus alelos de Helena e Marcos ou se foi adotada.'
+        ],
+        analyzed: { label: 'Clara (Filha)', alleles: [6, 10] },
+        comparisons: [
+          { label: 'Helena (Mãe)', alleles: [5, 8] },
+          { label: 'Marcos (Pai)', alleles: [7, 8] }
+        ],
+        question: 'Com base na análise do DNA, Clara é adotada?',
+        correctAnswer: 'Sim',
+        justification: 'Nenhum dos pais possui o alelo 6 nem o alelo 10 no marcador TH01. Como um filho biológico herda obrigatoriamente um alelo da mãe e outro do pai, há exclusão biológica de filiação, confirmando que Clara é adotada.',
+        highlightMode: 'parentage_none'
+      },
+      {
+        id: 2,
+        title: 'Identificação Pós-Acidente',
+        type: 'STR',
+        helixCategory: 'autosomal',
+        markerName: 'TPOX',
+        markerType: 'Autossômico',
+        repeatUnit: 'AATG',
+        readingTip: 'Para ser filho do casal, a vítima precisa ter 1 alelo igual ao da mãe e 1 igual ao do pai.',
+        paragraphs: [
+          'Após um grave acidente rodoviário, um jovem sem documentos ficou irreconhecível no IML. O casal Lúcia e Roberto procurou as autoridades desesperado, pois seu filho Tiago desapareceu na mesma estrada naquela noite.',
+          'Para confirmar a identidade da vítima, os peritos analisaram o marcador autossômico TPOX (bloco repetido A A T G) do corpo e compararam com o DNA dos pais.'
+        ],
+        analyzed: { label: 'Vítima (Corpo)', alleles: [8, 11] },
+        comparisons: [
+          { label: 'Lúcia (Mãe)', alleles: [8, 9] },
+          { label: 'Roberto (Pai)', alleles: [6, 11] }
+        ],
+        question: 'O marcador analisado é compatível com a vítima ser o filho de Lúcia e Roberto?',
+        correctAnswer: 'Sim',
+        justification: 'A vítima apresenta o alelo 8 (herdado de Lúcia) e o alelo 11 (herdado de Roberto), demonstrando compatibilidade genética direta. Em perícias reais, esse padrão é checado em mais de 15 marcadores para alcançar mais de 99,99% de certeza.',
+        highlightMode: 'match_values',
+        matchedValues: [8, 11]
+      },
+      {
+        id: 3,
+        title: 'Semelhança Impressionante',
+        type: 'SEQ',
+        helixCategory: 'mtdna',
+        markerName: 'mtDNA',
+        markerType: 'Região HVR1 • Linhagem Materna',
+        readingTip: 'Irmãos da mesma mãe têm o DNA mitocondrial 100% igual. Compare as 12 bases letra por letra.',
+        paragraphs: [
+          'Lucas e Rafael se conheceram na universidade e chamaram atenção de todos pela semelhança física marcante, embora não sejam gêmeos. Como ambos foram criados por famílias diferentes na mesma cidade, levantaram a hipótese de serem irmãos completos (mesmo pai e mesma mãe).',
+          'Eles compararam um trecho do DNA mitocondrial (região HVR1), herdado exclusivamente da mãe, para descobrir se podem ser irmãos completos.'
+        ],
+        analyzed: { label: 'Lucas', sequence: 'ATGCGATCCTAG' },
+        comparisons: [
+          { label: 'Rafael', sequence: 'ATCCGTTCCAAG' }
+        ],
+        question: 'Com base no DNA mitocondrial, é possível que Lucas e Rafael sejam irmãos completos (mesmo pai e mesma mãe)?',
+        correctAnswer: 'Não',
+        justification: 'O DNA mitocondrial (mtDNA) passa de mãe para filho sem recombinação, sendo idêntico entre irmãos completos. Como existem 3 bases diferentes entre as sequências (posições 3, 6 e 10), eles não têm a mesma mãe biológica e não podem ser irmãos completos.'
+      },
+      {
+        id: 4,
+        title: 'Troca na Maternidade',
+        type: 'STR',
+        helixCategory: 'autosomal',
+        markerName: 'CSF1PO',
+        markerType: 'Autossômico',
+        repeatUnit: 'AGAT',
+        readingTip: 'A mãe biológica sempre compartilha pelo menos 1 alelo igual com o bebê.',
+        paragraphs: [
+          'Poucos dias após o parto, Camila recebeu uma ligação do hospital informando sobre uma possível troca de pulseiras entre dois recém-nascidos no berçário. Abalada, ela imediatamente solicitou um exame genético no laboratório forense.',
+          'Foi analisado o marcador autossômico CSF1PO (bloco repetido A G A T) para descobrir se o bebê que está em seus braços é realmente seu filho biológico.'
+        ],
+        analyzed: { label: 'Bebê (com Camila)', alleles: [7, 12] },
+        comparisons: [
+          { label: 'Camila (Mãe)', alleles: [9, 11] }
+        ],
+        question: 'Com base na comparação do DNA, o bebê que está com Camila é o filho biológico dela?',
+        correctAnswer: 'Não',
+        justification: 'O bebê tem os alelos 7 e 12, enquanto Camila possui apenas os alelos 9 e 11 no marcador CSF1PO. Sem nenhum alelo compartilhado entre os dois, confirma-se a exclusão de maternidade e que houve troca na maternidade.',
+        highlightMode: 'parentage_none'
+      },
+      {
+        id: 5,
+        title: 'Disputa de Herança',
+        type: 'STR_SINGLE',
+        helixCategory: 'chrY',
+        markerName: 'DYS391',
+        markerType: 'Cromossomo Y • Linhagem Paterna',
+        repeatUnit: 'TCTA',
+        alleleLabel: 'Alelo Y',
+        readingTip: 'Pai e filho homem herdam o mesmo cromossomo Y, portanto devem ter o mesmo número de repetições.',
+        paragraphs: [
+          'Matheus, de 24 anos, entrou na justiça para reivindicar parte da herança do empresário Sr. Antônio, falecido recentemente, afirmando ser seu filho biológico fora do casamento. O juiz autorizou o uso de uma amostra biológica preservada do falecido para perícia.',
+          'Como ambos são homens, analisou-se o marcador DYS391 (bloco repetido T C T A) do cromossomo Y para checar o vínculo pela linhagem paterna.'
+        ],
+        analyzed: { label: 'Matheus (Requerente)', alleles: [10] },
+        comparisons: [
+          { label: 'Sr. Antônio (Pai falecido)', alleles: [10] }
+        ],
+        question: 'O resultado do cromossomo Y é compatível com Matheus ser filho biológico do Sr. Antônio?',
+        correctAnswer: 'Sim',
+        justification: 'O cromossomo Y é transmitido praticamente intacto de pai para filho homem. Ambos possuem exatamente 10 repetições no marcador DYS391, confirmando compatibilidade paterna (na justiça, esse exame é complementado por marcadores autossômicos para distinguir pai de outros parentes homens da mesma família).',
+        highlightMode: 'match_values',
+        matchedValues: [10]
+      },
+      {
+        id: 6,
+        title: 'Os Dois Gatos Iguais no Apartamento',
+        type: 'STR',
+        helixCategory: 'feline',
+        markerName: 'FCA733',
+        markerType: 'DNA Felino',
+        repeatUnit: 'AATG',
+        readingTip: 'Por se tratar do MESMO animal, os dois alelos precisam ser exatamente iguais aos da caminha.',
+        paragraphs: [
+          'Júlia deixou a janela do apartamento entreaberta e levou um susto ao voltar para casa: havia dois gatos rajados completamente idênticos na sala, um deles sendo seu pet Mochi e o outro o gato do vizinho.',
+          'Como os dois reagiam igual aos chamados, ela levou pelos coletados da caminha de Mochi e uma amostra de saliva do gato que estava no sofá para um teste de DNA veterinário. O laboratório comparou o marcador felino real FCA733 (bloco repetido A A T G).'
+        ],
+        analyzed: { label: 'Amostra da Caminha (Mochi)', alleles: [6, 9] },
+        comparisons: [
+          { label: 'Gato do Sofá (Testado)', alleles: [6, 11] }
+        ],
+        question: 'O gato que estava no sofá é o Mochi (o gato verdadeiro de Júlia)?',
+        correctAnswer: 'Não',
+        justification: 'Apesar de ambos terem o alelo 6, o segundo alelo diverge (9 na amostra da caminha contra 11 no gato do sofá). Como o DNA de um indivíduo é igual em todas as células do corpo, esse gato é o do vizinho — Mochi é o outro felino!',
+        highlightMode: 'identity_partial',
+        matchedValues: [6],
+        mismatchedValues: [9, 11]
+      },
+      {
+        id: 7,
+        title: 'O Reencontro com os Pais Biológicos',
+        type: 'STR',
+        helixCategory: 'autosomal',
+        markerName: 'D16S539',
+        markerType: 'Autossômico',
+        repeatUnit: 'GATA',
+        readingTip: 'O filho biológico precisa herdar 1 alelo da mãe e 1 alelo do pai.',
+        paragraphs: [
+          'Pedro, de 22 anos, descobriu recentemente que foi adotado quando um casal chamado Sônia e Carlos o procurou dizendo serem seus pais biológicos. Emocionado, mas cauteloso, Pedro concordou em fazer um exame de DNA antes de dar qualquer passo adiante.',
+          'O laboratório comparou o marcador autossômico D16S539 (bloco repetido G A T A) de Pedro com o do casal.'
+        ],
+        analyzed: { label: 'Pedro (Filho)', alleles: [9, 12] },
+        comparisons: [
+          { label: 'Sônia (Suposta Mãe)', alleles: [9, 10] },
+          { label: 'Carlos (Suposto Pai)', alleles: [8, 12] }
+        ],
+        question: 'O teste confirma compatibilidade de que Sônia e Carlos são os pais biológicos de Pedro?',
+        correctAnswer: 'Sim',
+        justification: 'Pedro herdou o alelo 9 de Sônia e o alelo 12 de Carlos no marcador D16S539. Esse encaixe mendeliano perfeito confirma compatibilidade biológica com o casal (ratificada na prática com um painel completo de marcadores STR).',
+        highlightMode: 'match_values',
+        matchedValues: [9, 12]
+      },
+      {
+        id: 8,
+        title: 'Meias-Irmãs na Aula de Genética',
+        type: 'STR',
+        helixCategory: 'chrX',
+        markerName: 'DXS8378',
+        markerType: 'Cromossomo X',
+        repeatUnit: 'CTAT',
+        readingTip: 'Filhas do mesmo pai herdam dele o mesmo cromossomo X, então precisam ter pelo menos 1 alelo igual.',
+        paragraphs: [
+          'Beatriz e Larissa sempre foram criadas acreditando serem meias-irmãs por parte de pai, já que têm mães diferentes. Durante uma aula prática de genética, elas decidiram testar essa relação usando um marcador do cromossomo X, o DXS8378 (bloco repetido C T A T).',
+          'Como todo pai (XY) possui apenas um cromossomo X, ele sempre passa o mesmo alelo paterno para todas as suas filhas.'
+        ],
+        analyzed: { label: 'Beatriz (Irmã 1)', alleles: [8, 11] },
+        comparisons: [
+          { label: 'Larissa (Irmã 2)', alleles: [9, 12] }
+        ],
+        question: 'Com base no marcador do cromossomo X, Beatriz e Larissa são meias-irmãs por parte de pai?',
+        correctAnswer: 'Não',
+        justification: 'Todas as filhas biológicas de um mesmo pai recebem exatamente o mesmo alelo do cromossomo X paterno. Como Beatriz (8 e 11) e Larissa (9 e 12) não têm nenhum alelo em comum no marcador DXS8378, descarta-se que sejam filhas do mesmo pai.',
+        highlightMode: 'parentage_none'
+      },
+      {
+        id: 9,
+        title: 'Paciente Desacordado e Banco de Dados',
+        type: 'QUIZ_SEQ',
+        helixCategory: 'mtdna',
+        markerName: 'Banco de Dados Forense',
+        markerType: 'Região HVR1 • 12 Bases',
+        readingTip: 'Para ser a mesma pessoa, todas as 12 bases precisam bater 100% na mesma ordem.',
+        paragraphs: [
+          'Um jovem sofreu uma queda de bicicleta e deu entrada desacordado no pronto-socorro, sem documentos e sem acompanhantes. Para localizar sua família rapidamente, a equipe de genética forense extraiu um perfil de 12 bases da região HVR1 do DNA do paciente.',
+          'O perfil foi cruzado com quatro registros compatíveis em idade presentes no banco de dados estadual.'
+        ],
+        analyzed: { label: 'Paciente Desacordado', sequence: 'CGATTACGGCTA' },
+        options: [
+          { key: 'A', name: 'Diego Farias', sequence: 'CGATTGCGGCTA' },
+          { key: 'B', name: 'Thiago Mendes', sequence: 'CGATTACGGCTA' },
+          { key: 'C', name: 'Bruno Nogueira', sequence: 'CGTTTACGGATA' },
+          { key: 'D', name: 'Eduardo Lima', sequence: 'CAATTACGGCTG' }
+        ],
+        question: 'Qual pessoa do banco de dados corresponde ao paciente desacordado?',
+        correctAnswer: 'B',
+        correctLabel: 'B) Thiago Mendes',
+        justification: 'Apenas Thiago Mendes apresenta correspondência exata em todas as 12 bases (CGAT TACG GCTA) com o paciente desacordado. Os demais perfis têm diferenças pontuais e são descartados.'
+      }
+    ];
+
+    /* ============================================================
+       3. SISTEMA DE SAVE VERSIONADO (localStorage DEFENSIVO)
+       ============================================================ */
+    const SaveSystem = (() => {
+      const STORAGE_KEY = 'biotec_qeop_save_v1';
+      const SAVE_VERSION = 1;
+
+      function createDefault() {
+        return {
+          version: SAVE_VERSION,
+          currentIndex: 0,
+          answersByCaseId: {},
+          bestScore: 0,
+          bestStreak: 0,
+          soundEnabled: true,
+          reducedMotion: false
+        };
+      }
+
+      function sanitize(raw) {
+        const def = createDefault();
+        if (!raw || typeof raw !== 'object') return def;
+        if (typeof raw.version !== 'number' || raw.version > SAVE_VERSION) return def;
+
+        const out = createDefault();
+        if (Number.isInteger(raw.currentIndex) && raw.currentIndex >= 0 && raw.currentIndex < CASES.length) {
+          out.currentIndex = raw.currentIndex;
+        }
+        if (raw.answersByCaseId && typeof raw.answersByCaseId === 'object') {
+          for (const c of CASES) {
+            const entry = raw.answersByCaseId[c.id];
+            if (entry && typeof entry === 'object' && typeof entry.chosen === 'string' && typeof entry.isCorrect === 'boolean') {
+              out.answersByCaseId[c.id] = {
+                chosen: entry.chosen,
+                chosenDisplay: typeof entry.chosenDisplay === 'string' ? entry.chosenDisplay : entry.chosen,
+                isCorrect: entry.isCorrect
+              };
+            }
+          }
+        }
+        if (Number.isFinite(raw.bestScore) && raw.bestScore >= 0 && raw.bestScore <= CASES.length) {
+          out.bestScore = Math.floor(raw.bestScore);
+        }
+        if (Number.isFinite(raw.bestStreak) && raw.bestStreak >= 0 && raw.bestStreak <= CASES.length) {
+          out.bestStreak = Math.floor(raw.bestStreak);
+        }
+        if (typeof raw.soundEnabled === 'boolean') {
+          out.soundEnabled = raw.soundEnabled;
+        }
+        if (typeof raw.reducedMotion === 'boolean') {
+          out.reducedMotion = raw.reducedMotion;
+        }
+        return out;
+      }
+
+      function load() {
+        try {
+          const text = window.localStorage.getItem(STORAGE_KEY);
+          if (!text) return createDefault();
+          return sanitize(JSON.parse(text));
+        } catch (_) {
+          return createDefault();
+        }
+      }
+
+      function save(data) {
+        try {
+          const payload = sanitize({ ...data, version: SAVE_VERSION });
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        } catch (_) {}
+      }
+
+      return { load, save, createDefault };
+    })();
+
+    /* ============================================================
+       4. MOTOR DE ÁUDIO PROCEDURAL (Master -> DynamicsCompressorNode)
+       ============================================================ */
+    const SoundFX = {
+      enabled: true,
+      volume: 0.72,
+      ctx: null,
+      masterGain: null,
+      compressor: null,
+
+      ensure() {
+        try {
+          if (!this.ctx) {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            this.ctx = new Ctx();
+            this.masterGain = this.ctx.createGain();
+            this.compressor = this.ctx.createDynamicsCompressor();
+            this.compressor.threshold.setValueAtTime(-14, this.ctx.currentTime);
+            this.compressor.knee.setValueAtTime(12, this.ctx.currentTime);
+            this.compressor.ratio.setValueAtTime(6, this.ctx.currentTime);
+            this.compressor.attack.setValueAtTime(0.005, this.ctx.currentTime);
+            this.compressor.release.setValueAtTime(0.12, this.ctx.currentTime);
+
+            const v = this.enabled ? this.volume * this.volume : 0;
+            this.masterGain.gain.setValueAtTime(v, this.ctx.currentTime);
+            this.masterGain.connect(this.compressor);
+            this.compressor.connect(this.ctx.destination);
+          }
+          if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+          }
+        } catch (_) {}
+      },
+
+      setEnabled(flag) {
+        this.enabled = Boolean(flag);
+        try {
+          if (this.ctx && this.masterGain) {
+            const v = this.enabled ? this.volume * this.volume : 0;
+            this.masterGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.015);
+          }
+        } catch (_) {}
+      },
+
+      tone(freq, dur, type = 'sine', peak = 0.14, delay = 0) {
+        if (!this.enabled) return;
+        try {
+          this.ensure();
+          if (!this.ctx || !this.masterGain) return;
+          const t = this.ctx.currentTime + delay;
+          const osc = this.ctx.createOscillator();
+          const env = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, t);
+          env.gain.setValueAtTime(0.0001, t);
+          env.gain.exponentialRampToValueAtTime(peak, t + 0.015);
+          env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+          osc.connect(env);
+          env.connect(this.masterGain);
+          osc.start(t);
+          osc.stop(t + dur + 0.02);
+        } catch (_) {}
+      },
+
+      click(pitchBias = 1) {
+        const jitter = 0.96 + Math.random() * 0.08;
+        this.tone(540 * pitchBias * jitter, 0.055, 'sine', 0.09, 0);
+      },
+
+      pin(active) {
+        const base = active ? 660 : 480;
+        const jitter = 0.97 + Math.random() * 0.06;
+        this.tone(base * jitter, 0.075, 'triangle', 0.11, 0);
+      },
+
+      correct() {
+        this.tone(523.25, 0.15, 'triangle', 0.16, 0);
+        this.tone(659.25, 0.17, 'triangle', 0.16, 0.07);
+        this.tone(783.99, 0.26, 'sine', 0.18, 0.14);
+      },
+
+      wrong() {
+        this.tone(246.94, 0.16, 'triangle', 0.14, 0);
+        this.tone(196.00, 0.24, 'sine', 0.13, 0.11);
+      },
+
+      fanfare() {
+        this.tone(523.25, 0.14, 'triangle', 0.15, 0);
+        this.tone(659.25, 0.14, 'triangle', 0.15, 0.09);
+        this.tone(783.99, 0.16, 'triangle', 0.16, 0.18);
+        this.tone(1046.5, 0.34, 'sine', 0.18, 0.27);
+      }
+    };
+
+    /* ============================================================
+       5. CENA 3D REATIVA EM THREE.JS (r128) — ZERO ALOCAÇÕES NO LOOP
+       ============================================================ */
+    const PurpleDNA3D = (() => {
+      let scene, camera, renderer;
+      let helixGroup, particles;
+      let rungItems = [];
+      let strandMats = [];
+      let clock;
+      let ready = false;
+      let animFrameId = null;
+      let reducedMotion = false;
+
+      // Cores pré-alocadas para evitar GC no loop
+      const themePresets = {
+        autosomal: { b1: new THREE.Color(0xa855f7), b2: new THREE.Color(0xe879f9), e1: new THREE.Color(0x7c3aed), e2: new THREE.Color(0xc084fc) },
+        chrY:      { b1: new THREE.Color(0x6366f1), b2: new THREE.Color(0xa855f7), e1: new THREE.Color(0x4f46e5), e2: new THREE.Color(0x818cf8) },
+        chrX:      { b1: new THREE.Color(0xc084fc), b2: new THREE.Color(0xf472b6), e1: new THREE.Color(0x9333ea), e2: new THREE.Color(0xf0abfc) },
+        mtdna:     { b1: new THREE.Color(0x7c3aed), b2: new THREE.Color(0x5eead4), e1: new THREE.Color(0x5b21b6), e2: new THREE.Color(0x2dd4bf) },
+        feline:    { b1: new THREE.Color(0xd946ef), b2: new THREE.Color(0xfbbf24), e1: new THREE.Color(0xa21caf), e2: new THREE.Color(0xf472b6) }
+      };
+
+      let activeTheme = themePresets.autosomal;
+      const curBackbone1 = themePresets.autosomal.b1.clone();
+      const curBackbone2 = themePresets.autosomal.b2.clone();
+      const curEmissive1 = themePresets.autosomal.e1.clone();
+      const curEmissive2 = themePresets.autosomal.e2.clone();
+
+      // Controle de interação suave (mouse + arraste)
+      let mouseNormX = 0;
+      let mouseNormY = 0;
+      let isMouseDown = false;
+      let prevX = 0;
+      let prevY = 0;
+      let touchStartX = 0;
+      let touchStartY = 0;
+      let manualSpinY = 0;
+      let manualTiltX = 0;
+
+      // Feedback graduado em tiers (small / medium / large)
+      const pulse = {
+        active: false,
+        tier: 'medium',
+        color: new THREE.Color(0x5eead4),
+        progress: 0,
+        duration: 1.4,
+        spinBoost: 0,
+        targetRungT: 0.5
+      };
+
+      function createSparkTexture() {
+        const c = document.createElement('canvas');
+        c.width = 48;
+        c.height = 48;
+        const ctx = c.getContext('2d');
+        const g = ctx.createRadialGradient(24, 24, 0, 24, 24, 24);
+        g.addColorStop(0, 'rgba(245, 240, 255, 1)');
+        g.addColorStop(0.35, 'rgba(216, 180, 254, 0.65)');
+        g.addColorStop(1, 'rgba(124, 58, 237, 0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, 48, 48);
+        return new THREE.CanvasTexture(c);
+      }
+
+      function init() {
+        try {
+          if (typeof THREE === 'undefined') return;
+          const container = document.getElementById('three-bg-container');
+          if (!container) return;
+
+          scene = new THREE.Scene();
+          scene.fog = new THREE.FogExp2(0x080410, 0.032);
+
+          const w = container.clientWidth || window.innerWidth;
+          const h = container.clientHeight || window.innerHeight;
+
+          camera = new THREE.PerspectiveCamera(46, w / h, 0.1, 90);
+          camera.position.set(0, 0, 17.5);
+
+          renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: true,
+            powerPreference: 'high-performance'
+          });
+          renderer.setSize(w, h);
+          renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+          renderer.setClearColor(0x080410, 0);
+          container.appendChild(renderer.domElement);
+
+          renderer.domElement.addEventListener('webglcontextlost', (e) => {
+            e.preventDefault();
+            stopLoop();
+          });
+          renderer.domElement.addEventListener('webglcontextrestored', () => {
+            if (!document.hidden) startLoop();
+          });
+
+          scene.add(new THREE.AmbientLight(0xd8b4fe, 0.7));
+          scene.add(new THREE.HemisphereLight(0xe879f9, 0x110922, 0.72));
+
+          const lightA = new THREE.PointLight(0xa855f7, 2.2, 42);
+          lightA.position.set(9, 8, 12);
+          scene.add(lightA);
+
+          const lightB = new THREE.PointLight(0xe879f9, 1.7, 40);
+          lightB.position.set(-9, -6, 10);
+          scene.add(lightB);
+
+          const lightC = new THREE.PointLight(0x7c3aed, 1.3, 38);
+          lightC.position.set(0, 11, -9);
+          scene.add(lightC);
+
+          buildHelix();
+          buildParticles();
+
+          window.addEventListener('resize', onResize);
+          window.addEventListener('mousemove', onMouseMove);
+          window.addEventListener('mousedown', onMouseDown);
+          window.addEventListener('mouseup', onMouseUp);
+          window.addEventListener('touchstart', onTouchStart, { passive: true });
+          window.addEventListener('touchmove', onTouchMove, { passive: true });
+          document.addEventListener('visibilitychange', onVisibilityChange);
+
+          clock = new THREE.Clock();
+          ready = true;
+          startLoop();
+        } catch (err) {
+          console.warn('Cena 3D desativada (WebGL indisponível):', err);
+        }
+      }
+
+      function buildHelix() {
+        helixGroup = new THREE.Group();
+        helixGroup.rotation.z = 0.24;
+        scene.add(helixGroup);
+
+        const numPairs = 24;
+        const height = 20.5;
+        const radius = 2.3;
+        const twist = 0.43;
+
+        const pts1 = [];
+        const pts2 = [];
+
+        const nodeGeo = new THREE.SphereGeometry(0.16, 10, 10);
+        const halfLen = radius - 0.24;
+        const rodGeo = new THREE.CylinderGeometry(0.09, 0.09, halfLen, 8);
+        rodGeo.rotateZ(Math.PI / 2);
+        const centerGeo = new THREE.SphereGeometry(0.1, 8, 8);
+
+        const strandMat1 = new THREE.MeshStandardMaterial({
+          color: curBackbone1.clone(),
+          emissive: curEmissive1.clone(),
+          emissiveIntensity: 0.72,
+          roughness: 0.25,
+          metalness: 0.55
+        });
+
+        const strandMat2 = new THREE.MeshStandardMaterial({
+          color: curBackbone2.clone(),
+          emissive: curEmissive2.clone(),
+          emissiveIntensity: 0.62,
+          roughness: 0.25,
+          metalness: 0.55
+        });
+
+        strandMats = [strandMat1, strandMat2];
+
+        const pairPalette = [
+          [0xc084fc, 0x7c3aed],
+          [0xe879f9, 0xa855f7],
+          [0xd8b4fe, 0x9333ea],
+          [0xf0abfc, 0x6d28d9]
+        ];
+
+        rungItems = [];
+
+        for (let i = 0; i < numPairs; i++) {
+          const t = i / (numPairs - 1);
+          const y = (t - 0.5) * height;
+          const angle = i * twist;
+
+          const x1 = Math.cos(angle) * radius;
+          const z1 = Math.sin(angle) * radius;
+          const x2 = Math.cos(angle + Math.PI) * radius;
+          const z2 = Math.sin(angle + Math.PI) * radius;
+
+          pts1.push(new THREE.Vector3(x1, y, z1));
+          pts2.push(new THREE.Vector3(x2, y, z2));
+
+          const s1 = new THREE.Mesh(nodeGeo, strandMat1);
+          s1.position.set(x1, y, z1);
+          helixGroup.add(s1);
+
+          const s2 = new THREE.Mesh(nodeGeo, strandMat2);
+          s2.position.set(x2, y, z2);
+          helixGroup.add(s2);
+
+          const rung = new THREE.Group();
+          rung.position.set(0, y, 0);
+          rung.rotation.y = -angle;
+
+          const [hexL, hexR] = pairPalette[i % pairPalette.length];
+          const baseColorL = new THREE.Color(hexL);
+          const baseColorR = new THREE.Color(hexR);
+
+          const matL = new THREE.MeshStandardMaterial({
+            color: baseColorL.clone(),
+            emissive: baseColorL.clone(),
+            emissiveIntensity: 0.42,
+            roughness: 0.3,
+            metalness: 0.3
+          });
+
+          const matR = new THREE.MeshStandardMaterial({
+            color: baseColorR.clone(),
+            emissive: baseColorR.clone(),
+            emissiveIntensity: 0.42,
+            roughness: 0.3,
+            metalness: 0.3
+          });
+
+          const rodL = new THREE.Mesh(rodGeo, matL);
+          rodL.position.x = halfLen * 0.5 + 0.12;
+          rung.add(rodL);
+
+          const rodR = new THREE.Mesh(rodGeo, matR);
+          rodR.position.x = -(halfLen * 0.5 + 0.12);
+          rung.add(rodR);
+
+          const bondMat = new THREE.MeshStandardMaterial({
+            color: 0xf5f0ff,
+            emissive: 0xe879f9,
+            emissiveIntensity: 0.85,
+            roughness: 0.2
+          });
+          rung.add(new THREE.Mesh(centerGeo, bondMat));
+
+          helixGroup.add(rung);
+
+          rungItems.push({
+            t,
+            matL,
+            matR,
+            bondMat,
+            origL: baseColorL,
+            origR: baseColorR
+          });
+        }
+
+        const curve1 = new THREE.CatmullRomCurve3(pts1);
+        const curve2 = new THREE.CatmullRomCurve3(pts2);
+        helixGroup.add(new THREE.Mesh(new THREE.TubeGeometry(curve1, 88, 0.11, 8, false), strandMat1));
+        helixGroup.add(new THREE.Mesh(new THREE.TubeGeometry(curve2, 88, 0.11, 8, false), strandMat2));
+      }
+
+      function buildParticles() {
+        const count = 120;
+        const pos = new Float32Array(count * 3);
+        const cols = new Float32Array(count * 3);
+        const palette = [
+          new THREE.Color(0xf5f0ff),
+          new THREE.Color(0xc084fc),
+          new THREE.Color(0xe879f9),
+          new THREE.Color(0xa855f7)
+        ];
+
+        for (let i = 0; i < count; i++) {
+          pos[i * 3] = (Math.random() - 0.5) * 34;
+          pos[i * 3 + 1] = (Math.random() - 0.5) * 26;
+          pos[i * 3 + 2] = (Math.random() - 0.5) * 20 - 3;
+
+          const c = palette[i % palette.length];
+          cols[i * 3] = c.r;
+          cols[i * 3 + 1] = c.g;
+          cols[i * 3 + 2] = c.b;
+        }
+
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+
+        const mat = new THREE.PointsMaterial({
+          size: 0.34,
+          map: createSparkTexture(),
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.7,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending
+        });
+
+        particles = new THREE.Points(geo, mat);
+        scene.add(particles);
+      }
+
+      function setCaseTheme(category) {
+        activeTheme = themePresets[category] || themePresets.autosomal;
+      }
+
+      function setReducedMotion(flag) {
+        reducedMotion = Boolean(flag);
+        if (ready && renderer && scene && camera) {
+          renderer.render(scene, camera);
+        }
+      }
+
+      function triggerFeedback(tier, outcome) {
+        if (!ready) return;
+        pulse.active = true;
+        pulse.tier = tier;
+        pulse.progress = 0;
+
+        if (tier === 'small') {
+          pulse.color.setHex(0xf0abfc);
+          pulse.duration = 0.7;
+          pulse.spinBoost = reducedMotion ? 0 : 0.3;
+          pulse.targetRungT = Math.random();
+        } else if (tier === 'large') {
+          pulse.color.setHex(outcome === 'wrong' ? 0xfb7185 : 0x5eead4);
+          pulse.duration = 1.9;
+          pulse.spinBoost = reducedMotion ? 0 : 2.6;
+        } else {
+          const isCorrect = outcome !== 'wrong';
+          pulse.color.setHex(isCorrect ? 0x5eead4 : 0xfb7185);
+          pulse.duration = 1.45;
+          pulse.spinBoost = reducedMotion ? 0 : (isCorrect ? 2.1 : 0.65);
+        }
+      }
+
+      function onResize() {
+        if (!renderer || !camera) return;
+        const container = document.getElementById('three-bg-container');
+        const w = container ? container.clientWidth : window.innerWidth;
+        const h = container ? container.clientHeight : window.innerHeight;
+        if (!w || !h) return;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      }
+
+      function onMouseDown(e) {
+        if (e.target.closest('button, a, [role="dialog"]')) return;
+        isMouseDown = true;
+        prevX = e.clientX;
+        prevY = e.clientY;
+      }
+
+      function onMouseUp() {
+        isMouseDown = false;
+      }
+
+      function onMouseMove(e) {
+        mouseNormX = (e.clientX / Math.max(window.innerWidth, 1)) * 2 - 1;
+        mouseNormY = (e.clientY / Math.max(window.innerHeight, 1)) * 2 - 1;
+        if (isMouseDown) {
+          const dx = e.clientX - prevX;
+          const dy = e.clientY - prevY;
+          manualSpinY += dx * 0.008;
+          manualTiltX = Math.max(-0.42, Math.min(0.42, manualTiltX + dy * 0.004));
+          prevX = e.clientX;
+          prevY = e.clientY;
+        }
+      }
+
+      function onTouchStart(e) {
+        if (e.touches && e.touches.length === 1) {
+          touchStartX = e.touches[0].clientX;
+          touchStartY = e.touches[0].clientY;
+        }
+      }
+
+      function onTouchMove(e) {
+        if (e.touches && e.touches.length === 1) {
+          const x = e.touches[0].clientX;
+          const y = e.touches[0].clientY;
+          const dx = x - touchStartX;
+          const dy = y - touchStartY;
+          if (Math.abs(dx) > Math.abs(dy) * 0.75) {
+            manualSpinY += dx * 0.0065;
+          }
+          touchStartX = x;
+          touchStartY = y;
+        }
+      }
+
+      function onVisibilityChange() {
+        if (document.hidden) {
+          stopLoop();
+        } else if (ready) {
+          if (clock) clock.getDelta();
+          startLoop();
+        }
+      }
+
+      function startLoop() {
+        if (animFrameId !== null) return;
+        animFrameId = requestAnimationFrame(animate);
+      }
+
+      function stopLoop() {
+        if (animFrameId !== null) {
+          cancelAnimationFrame(animFrameId);
+          animFrameId = null;
+        }
+      }
+
+      function animate() {
+        animFrameId = requestAnimationFrame(animate);
+        if (!ready || !renderer || !scene || !camera) return;
+
+        const dt = Math.min(clock.getDelta(), 0.05);
+        const elapsed = clock.getElapsedTime();
+
+        // Transição suave da paleta da hélice conforme o tipo de marcador do caso
+        const lerpRate = Math.min(1, dt * 3.2);
+        curBackbone1.lerp(activeTheme.b1, lerpRate);
+        curBackbone2.lerp(activeTheme.b2, lerpRate);
+        curEmissive1.lerp(activeTheme.e1, lerpRate);
+        curEmissive2.lerp(activeTheme.e2, lerpRate);
+        strandMats[0].color.copy(curBackbone1);
+        strandMats[1].color.copy(curBackbone2);
+
+        if (pulse.spinBoost > 0.01) {
+          pulse.spinBoost *= Math.pow(0.26, dt);
+        } else {
+          pulse.spinBoost = 0;
+        }
+
+        const baseSpin = reducedMotion ? 0.04 : 0.26;
+        helixGroup.rotation.y += (baseSpin + pulse.spinBoost) * dt;
+
+        if (Math.abs(manualSpinY) > 0.0001) {
+          helixGroup.rotation.y += manualSpinY * 0.16;
+          manualSpinY *= 0.88;
+        }
+
+        const idleTilt = reducedMotion ? 0 : Math.sin(elapsed * 0.45) * 0.045;
+        const targetTilt = manualTiltX + idleTilt;
+        helixGroup.rotation.x += (targetTilt - helixGroup.rotation.x) * 0.06;
+
+        if (!reducedMotion) {
+          camera.position.x += (-mouseNormX * 0.85 - camera.position.x) * 0.04;
+          camera.position.y += (mouseNormY * 0.55 - camera.position.y) * 0.04;
+        } else {
+          camera.position.x += (0 - camera.position.x) * 0.06;
+          camera.position.y += (0 - camera.position.y) * 0.06;
+        }
+        camera.lookAt(0, 0, 0);
+
+        if (pulse.active) {
+          pulse.progress += dt * (1.55 / pulse.duration);
+          const waveStrength = Math.max(0, Math.sin(Math.min(pulse.progress, 1.4) * (Math.PI / 1.4)));
+          const intensityScale = reducedMotion ? 0.35 : (pulse.tier === 'small' ? 0.45 : 0.72);
+
+          strandMats[0].emissive.lerpColors(curEmissive1, pulse.color, waveStrength * intensityScale);
+          strandMats[1].emissive.lerpColors(curEmissive2, pulse.color, waveStrength * intensityScale);
+
+          for (let i = 0; i < rungItems.length; i++) {
+            const item = rungItems[i];
+            const centerT = pulse.tier === 'small' ? pulse.targetRungT : (pulse.progress - 0.1);
+            const dist = Math.abs(item.t - centerT);
+            const spread = pulse.tier === 'small' ? 4.5 : 3.0;
+            const glow = Math.max(0, 1 - dist * spread) * (reducedMotion ? 0.45 : 1);
+            item.matL.emissive.lerpColors(item.origL, pulse.color, glow);
+            item.matR.emissive.lerpColors(item.origR, pulse.color, glow);
+            item.matL.emissiveIntensity = 0.42 + glow * 1.45;
+            item.matR.emissiveIntensity = 0.42 + glow * 1.45;
+            item.bondMat.emissive.lerpColors(curEmissive2, pulse.color, glow);
+            item.bondMat.emissiveIntensity = 0.85 + glow * 1.4;
+          }
+
+          if (pulse.progress >= 1.55) {
+            pulse.active = false;
+            strandMats[0].emissive.copy(curEmissive1);
+            strandMats[1].emissive.copy(curEmissive2);
+            for (let i = 0; i < rungItems.length; i++) {
+              const item = rungItems[i];
+              item.matL.emissive.copy(item.origL);
+              item.matR.emissive.copy(item.origR);
+              item.matL.emissiveIntensity = 0.42;
+              item.matR.emissiveIntensity = 0.42;
+              item.bondMat.emissive.copy(curEmissive2);
+              item.bondMat.emissiveIntensity = 0.85;
+            }
+          }
+        } else {
+          strandMats[0].emissive.copy(curEmissive1);
+          strandMats[1].emissive.copy(curEmissive2);
+          const breath = reducedMotion ? 0.78 : (0.72 + Math.sin(elapsed * 1.8) * 0.18);
+          for (let i = 0; i < rungItems.length; i++) {
+            rungItems[i].bondMat.emissiveIntensity = breath;
+          }
+        }
+
+        if (particles && !reducedMotion) {
+          particles.rotation.y = elapsed * 0.025;
+          particles.position.y = Math.sin(elapsed * 0.35) * 0.35;
+        }
+
+        renderer.render(scene, camera);
+      }
+
+      return { init, setCaseTheme, setReducedMotion, triggerFeedback };
+    })();
+
+    /* ============================================================
+       6. ESTADO GLOBAL & CONTROLADOR DO JOGO
+       ============================================================ */
+    const State = {
+      screen: 'start',
+      index: 0,
+      answersByCaseId: {},
+      bestScore: 0,
+      bestStreak: 0,
+      soundEnabled: true,
+      reducedMotion: false,
+      // Rascunho investigativo por caso (não bloqueia a resposta)
+      pinnedAlleles: new Set(),
+      flaggedColumns: new Set(),
+      showRuler: false,
+      lastFocusedBeforeModal: null
+    };
+
+    const dom = {
+      hudBrand: document.getElementById('btn-hud-home'),
+      hudProgressArea: document.getElementById('hud-progress-area'),
+      hudCounter: document.getElementById('hud-case-counter'),
+      hudScore: document.getElementById('hud-score'),
+      hudStreak: document.getElementById('hud-streak'),
+      hudBar: document.getElementById('hud-progress-bar'),
+      hudProgressbar: document.getElementById('hud-progressbar'),
+      hudCasesBadge: document.getElementById('hud-cases-badge'),
+      btnMotionToggle: document.getElementById('btn-motion-toggle'),
+      btnSoundToggle: document.getElementById('btn-sound-toggle'),
+      iconSoundOn: document.getElementById('icon-sound-on'),
+      iconSoundOff: document.getElementById('icon-sound-off'),
+      srAnnouncer: document.getElementById('sr-announcer'),
+
+      screenStart: document.getElementById('screen-start'),
+      startSaveBadge: document.getElementById('start-save-badge'),
+      startTelemetry: document.getElementById('start-telemetry'),
+      telProgress: document.getElementById('tel-progress'),
+      telCurrentScore: document.getElementById('tel-current-score'),
+      telBestScore: document.getElementById('tel-best-score'),
+      telBestStreak: document.getElementById('tel-best-streak'),
+      btnContinueGame: document.getElementById('btn-continue-game'),
+      btnContinueLabel: document.getElementById('btn-continue-label'),
+      btnStartGame: document.getElementById('btn-start-game'),
+      btnStartLabel: document.getElementById('btn-start-label'),
+
+      screenCase: document.getElementById('screen-case'),
+      caseBadgeNum: document.getElementById('case-badge-number'),
+      caseBadgeMarker: document.getElementById('case-badge-marker'),
+      caseTitle: document.getElementById('case-title'),
+      caseReviewBanner: document.getElementById('case-review-banner'),
+      btnJumpNextPending: document.getElementById('btn-jump-next-pending'),
+      caseNarrative: document.getElementById('case-narrative'),
+      caseReadingTip: document.getElementById('case-reading-tip'),
+      caseMarkerBanner: document.getElementById('case-marker-banner'),
+      scratchpadHintText: document.getElementById('scratchpad-hint-text'),
+      btnToggleRuler: document.getElementById('btn-toggle-ruler'),
+      btnClearMarks: document.getElementById('btn-clear-marks'),
+      casePrimaryDna: document.getElementById('case-primary-dna'),
+      caseComparisonSection: document.getElementById('case-comparison-section'),
+      caseComparisonDna: document.getElementById('case-comparison-dna'),
+      caseQuestion: document.getElementById('case-question'),
+      caseOptions: document.getElementById('case-options-container'),
+
+      feedbackPanel: document.getElementById('case-feedback-panel'),
+      feedbackIcon: document.getElementById('feedback-icon'),
+      feedbackHeading: document.getElementById('feedback-heading'),
+      feedbackSub: document.getElementById('feedback-sub'),
+      feedbackJustification: document.getElementById('feedback-justification'),
+      btnPrevCase: document.getElementById('btn-prev-case'),
+      btnNextCase: document.getElementById('btn-next-case'),
+      btnNextLabel: document.getElementById('btn-next-label'),
+
+      screenReport: document.getElementById('screen-report'),
+      reportScoreBig: document.getElementById('report-score-big'),
+      reportRankTitle: document.getElementById('report-rank-title'),
+      reportRankDesc: document.getElementById('report-rank-desc'),
+      reportCasesList: document.getElementById('report-cases-list'),
+
+      modalGuide: document.getElementById('modal-guide'),
+      modalCases: document.getElementById('modal-cases'),
+      modalCasesSummary: document.getElementById('modal-cases-summary'),
+      caseMapGrid: document.getElementById('case-map-grid')
+    };
+
+    function announce(msg) {
+      if (!dom.srAnnouncer) return;
+      dom.srAnnouncer.textContent = '';
+      window.setTimeout(() => {
+        dom.srAnnouncer.textContent = msg;
+      }, 30);
+    }
+
+    function computeMetrics() {
+      let answeredCount = 0;
+      let score = 0;
+      let currentStreak = 0;
+      let maxStreakInRound = 0;
+
+      for (const c of CASES) {
+        const ans = State.answersByCaseId[c.id];
+        if (ans) {
+          answeredCount += 1;
+          if (ans.isCorrect) {
+            score += 1;
+            currentStreak += 1;
+            if (currentStreak > maxStreakInRound) maxStreakInRound = currentStreak;
+          } else {
+            currentStreak = 0;
+          }
+        }
+      }
+
+      if (score > State.bestScore) State.bestScore = score;
+      if (maxStreakInRound > State.bestStreak) State.bestStreak = maxStreakInRound;
+
+      return { answeredCount, score, currentStreak, maxStreakInRound };
+    }
+
+    function persistState() {
+      SaveSystem.save({
+        currentIndex: State.index,
+        answersByCaseId: State.answersByCaseId,
+        bestScore: State.bestScore,
+        bestStreak: State.bestStreak,
+        soundEnabled: State.soundEnabled,
+        reducedMotion: State.reducedMotion
+      });
+    }
+
+    function applyReducedMotionUI() {
+      const osPrefers = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const effective = State.reducedMotion || osPrefers;
+      document.body.classList.toggle('reduced-motion', State.reducedMotion);
+      dom.btnMotionToggle.setAttribute('aria-pressed', String(State.reducedMotion));
+      PurpleDNA3D.setReducedMotion(effective);
+    }
+
+    function applySoundUI() {
+      SoundFX.setEnabled(State.soundEnabled);
+      dom.btnSoundToggle.setAttribute('aria-pressed', String(!State.soundEnabled));
+      dom.btnSoundToggle.setAttribute('aria-label', State.soundEnabled ? 'Silenciar áudio' : 'Ativar áudio');
+      dom.btnSoundToggle.classList.toggle('is-muted', !State.soundEnabled);
+      dom.iconSoundOn.hidden = !State.soundEnabled;
+      dom.iconSoundOff.hidden = State.soundEnabled;
+    }
+
+    function updateHUD() {
+      const { answeredCount, score, currentStreak } = computeMetrics();
+      const num = State.index + 1;
+      const total = CASES.length;
+
+      dom.hudCounter.textContent = `Caso ${num} de ${total}`;
+      dom.hudScore.textContent = `Acertos: ${score}/${total}`;
+      dom.hudStreak.textContent = `Seq: ${currentStreak}`;
+      dom.hudBar.style.width = `${Math.round((num / total) * 100)}%`;
+      dom.hudProgressbar.setAttribute('aria-valuenow', String(num));
+      dom.hudCasesBadge.textContent = `(${answeredCount}/${total})`;
+    }
+
+    function updateStartScreenUI() {
+      const { answeredCount, score } = computeMetrics();
+      const hasProgress = answeredCount > 0;
+      const allDone = answeredCount === CASES.length;
+
+      if (hasProgress) {
+        dom.startSaveBadge.textContent = allDone ? 'Rodada concluída (9/9)' : `${answeredCount} de 9 casos analisados`;
+        dom.startTelemetry.hidden = false;
+        dom.telProgress.textContent = `${answeredCount}/9`;
+        dom.telCurrentScore.textContent = String(score);
+        dom.telBestScore.textContent = `${State.bestScore}/9`;
+        dom.telBestStreak.textContent = String(State.bestStreak);
+
+        dom.btnContinueGame.hidden = false;
+        dom.btnContinueLabel.textContent = allDone
+          ? 'Ver Relatório Final'
+          : `Continuar (Caso ${findNextPendingIndex() + 1} de 9)`;
+        dom.btnStartGame.className = 'btn-secondary';
+        dom.btnStartLabel.textContent = 'Começar Nova Rodada';
+      } else {
+        dom.startSaveBadge.textContent = State.bestScore > 0 ? `Recorde: ${State.bestScore}/9` : 'Pronto para perícia';
+        dom.startTelemetry.hidden = State.bestScore === 0;
+        if (State.bestScore > 0) {
+          dom.telProgress.textContent = '0/9';
+          dom.telCurrentScore.textContent = '0';
+          dom.telBestScore.textContent = `${State.bestScore}/9`;
+          dom.telBestStreak.textContent = String(State.bestStreak);
+        }
+        dom.btnContinueGame.hidden = true;
+        dom.btnStartGame.className = 'btn-primary';
+        dom.btnStartLabel.textContent = 'Iniciar Investigação';
+      }
+    }
+
+    function findNextPendingIndex() {
+      const idx = CASES.findIndex((c) => !State.answersByCaseId[c.id]);
+      return idx >= 0 ? idx : 0;
+    }
+
+    function showScreen(name) {
+      State.screen = name;
+      dom.screenStart.hidden = name !== 'start';
+      dom.screenCase.hidden = name !== 'case';
+      dom.screenReport.hidden = name !== 'report';
+      dom.hudProgressArea.hidden = name !== 'case';
+
+      if (name === 'start') {
+        updateStartScreenUI();
+        PurpleDNA3D.setCaseTheme('autosomal');
+      }
+      updateHUD();
+      window.scrollTo({ top: 0, behavior: State.reducedMotion ? 'auto' : 'smooth' });
+    }
+
+    /* ============================================================
+       7. RENDERIZADORES DE DNA (COM SUPORTE A INVESTIGAÇÃO ATIVA)
+       ============================================================ */
+    function formatSpacedUnit(unit) {
+      return unit
+        .split('')
+        .map((b) => `<span class="base-${b}">${b}</span>`)
+        .join(' ');
+    }
+
+    function getAlleleHighlightState(caseObj, val, isAnswered) {
+      if (isAnswered) {
+        if (caseObj.highlightMode === 'parentage_none') return 'state-mismatch';
+        if (caseObj.highlightMode === 'match_values') {
+          return (caseObj.matchedValues || []).includes(val) ? 'state-match' : '';
+        }
+        if (caseObj.highlightMode === 'identity_partial') {
+          if ((caseObj.matchedValues || []).includes(val)) return 'state-match';
+          if ((caseObj.mismatchedValues || []).includes(val)) return 'state-mismatch';
+        }
+        return '';
+      }
+
+      if (!State.pinnedAlleles.has(val)) return '';
+
+      // Verifica se o mesmo número de repetições aparece tanto na amostra analisada quanto em alguma comparação
+      const inAnalyzed = caseObj.analyzed.alleles.includes(val);
+      const inComparison = (caseObj.comparisons || []).some((comp) => comp.alleles.includes(val));
+      return inAnalyzed && inComparison ? 'state-paired' : 'state-pinned';
+    }
+
+    function renderStrAlleleRow(label, count, stateClass, isAnswered) {
+      let blocksHTML = '';
+      for (let i = 0; i < count; i++) {
+        blocksHTML += '<span class="str-block"></span>';
+      }
+
+      let statusTag = '';
+      if (stateClass === 'state-match') {
+        statusTag = `<span class="status-tag tag-match">${SvgIcons.check}<span>Compatível</span></span>`;
+      } else if (stateClass === 'state-mismatch') {
+        statusTag = `<span class="status-tag tag-mismatch">${SvgIcons.cross}<span>Sem par</span></span>`;
+      } else if (stateClass === 'state-paired') {
+        statusTag = `<span class="status-tag tag-match">${SvgIcons.link}<span>Pareado</span></span>`;
+      } else if (stateClass === 'state-pinned') {
+        statusTag = `<span class="status-tag tag-pinned">${SvgIcons.pin}<span>Marcado</span></span>`;
+      }
+
+      const isPressed = State.pinnedAlleles.has(count);
+      const interactiveAttrs = isAnswered
+        ? 'disabled'
+        : `aria-pressed="${isPressed}" data-pin-allele="${count}"`;
+
+      return `
+        <button
+          type="button"
+          class="allele-row ${stateClass}"
+          ${interactiveAttrs}
+          aria-label="${label}: ${count} repetições${stateClass === 'state-paired' ? ' (pareado)' : isPressed ? ' (marcado)' : ''}"
+        >
+          <span class="allele-label">${label}</span>
+          <span class="allele-badge tabular">${count}×</span>
+          <div class="str-track-wrap">
+            <div class="str-track" aria-hidden="true">${blocksHTML}</div>
+            <div class="str-track-meta">
+              <span class="tabular">${count} repetições</span>
+              ${statusTag}
+            </div>
+          </div>
+        </button>
+      `;
+    }
+
+    function renderStrSubjectCard(caseObj, subject, isAnswered) {
+      const rowsHTML = subject.alleles
+        .map((count, idx) => {
+          const label = caseObj.type === 'STR_SINGLE' ? (caseObj.alleleLabel || 'Alelo Y') : `Alelo ${idx + 1}`;
+          const state = getAlleleHighlightState(caseObj, count, isAnswered);
+          return renderStrAlleleRow(label, count, state, isAnswered);
+        })
+        .join('');
+
+      return `
+        <div class="subject-card">
+          <div class="subject-header">
+            <div class="subject-name">
+              <span class="subject-dot" aria-hidden="true"></span>
+              <span>${subject.label}</span>
+            </div>
+          </div>
+          <div class="allele-list">
+            ${rowsHTML}
+          </div>
+        </div>
+      `;
+    }
+
+    function render12BaseSequence(seq, compareTo = null, revealDiff = false, interactiveCols = false) {
+      const clean = seq.toUpperCase();
+      const ref = compareTo ? compareTo.toUpperCase() : null;
+      const groups = [];
+
+      for (let g = 0; g < 3; g++) {
+        let cells = '';
+        for (let i = 0; i < 4; i++) {
+          const pos = g * 4 + i;
+          const ch = clean[pos] || '';
+          let extraCls = '';
+
+          if (revealDiff && ref) {
+            extraCls = ch === ref[pos] ? 'base-match' : 'base-diff';
+          } else if (State.flaggedColumns.has(pos)) {
+            extraCls = 'is-col-flagged';
+          }
+
+          const rulerLabel = State.showRuler
+            ? `<span class="seq-pos-index tabular" aria-hidden="true">${String(pos + 1).padStart(2, '0')}</span>`
+            : '';
+
+          if (interactiveCols) {
+            const flagged = State.flaggedColumns.has(pos);
+            cells += `
+              <div class="seq-cell-wrap">
+                ${rulerLabel}
+                <button
+                  type="button"
+                  class="seq-base-cell base-${ch} ${extraCls}"
+                  data-flag-col="${pos}"
+                  aria-pressed="${flagged}"
+                  aria-label="Posição ${pos + 1}, base ${ch}${flagged ? ' (marcada)' : ''}"
+                >${ch}</button>
+              </div>
+            `;
+          } else {
+            cells += `
+              <div class="seq-cell-wrap">
+                ${rulerLabel}
+                <span class="seq-base-cell base-${ch} ${extraCls}">${ch}</span>
+              </div>
+            `;
+          }
+        }
+        groups.push(`<div class="seq-group">${cells}</div>`);
+      }
+
+      return `<div class="seq-grid">${groups.join('')}</div>`;
+    }
+
+    function updateScratchpadBar(c, isAnswered) {
+      const isSeq = c.type === 'SEQ' || c.type === 'QUIZ_SEQ';
+      dom.btnToggleRuler.hidden = !isSeq;
+      dom.btnToggleRuler.setAttribute('aria-pressed', String(State.showRuler));
+
+      const markCount = isSeq ? State.flaggedColumns.size : State.pinnedAlleles.size;
+      dom.btnClearMarks.hidden = isAnswered || markCount === 0;
+
+      if (isAnswered) {
+        dom.scratchpadHintText.textContent = isSeq
+          ? 'Divergências e correspondências reveladas automaticamente abaixo.'
+          : 'Alelos compatíveis e excludentes destacados abaixo.';
+      } else if (isSeq) {
+        dom.scratchpadHintText.textContent = markCount > 0
+          ? `${markCount} posição(ões) marcada(s) para comparação.`
+          : 'Toque em qualquer base para marcar a coluna nas amostras ou ative a Régua 1–12.';
+      } else {
+        dom.scratchpadHintText.textContent = markCount > 0
+          ? `${markCount} valor(es) de alelo marcado(s). Clique novamente para desmarcar.`
+          : 'Clique nos alelos para marcar e parear valores antes de dar o veredito.';
+      }
+    }
+
+    function renderDnaSections(c, isAnswered) {
+      updateScratchpadBar(c, isAnswered);
+
+      if (c.type === 'STR' || c.type === 'STR_SINGLE') {
+        dom.caseMarkerBanner.innerHTML = `
+          <div class="marker-info">
+            Marcador <span class="marker-info-accent">${c.markerName}</span>
+            <span class="marker-info-sub">(${c.markerType})</span>
+          </div>
+          <div class="marker-unit-chip">
+            <span style="color: var(--text-muted); font-weight: 500;">Bloco:</span>
+            <span>${formatSpacedUnit(c.repeatUnit)}</span>
+          </div>
+        `;
+
+        dom.casePrimaryDna.innerHTML = renderStrSubjectCard(c, c.analyzed, isAnswered);
+        dom.caseComparisonSection.hidden = false;
+        dom.caseComparisonDna.innerHTML = c.comparisons
+          .map((comp) => renderStrSubjectCard(c, comp, isAnswered))
+          .join('');
+      } else if (c.type === 'SEQ') {
+        dom.caseMarkerBanner.innerHTML = `
+          <div class="marker-info">
+            Marcador <span class="marker-info-accent">${c.markerName}</span>
+            <span class="marker-info-sub">• ${c.markerType}</span>
+          </div>
+          <span class="marker-unit-chip tabular">12 bases (3 × 4)</span>
+        `;
+
+        const compSeq = c.comparisons[0].sequence;
+        dom.casePrimaryDna.innerHTML = `
+          <div class="subject-card">
+            <div class="subject-header">
+              <div class="subject-name">
+                <span class="subject-dot" aria-hidden="true"></span>
+                <span>${c.analyzed.label}</span>
+              </div>
+            </div>
+            ${render12BaseSequence(c.analyzed.sequence, compSeq, isAnswered, !isAnswered)}
+          </div>
+        `;
+
+        dom.caseComparisonSection.hidden = false;
+        const diffCount = c.analyzed.sequence.split('').filter((ch, i) => ch !== compSeq[i]).length;
+        dom.caseComparisonDna.innerHTML = `
+          <div class="subject-card">
+            <div class="subject-header">
+              <div class="subject-name">
+                <span class="subject-dot" aria-hidden="true"></span>
+                <span>${c.comparisons[0].label}</span>
+              </div>
+              ${isAnswered ? `<span class="status-tag tag-mismatch">${SvgIcons.cross}<span>${diffCount} bases divergentes</span></span>` : ''}
+            </div>
+            ${render12BaseSequence(compSeq, c.analyzed.sequence, isAnswered, !isAnswered)}
+          </div>
+        `;
+      } else if (c.type === 'QUIZ_SEQ') {
+        dom.caseMarkerBanner.innerHTML = `
+          <div class="marker-info">
+            <span class="marker-info-accent">${c.markerName}</span>
+            <span class="marker-info-sub">• ${c.markerType}</span>
+          </div>
+          <span class="marker-unit-chip">Correspondência 100%</span>
+        `;
+
+        dom.casePrimaryDna.innerHTML = `
+          <div class="subject-card">
+            <div class="subject-header">
+              <div class="subject-name">
+                <span class="subject-dot" aria-hidden="true"></span>
+                <span>${c.analyzed.label}</span>
+              </div>
+            </div>
+            ${render12BaseSequence(c.analyzed.sequence, c.analyzed.sequence, isAnswered, !isAnswered)}
+          </div>
+        `;
+        dom.caseComparisonSection.hidden = true;
+      }
+
+      if (!isAnswered) {
+        dom.screenCase.querySelectorAll('[data-pin-allele]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const val = Number(btn.getAttribute('data-pin-allele'));
+            const willPin = !State.pinnedAlleles.has(val);
+            if (willPin) State.pinnedAlleles.add(val);
+            else State.pinnedAlleles.delete(val);
+            SoundFX.pin(willPin);
+            PurpleDNA3D.triggerFeedback('small', 'pin');
+            renderDnaSections(c, false);
+          });
+        });
+
+        dom.screenCase.querySelectorAll('[data-flag-col]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const pos = Number(btn.getAttribute('data-flag-col'));
+            const willFlag = !State.flaggedColumns.has(pos);
+            if (willFlag) State.flaggedColumns.add(pos);
+            else State.flaggedColumns.delete(pos);
+            SoundFX.pin(willFlag);
+            PurpleDNA3D.triggerFeedback('small', 'pin');
+            renderDnaSections(c, false);
+            renderOptions(c, false);
+          });
+        });
+      }
+    }
+
+    function renderOptions(c, isAnswered, selectedVal = null) {
+      if (c.type !== 'QUIZ_SEQ') {
+        dom.caseOptions.innerHTML = `
+          <div class="options-binary">
+            <button type="button" data-answer="Sim" class="btn-choice btn-choice--binary">
+              <span class="choice-icon-badge choice-icon-yes" aria-hidden="true">${SvgIcons.check}</span>
+              <span>Sim</span>
+              <span class="choice-shortcut-hint">[1]</span>
+            </button>
+            <button type="button" data-answer="Não" class="btn-choice btn-choice--binary">
+              <span class="choice-icon-badge choice-icon-no" aria-hidden="true">${SvgIcons.cross}</span>
+              <span>Não</span>
+              <span class="choice-shortcut-hint">[2]</span>
+            </button>
+          </div>
+        `;
+      } else {
+        const refSeq = c.analyzed.sequence;
+        const cards = c.options
+          .map((opt) => {
+            const isExact = opt.sequence === refSeq;
+            const postTag = isAnswered
+              ? isExact
+                ? `<span class="status-tag tag-match">${SvgIcons.check}<span>100% igual</span></span>`
+                : `<span class="status-tag tag-mismatch">${SvgIcons.cross}<span>Divergente</span></span>`
+              : `<span class="choice-shortcut-hint">Selecionar [${opt.key}]</span>`;
+
+            return `
+              <button type="button" data-answer="${opt.key}" class="btn-choice btn-choice--quad">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+                  <div style="display: flex; align-items: center; gap: 0.55rem;">
+                    <span class="choice-key-chip">${opt.key}</span>
+                    <span style="font-family: var(--font-display); font-weight: 700; font-size: 0.96875rem; color: var(--text-primary);">${opt.name}</span>
+                  </div>
+                  ${postTag}
+                </div>
+                ${render12BaseSequence(opt.sequence, refSeq, isAnswered, false)}
+              </button>
+            `;
+          })
+          .join('');
+
+        dom.caseOptions.innerHTML = `
+          <div class="dna-group">
+            <div class="dna-group-heading">
+              <span>DNA de Comparação — Banco de Dados Estadual</span>
+            </div>
+            <div class="options-quad">${cards}</div>
+          </div>
+        `;
+      }
+
+      dom.caseOptions.querySelectorAll('button[data-answer]').forEach((btn) => {
+        const val = btn.getAttribute('data-answer');
+        if (isAnswered) {
+          btn.disabled = true;
+          if (val === c.correctAnswer) {
+            btn.classList.add('choice-correct');
+          } else if (val === selectedVal && val !== c.correctAnswer) {
+            btn.classList.add('choice-wrong');
+          } else {
+            btn.classList.add('choice-dimmed');
+          }
+        } else {
+          btn.addEventListener('click', () => handleAnswer(val));
+        }
+      });
+    }
+
+    function showFeedbackPanel(c, savedEntry) {
+      const isCorrect = savedEntry.isCorrect;
+      const correctDisplay = c.correctLabel || c.correctAnswer;
+
+      dom.feedbackPanel.hidden = false;
+      dom.feedbackPanel.classList.remove('is-correct', 'is-wrong');
+      dom.feedbackIcon.classList.remove('is-correct', 'is-wrong');
+      dom.feedbackHeading.classList.remove('is-correct', 'is-wrong');
+
+      if (isCorrect) {
+        dom.feedbackPanel.classList.add('is-correct');
+        dom.feedbackIcon.classList.add('is-correct');
+        dom.feedbackIcon.innerHTML = SvgIcons.check;
+        dom.feedbackHeading.classList.add('is-correct');
+        dom.feedbackHeading.textContent = 'Análise Correta — Evidência Confirmada';
+        dom.feedbackSub.textContent = `Você respondeu "${savedEntry.chosenDisplay}" — confira os destaques moleculares acima.`;
+      } else {
+        dom.feedbackPanel.classList.add('is-wrong');
+        dom.feedbackIcon.classList.add('is-wrong');
+        dom.feedbackIcon.innerHTML = SvgIcons.cross;
+        dom.feedbackHeading.classList.add('is-wrong');
+        dom.feedbackHeading.textContent = 'Divergência na Leitura — Confira os Destaques';
+        dom.feedbackSub.textContent = `Você marcou "${savedEntry.chosenDisplay}", mas a resposta científica é "${correctDisplay}".`;
+      }
+
+      dom.feedbackJustification.textContent = c.justification;
+      dom.btnPrevCase.hidden = State.index === 0;
+      const allAnswered = Object.keys(State.answersByCaseId).length === CASES.length;
+      dom.btnNextLabel.textContent =
+        State.index === CASES.length - 1 || allAnswered ? 'Ver Relatório Final' : 'Próximo Caso';
+    }
+
+    function renderCurrentCase(preserveMarks = false) {
+      const c = CASES[State.index];
+      const existing = State.answersByCaseId[c.id] || null;
+      const isAnswered = Boolean(existing);
+
+      if (!preserveMarks) {
+        State.pinnedAlleles.clear();
+        State.flaggedColumns.clear();
+        State.showRuler = c.type === 'SEQ' || c.type === 'QUIZ_SEQ';
+      }
+
+      updateHUD();
+      PurpleDNA3D.setCaseTheme(c.helixCategory);
+
+      dom.caseBadgeNum.textContent = `CASO ${String(c.id).padStart(2, '0')}`;
+      dom.caseBadgeMarker.textContent = `${c.markerName} • ${c.markerType}`;
+      dom.caseTitle.textContent = c.title;
+      dom.caseNarrative.innerHTML = c.paragraphs.map((p) => `<p>${p}</p>`).join('');
+      dom.caseReadingTip.textContent = c.readingTip;
+      dom.caseQuestion.textContent = c.question;
+
+      const hasPendingElsewhere = CASES.some((item) => !State.answersByCaseId[item.id]);
+      dom.caseReviewBanner.hidden = !(isAnswered && hasPendingElsewhere);
+
+      renderDnaSections(c, isAnswered);
+      renderOptions(c, isAnswered, existing ? existing.chosen : null);
+
+      if (isAnswered) {
+        showFeedbackPanel(c, existing);
+      } else {
+        dom.feedbackPanel.hidden = true;
+      }
+
+      dom.screenCase.classList.remove('panel-enter');
+      void dom.screenCase.offsetWidth;
+      dom.screenCase.classList.add('panel-enter');
+      persistState();
+    }
+
+    function handleAnswer(answerValue) {
+      const c = CASES[State.index];
+      if (State.answersByCaseId[c.id]) return;
+
+      const isCorrect = answerValue === c.correctAnswer;
+      let chosenDisplay = answerValue;
+      if (c.type === 'QUIZ_SEQ') {
+        const chosenOpt = c.options.find((o) => o.key === answerValue);
+        if (chosenOpt) chosenDisplay = `${chosenOpt.key}) ${chosenOpt.name}`;
+      }
+
+      const entry = {
+        chosen: answerValue,
+        chosenDisplay,
+        isCorrect
+      };
+
+      State.answersByCaseId[c.id] = entry;
+      updateHUD();
+      persistState();
+
+      if (isCorrect) {
+        SoundFX.correct();
+        PurpleDNA3D.triggerFeedback('medium', 'correct');
+        announce(`Análise correta no Caso ${c.id}: ${c.title}.`);
+      } else {
+        SoundFX.wrong();
+        PurpleDNA3D.triggerFeedback('medium', 'wrong');
+        announce(`Resposta incorreta no Caso ${c.id}. A resposta correta é ${c.correctLabel || c.correctAnswer}.`);
+      }
+
+      renderDnaSections(c, true);
+      renderOptions(c, true, answerValue);
+      showFeedbackPanel(c, entry);
+
+      window.setTimeout(() => {
+        if (!dom.feedbackPanel.hidden) {
+          dom.feedbackPanel.scrollIntoView({ behavior: State.reducedMotion ? 'auto' : 'smooth', block: 'nearest' });
+        }
+      }, 90);
+    }
+
+    function renderFinalReport() {
+      const { score } = computeMetrics();
+      persistState();
+
+      dom.reportScoreBig.textContent = `${score}/${CASES.length}`;
+
+      let rank = '';
+      let desc = '';
+      let rankColor = 'var(--state-match)';
+
+      if (score === 9) {
+        rank = 'Perito(a) Mestre em Genética Forense';
+        desc = 'Pontuação máxima! Você desvendou todos os 9 casos com leitura molecular impecável.';
+        rankColor = 'var(--state-match)';
+      } else if (score >= 7) {
+        rank = 'Especialista em Análise de DNA';
+        desc = 'Ótimo trabalho! Você dominou quase todas as regras de herança STR, X, Y e mtDNA.';
+        rankColor = 'var(--accent-bright)';
+      } else if (score >= 5) {
+        rank = 'Analista Molecular Júnior';
+        desc = 'Bom desempenho! Revise os casos abaixo ou consulte o Guia Rápido para fechar 9/9.';
+        rankColor = 'var(--text-primary)';
+      } else {
+        rank = 'Aprendiz de Laboratório Genético';
+        desc = 'Excelente começo! Clique em qualquer caso abaixo para revisar a justificativa e tente novamente.';
+        rankColor = 'var(--state-mismatch)';
+      }
+
+      dom.reportRankTitle.style.color = rankColor;
+      dom.reportRankTitle.textContent = rank;
+      dom.reportRankDesc.textContent = desc;
+
+      dom.reportCasesList.innerHTML = CASES.map((c) => {
+        const ans = State.answersByCaseId[c.id];
+        const correctDisplay = c.correctLabel || c.correctAnswer;
+        const isCorrect = ans ? ans.isCorrect : false;
+        const cardCls = ans ? (isCorrect ? 'is-correct' : 'is-wrong') : '';
+        const pillCls = ans ? (isCorrect ? 'is-correct' : 'is-wrong') : 'is-pending';
+        const pillIcon = ans ? (isCorrect ? SvgIcons.check : SvgIcons.cross) : '';
+        const pillText = ans ? (isCorrect ? 'Acerto' : 'Erro') : 'Pendente';
+
+        return `
+          <button type="button" class="report-case-card ${cardCls}" data-review-index="${c.id - 1}">
+            <div style="min-width: 0;">
+              <div class="case-map-code tabular">CASO ${String(c.id).padStart(2, '0')} • ${c.markerName}</div>
+              <div class="case-map-title">${c.title}</div>
+              <div style="font-size: 0.8125rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                ${ans ? `Sua resposta: <strong style="color: var(--text-primary);">${ans.chosenDisplay}</strong>` : 'Ainda não respondido'}
+                ${ans && !isCorrect ? ` • Correta: <strong style="color: var(--state-match);">${correctDisplay}</strong>` : ''}
+              </div>
+            </div>
+            <span class="status-pill ${pillCls}">${pillIcon}<span>${pillText}</span></span>
+          </button>
+        `;
+      }).join('');
+
+      dom.reportCasesList.querySelectorAll('[data-review-index]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          SoundFX.click();
+          State.index = Number(btn.getAttribute('data-review-index'));
+          showScreen('case');
+          renderCurrentCase();
+        });
+      });
+
+      if (score >= 7) SoundFX.fanfare();
+      else SoundFX.click(1.05);
+
+      PurpleDNA3D.triggerFeedback('large', score >= 5 ? 'correct' : 'wrong');
+      showScreen('report');
+    }
+
+    function openCaseIndex(idx) {
+      State.index = Math.max(0, Math.min(CASES.length - 1, idx));
+      showScreen('case');
+      renderCurrentCase();
+    }
+
+    function startNewRound() {
+      SoundFX.click();
+      State.index = 0;
+      State.answersByCaseId = {};
+      State.pinnedAlleles.clear();
+      State.flaggedColumns.clear();
+      persistState();
+      openCaseIndex(0);
+    }
+
+    function continueSavedRound() {
+      SoundFX.click();
+      const answeredCount = Object.keys(State.answersByCaseId).length;
+      if (answeredCount === CASES.length) {
+        renderFinalReport();
+      } else {
+        openCaseIndex(findNextPendingIndex());
+      }
+    }
+
+    /* ============================================================
+       8. MODAIS COM FOCUS TRAP E MAPA DE CASOS
+       ============================================================ */
+    function getFocusableElements(container) {
+      return Array.from(
+        container.querySelectorAll('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')
+      ).filter((el) => !el.hidden && el.offsetParent !== null);
+    }
+
+    function getActiveModal() {
+      if (!dom.modalGuide.hidden) return dom.modalGuide;
+      if (!dom.modalCases.hidden) return dom.modalCases;
+      return null;
+    }
+
+    function openModal(modalEl) {
+      State.lastFocusedBeforeModal = document.activeElement;
+      dom.modalGuide.hidden = modalEl !== dom.modalGuide;
+      dom.modalCases.hidden = modalEl !== dom.modalCases;
+      SoundFX.click(1.06);
+
+      if (modalEl === dom.modalCases) {
+        renderCaseMapModal();
+      }
+
+      const focusables = getFocusableElements(modalEl);
+      if (focusables.length > 0) {
+        focusables[0].focus({ preventScroll: true });
+      }
+    }
+
+    function closeModals() {
+      const active = getActiveModal();
+      if (!active) return;
+      dom.modalGuide.hidden = true;
+      dom.modalCases.hidden = true;
+      SoundFX.click(0.92);
+      if (State.lastFocusedBeforeModal && typeof State.lastFocusedBeforeModal.focus === 'function') {
+        State.lastFocusedBeforeModal.focus({ preventScroll: true });
+      }
+      State.lastFocusedBeforeModal = null;
+    }
+
+    function renderCaseMapModal() {
+      const { answeredCount, score } = computeMetrics();
+      dom.modalCasesSummary.textContent = `${answeredCount} de ${CASES.length} analisados • ${score} acerto(s)`;
+
+      dom.caseMapGrid.innerHTML = CASES.map((c, idx) => {
+        const ans = State.answersByCaseId[c.id];
+        const isCurrent = State.screen === 'case' && State.index === idx;
+        let pillCls = 'is-pending';
+        let pillIcon = '';
+        let pillText = 'Pendente';
+
+        if (ans) {
+          pillCls = ans.isCorrect ? 'is-correct' : 'is-wrong';
+          pillIcon = ans.isCorrect ? SvgIcons.check : SvgIcons.cross;
+          pillText = ans.isCorrect ? 'Acerto' : 'Erro';
+        } else if (isCurrent) {
+          pillCls = 'is-current';
+          pillIcon = SvgIcons.pin;
+          pillText = 'Atual';
+        }
+
+        return `
+          <button type="button" class="case-map-btn ${isCurrent ? 'is-active' : ''}" data-map-index="${idx}">
+            <div style="min-width: 0;">
+              <div class="case-map-code tabular">CASO ${String(c.id).padStart(2, '0')}</div>
+              <div class="case-map-title">${c.title}</div>
+              <div class="case-map-marker">${c.markerName} • ${c.markerType}</div>
+            </div>
+            <span class="status-pill ${pillCls}">${pillIcon}<span>${pillText}</span></span>
+          </button>
+        `;
+      }).join('');
+
+      dom.caseMapGrid.querySelectorAll('[data-map-index]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const idx = Number(btn.getAttribute('data-map-index'));
+          closeModals();
+          openCaseIndex(idx);
+        });
+      });
+    }
+
+    /* ============================================================
+       9. EVENTOS & ATALHOS DE TECLADO
+       ============================================================ */
+    function bindEvents() {
+      dom.hudBrand.addEventListener('click', () => {
+        SoundFX.click();
+        showScreen('start');
+      });
+
+      dom.btnStartGame.addEventListener('click', startNewRound);
+      dom.btnContinueGame.addEventListener('click', continueSavedRound);
+      document.getElementById('btn-play-again').addEventListener('click', startNewRound);
+
+      document.getElementById('btn-start-cases').addEventListener('click', () => openModal(dom.modalCases));
+      document.getElementById('btn-hud-cases').addEventListener('click', () => openModal(dom.modalCases));
+      document.getElementById('btn-close-cases').addEventListener('click', closeModals);
+      document.getElementById('btn-close-cases-footer').addEventListener('click', closeModals);
+      document.getElementById('btn-reset-round').addEventListener('click', () => {
+        closeModals();
+        startNewRound();
+      });
+
+      document.getElementById('btn-start-guide').addEventListener('click', () => openModal(dom.modalGuide));
+      document.getElementById('btn-hud-guide').addEventListener('click', () => openModal(dom.modalGuide));
+      document.getElementById('btn-report-guide').addEventListener('click', () => openModal(dom.modalGuide));
+      document.getElementById('btn-close-guide').addEventListener('click', closeModals);
+      document.getElementById('btn-close-guide-footer').addEventListener('click', closeModals);
+
+      [dom.modalGuide, dom.modalCases].forEach((modal) => {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) closeModals();
+        });
+      });
+
+      dom.btnToggleRuler.addEventListener('click', () => {
+        const c = CASES[State.index];
+        if (!c || (c.type !== 'SEQ' && c.type !== 'QUIZ_SEQ')) return;
+        State.showRuler = !State.showRuler;
+        SoundFX.click();
+        const existing = State.answersByCaseId[c.id];
+        renderDnaSections(c, Boolean(existing));
+        renderOptions(c, Boolean(existing), existing ? existing.chosen : null);
+      });
+
+      dom.btnClearMarks.addEventListener('click', () => {
+        const c = CASES[State.index];
+        State.pinnedAlleles.clear();
+        State.flaggedColumns.clear();
+        SoundFX.click(0.9);
+        renderDnaSections(c, false);
+        renderOptions(c, false);
+      });
+
+      dom.btnJumpNextPending.addEventListener('click', () => {
+        SoundFX.click();
+        openCaseIndex(findNextPendingIndex());
+      });
+
+      dom.btnPrevCase.addEventListener('click', () => {
+        if (State.index > 0) {
+          SoundFX.click();
+          openCaseIndex(State.index - 1);
+        }
+      });
+
+      dom.btnNextCase.addEventListener('click', () => {
+        SoundFX.click();
+        const allAnswered = Object.keys(State.answersByCaseId).length === CASES.length;
+        if (State.index < CASES.length - 1 && !allAnswered) {
+          openCaseIndex(State.index + 1);
+        } else if (State.index < CASES.length - 1 && !State.answersByCaseId[CASES[State.index + 1].id]) {
+          openCaseIndex(State.index + 1);
+        } else if (allAnswered) {
+          renderFinalReport();
+        } else {
+          openCaseIndex(findNextPendingIndex());
+        }
+      });
+
+      dom.btnSoundToggle.addEventListener('click', () => {
+        State.soundEnabled = !State.soundEnabled;
+        applySoundUI();
+        persistState();
+        if (State.soundEnabled) SoundFX.click();
+      });
+
+      dom.btnMotionToggle.addEventListener('click', () => {
+        State.reducedMotion = !State.reducedMotion;
+        applyReducedMotionUI();
+        persistState();
+        SoundFX.click();
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.altKey || e.ctrlKey || e.metaKey) return;
+
+        const activeModal = getActiveModal();
+        if (activeModal) {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            closeModals();
+            return;
+          }
+          if (e.key === 'Tab') {
+            const focusables = getFocusableElements(activeModal);
+            if (focusables.length === 0) return;
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+              e.preventDefault();
+              last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+              e.preventDefault();
+              first.focus();
+            }
+          }
+          return;
+        }
+
+        const key = (e.key || '').toLowerCase();
+
+        if (key === 'g') {
+          e.preventDefault();
+          openModal(dom.modalGuide);
+          return;
+        }
+        if (key === 'c') {
+          e.preventDefault();
+          openModal(dom.modalCases);
+          return;
+        }
+        if (key === 'm') {
+          e.preventDefault();
+          dom.btnSoundToggle.click();
+          return;
+        }
+
+        if (State.screen !== 'case') return;
+        const c = CASES[State.index];
+        const isAnswered = Boolean(State.answersByCaseId[c.id]);
+
+        if (key === 'r' && (c.type === 'SEQ' || c.type === 'QUIZ_SEQ')) {
+          e.preventDefault();
+          dom.btnToggleRuler.click();
+          return;
+        }
+
+        if (isAnswered) {
+          if (e.key === 'Enter' && !e.target.closest('button')) {
+            e.preventDefault();
+            dom.btnNextCase.click();
+          }
+          return;
+        }
+
+        if (c.type !== 'QUIZ_SEQ') {
+          if (key === '1' || key === 's') {
+            e.preventDefault();
+            handleAnswer('Sim');
+          } else if (key === '2' || key === 'n') {
+            e.preventDefault();
+            handleAnswer('Não');
+          }
+        } else {
+          const map = { a: 'A', b: 'B', c: 'C', d: 'D', '1': 'A', '2': 'B', '3': 'C', '4': 'D' };
+          if (map[key]) {
+            e.preventDefault();
+            handleAnswer(map[key]);
+          }
+        }
+      });
+    }
+
+    /* ============================================================
+       10. INICIALIZAÇÃO
+       ============================================================ */
+    function initApp() {
+      const saved = SaveSystem.load();
+      State.index = saved.currentIndex;
+      State.answersByCaseId = saved.answersByCaseId;
+      State.bestScore = saved.bestScore;
+      State.bestStreak = saved.bestStreak;
+      State.soundEnabled = saved.soundEnabled;
+      State.reducedMotion = saved.reducedMotion;
+
+      applySoundUI();
+      applyReducedMotionUI();
+      bindEvents();
+      PurpleDNA3D.init();
+      showScreen('start');
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+      initApp();
+    }
+  </script>
+
+  <!-- Navegação Universal do Ecossistema Biotecnologia Vermelha (UFPA) -->
+  <script src="./ecosystem-nav.js" defer data-page="qeop.html" data-theme="dark" data-pos="default"></script>
+</body>
+</html>
