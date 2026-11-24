@@ -121,6 +121,20 @@
       icon:
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v5l-4.5 9A2 2 0 0 0 7.3 20h9.4a2 2 0 0 0 1.8-3L14 8V3"/><circle cx="12" cy="14" r="2"/></svg>',
     },
+    {
+      id: 'dna-snake',
+      file: 'dna-snake.html',
+      code: 'EXP 08',
+      title: 'DNA Snake — Síntese de Fita',
+      shortTitle: 'DNA Snake',
+      category: 'interativo',
+      categoryLabel: 'Jogo Arcade DNA',
+      accent: '#EC4899',
+      description:
+        'Jogo arcade biomolecular de síntese de fita 5′→3′: capture nucleotídeos livres (A, T, C, G) e encadeie pares complementares para multiplicar o combo.',
+      icon:
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h9a3.5 3.5 0 0 0 0-7h-2a3.5 3.5 0 0 1 0-7h7"/><circle cx="19" cy="4" r="1.5" fill="currentColor"/><line x1="8" y1="14.5" x2="12" y2="14.5"/><line x1="12" y1="7.5" x2="16" y2="7.5"/></svg>',
+    },
   ];
 
   const PAGE_THEMES = {
@@ -316,6 +330,32 @@
       cardHover: '#190E31',
       seenColor: '#5EEAD4',
     },
+    'dna-snake.html': {
+      colorScheme: 'light',
+      bg: 'rgba(255, 251, 253, 0.90)',
+      border: 'rgba(219, 39, 119, 0.30)',
+      borderHover: 'rgba(219, 39, 119, 0.65)',
+      text: '#4A152B',
+      textMuted: '#7D3B56',
+      sep: 'rgba(219, 39, 119, 0.18)',
+      pillHover: 'rgba(219, 39, 119, 0.10)',
+      accent: '#DB2777',
+      accentHover: '#BE185D',
+      accentContrast: '#FFFFFF',
+      accentSecondary: '#DB2777',
+      chipBg: 'rgba(255, 255, 255, 0.24)',
+      shadow: '0 10px 28px rgba(131, 24, 67, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.88)',
+      dialogBg: '#FFF5F8',
+      dialogSurface: '#FFFFFF',
+      dialogSurfaceAlt: '#FFF0F6',
+      dialogBorder: '#F7C6DA',
+      dialogText: '#4A152B',
+      dialogMuted: '#7D3B56',
+      cardHover: '#FFF0F6',
+      seenColor: '#15803D',
+      backdrop: 'rgba(74, 21, 43, 0.48)',
+      cardFootBorder: 'rgba(219, 39, 119, 0.14)',
+    },
   };
 
   function normalizePageFile(raw) {
@@ -491,7 +531,7 @@
         const isCurrent = p.file === this._currentFile;
         const isVisited = this._visited.has(p.file);
         const cardInk = isLight
-          ? `color-mix(in srgb, ${p.accent} 45%, #143316)`
+          ? `color-mix(in srgb, ${p.accent} 45%, ${theme.dialogText})`
           : p.accent;
         return `
           <a
@@ -710,7 +750,7 @@
           }
 
           dialog#eco-dialog::backdrop {
-            background: rgba(${isLight ? '16, 36, 18' : '0, 0, 0'}, ${isLight ? '0.52' : '0.78'});
+            background: ${theme.backdrop || (isLight ? 'rgba(16, 36, 18, 0.52)' : 'rgba(0, 0, 0, 0.78)')};
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
           }
@@ -1074,7 +1114,7 @@
             justify-content: space-between;
             padding-top: 8px;
             margin-top: 2px;
-            border-top: 1px solid ${isLight ? 'rgba(36, 85, 38, 0.12)' : 'rgba(255, 255, 255, 0.07)'};
+            border-top: 1px solid ${theme.cardFootBorder || (isLight ? 'rgba(36, 85, 38, 0.12)' : 'rgba(255, 255, 255, 0.07)')};
             font-family: 'JetBrains Mono', ui-monospace, monospace;
             font-size: 10px;
             font-weight: 700;

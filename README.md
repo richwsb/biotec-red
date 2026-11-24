@@ -74,9 +74,9 @@ Simulador interativo passo a passo:
 
 ---
 
-## 🌐 Ecossistema Conectado em 8 Ambientes (`ecosystem-nav.js`)
+## 🌐 Ecossistema Conectado em 9 Ambientes (`ecosystem-nav.js`)
 
-O script universal `ecosystem-nav.js` (Web Component em Shadow DOM isolado) conecta os 8 ambientes do projeto através de um **dock fixo no canto inferior direito em posição única invariante** (tanto no desktop quanto no celular) e com **paleta adaptativa automática por página (`PAGE_THEMES`)**:
+O script universal `ecosystem-nav.js` (Web Component em Shadow DOM isolado) conecta os 9 ambientes do projeto através de um **dock fixo no canto inferior direito em posição única invariante** (tanto no desktop quanto no celular) e com **paleta adaptativa automática por página (`PAGE_THEMES`)**:
 
 1. **`index.html` — Portal Principal UFPA** (*Tactical Biotech* • `#FACC15`)
 2. **`dna.html` — Dupla-Hélice B-DNA 3D** (*Molecular Cyan/Emerald* • `#22D3EE`) — visualização estrutural com os modos **Montada** e **Explodida**, filtros por componente e inspeção por raycasting.
@@ -86,6 +86,7 @@ O script universal `ecosystem-nav.js` (Web Component em Shadow DOM isolado) cone
 6. **`mistery.html` — Arquivo Confidencial** (*Noir Brass & Manila* • `#C99E32`) — jogo de investigação criminal com dossiês, interrogatórios, mural de fios e veredito.
 7. **`natal.html` (& `rvore_de_natal_3d_ascii.html`) — Noite Natalina & Árvore 3D ASCII** (*Glacial Night & Starlight Gold* • `#38BDF8` / `#FACC15`) — cena natalina 2D reativa ao vento e **Easter Egg de 5 toques seguidos na estrela da árvore**, ativando a transição cinematográfica para a **Árvore de Natal 3D Volumétrica ASCII (`FELIZ NATAL 2026`)**.
 8. **`qeop.html` — DNA Forense 3D: Mistérios Genéticos** (*Espectroscopia UV-Violeta* • `#C084FC`) — jogo com 9 estudos de caso reais (STR autossômico, cromossomos X/Y, DNA felino e mtDNA de 12 bases), rascunho investigativo tátil, cena 3D reativa e síntese sonora procedural.
+9. **`dna-snake.html` — DNA Snake: Síntese de Fita** (*Blush Bio-Lab Light* • `#DB2777`) — jogo arcade biomolecular de síntese de fita 5′→3′ com captura de nucleotídeos (`A`, `T`, `C`, `G`), bônus de pareamento complementar, síntese sonora procedural, sequência genética exportável e controles por teclado/toque.
 
 ---
 
@@ -110,6 +111,7 @@ ev/
 ├── folder.html                  # Folder 3D dobrável frente e verso
 ├── mistery.html                 # Jogo Noir Arquivo Confidencial (+ mistery-*.js e MISTERY-DESIGN.md)
 ├── qeop.html                    # Jogo DNA Forense 3D — Mistérios Genéticos (STR, X/Y, mtDNA + Three.js)
+├── dna-snake.html               # Jogo Arcade DNA Snake — Síntese de Fita 5′→3′ (A-T / C-G)
 ├── natal.html                   # Vila Natalina 2D ASCII + Modo 3D 2026 (Easter Egg na estrela)
 ├── rvore_de_natal_3d_ascii.html # Experiência standalone da Árvore 3D ASCII integrada ao ecossistema
 ├── DESIGN.md                    # Documentação do Design System do Portal & Ecossistema

@@ -1,0 +1,2664 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>DNA Snake — Síntese de Fita</title>
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23FFF5F8'/%3E%3Cpath d='M9 6c0 5 14 5 14 10S9 21 9 26' stroke='%23DB2777' stroke-width='2.6' stroke-linecap='round' fill='none'/%3E%3Cpath d='M23 6c0 5-14 5-14 10s14 5 14 10' stroke='%23EC4899' stroke-width='2.6' stroke-linecap='round' fill='none'/%3E%3Cline x1='11' y1='11' x2='21' y2='11' stroke='%234A152B' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='11' y1='21' x2='21' y2='21' stroke='%234A152B' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Nunito+Sans:wght@400;600;700&family=Varela+Round&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg-top: #FFF5F8;
+      --bg-mid: #FFE6F0;
+      --bg-bot: #FFD6E6;
+      --surface-board: #FFFBFD;
+      --surface-hud: rgba(255, 255, 255, 0.90);
+      --surface-soft: #FFF0F6;
+      --surface-overlay: rgba(255, 247, 250, 0.94);
+
+      --border-subtle: #F7C6DA;
+      --border-strong: #EB9EC0;
+
+      --shadow-board: 0 14px 36px rgba(131, 24, 67, 0.10), 0 2px 8px rgba(131, 24, 67, 0.05);
+      --shadow-control: 0 2px 6px rgba(131, 24, 67, 0.08);
+      --shadow-overlay: 0 12px 30px rgba(74, 21, 43, 0.12);
+
+      --ink-primary: #4A152B;
+      --ink-secondary: #7D3B56;
+
+      --accent-primary: #DB2777;
+      --accent-hover: #BE185D;
+      --accent-active: #9D174D;
+      --accent-bright: #EC4899;
+
+      --base-a: #C81E68;
+      --base-a-soft: #FCE7F3;
+      --base-t: #B45309;
+      --base-t-soft: #FEF3C7;
+      --base-c: #0369A1;
+      --base-c-soft: #E0F2FE;
+      --base-g: #15803D;
+      --base-g-soft: #DCFCE7;
+
+      --font-display: 'Varela Round', ui-rounded, 'SF Pro Rounded', 'Segoe UI', sans-serif;
+      --font-body: 'Nunito Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+      --radius-board: 22px;
+      --radius-panel: 18px;
+      --radius-pill: 9999px;
+      --radius-btn: 14px;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    ::selection {
+      background: #FBCFE8;
+      color: var(--ink-primary);
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      background: linear-gradient(165deg, var(--bg-top) 0%, var(--bg-mid) 52%, var(--bg-bot) 100%);
+      color: var(--ink-primary);
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      overscroll-behavior: none;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .app-shell {
+      height: 100dvh;
+      max-height: 100dvh;
+      width: 100%;
+      max-width: 880px;
+      margin: 0 auto;
+      /* Folga segura no canto inferior direito para o dock de ecosystem-nav.js */
+      padding:
+        max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) calc(70px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left));
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    /* HUD Bar */
+    .hud-bar {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 52px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+      flex-shrink: 0;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 11px;
+      background: var(--surface-hud);
+      border: 1.5px solid var(--border-subtle);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-control);
+      color: var(--accent-primary);
+      flex-shrink: 0;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: clamp(1.1rem, 2.2vw, 1.38rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--ink-primary);
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+
+    .hud-strip {
+      display: flex;
+      align-items: center;
+      background: var(--surface-hud);
+      border: 1.5px solid var(--border-subtle);
+      border-radius: var(--radius-pill);
+      padding: 5px 12px;
+      box-shadow: var(--shadow-control);
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .hud-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      line-height: 1.1;
+      padding-right: 12px;
+      border-right: 1px solid var(--border-subtle);
+    }
+
+    .hud-stat:last-of-type {
+      padding-right: 0;
+      border-right: none;
+    }
+
+    .hud-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--ink-secondary);
+    }
+
+    .hud-value {
+      font-family: var(--font-mono);
+      font-size: 0.96rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--ink-primary);
+      margin-top: 2px;
+    }
+
+    .pair-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding-left: 10px;
+      border-left: 1px solid var(--border-subtle);
+    }
+
+    .pair-caption {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--ink-secondary);
+      margin-right: 2px;
+    }
+
+    .base-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #FFFFFF;
+      line-height: 1;
+      transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1), background-color 150ms ease;
+    }
+
+    .base-badge[data-base="A"] {
+      background: var(--base-a);
+    }
+
+    .base-badge[data-base="T"] {
+      background: var(--base-t);
+    }
+
+    .base-badge[data-base="C"] {
+      background: var(--base-c);
+    }
+
+    .base-badge[data-base="G"] {
+      background: var(--base-g);
+    }
+
+    .pair-arrow {
+      color: var(--ink-secondary);
+      flex-shrink: 0;
+    }
+
+    .combo-pill {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 7px;
+      border-radius: var(--radius-pill);
+      background: var(--accent-primary);
+      color: #FFFFFF;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.01em;
+    }
+
+    .combo-pill.is-visible {
+      display: inline-flex;
+      animation: badgePop 180ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes badgePop {
+      0% {
+        transform: scale(0.84);
+      }
+
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    .hud-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 13px;
+      border: 1.5px solid var(--border-subtle);
+      background: var(--surface-hud);
+      color: var(--ink-primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: var(--shadow-control);
+      transition: background-color 150ms ease, border-color 150ms ease, transform 120ms cubic-bezier(0.16, 1, 0.3, 1);
+      padding: 0;
+    }
+
+    .icon-btn:hover {
+      background: #FFFFFF;
+      border-color: var(--border-strong);
+      transform: translateY(-1px);
+    }
+
+    .icon-btn:active {
+      transform: scale(0.95);
+    }
+
+    .icon-btn[aria-pressed="true"] {
+      background: var(--surface-soft);
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+
+    button:focus-visible,
+    .seq-box:focus-visible {
+      outline: 2.5px solid var(--accent-primary);
+      outline-offset: 2px;
+    }
+
+    /* Stage */
+    .stage-wrap {
+      flex: 1 1 0;
+      min-height: 0;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .board-frame {
+      position: relative;
+      border-radius: var(--radius-board);
+      border: 1.5px solid var(--border-subtle);
+      background: var(--surface-board);
+      box-shadow: var(--shadow-board);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #game-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Overlays */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(255, 245, 248, 0.72);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 180ms ease, visibility 180ms ease;
+      z-index: 4;
+    }
+
+    .overlay.is-active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .overlay-panel {
+      width: 100%;
+      max-width: 390px;
+      background: var(--surface-overlay);
+      border: 1.5px solid var(--border-subtle);
+      border-radius: var(--radius-panel);
+      box-shadow: var(--shadow-overlay);
+      padding: 20px 20px 18px;
+      text-align: center;
+      color: var(--ink-primary);
+      transform: translateY(6px) scale(0.98);
+      transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .overlay.is-active .overlay-panel {
+      transform: translateY(0) scale(1);
+    }
+
+    .overlay-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .overlay-panel h2 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: clamp(1.35rem, 3vw, 1.65rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--ink-primary);
+      line-height: 1.15;
+    }
+
+    .record-pill {
+      display: none;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: var(--radius-pill);
+      background: var(--accent-primary);
+      color: #FFFFFF;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .record-pill.is-visible {
+      display: inline-flex;
+    }
+
+    .overlay-desc {
+      margin: 0 0 14px;
+      font-size: 0.9rem;
+      line-height: 1.45;
+      color: var(--ink-secondary);
+    }
+
+    /* Base legend in title screen */
+    .base-legend {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 16px;
+      text-align: left;
+    }
+
+    .legend-pair {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: #FFFFFF;
+      border: 1px solid var(--border-subtle);
+      font-size: 0.78rem;
+      color: var(--ink-primary);
+      font-weight: 600;
+    }
+
+    .legend-bases {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .legend-names {
+      font-size: 0.74rem;
+      color: var(--ink-secondary);
+      white-space: nowrap;
+    }
+
+    /* Stats grid in Game Over */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .stat-cell {
+      background: #FFFFFF;
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 8px 10px;
+      text-align: left;
+    }
+
+    .stat-cell-label {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--ink-secondary);
+    }
+
+    .stat-cell-val {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 1.05rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--ink-primary);
+      margin-top: 2px;
+    }
+
+    /* Sequence readout in Game Over */
+    .seq-section {
+      text-align: left;
+      margin-bottom: 14px;
+    }
+
+    .seq-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--ink-secondary);
+      margin-bottom: 5px;
+    }
+
+    .seq-box {
+      background: #FFFFFF;
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 8px 10px;
+      max-height: 74px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      line-height: 1.5;
+      word-break: break-all;
+      color: var(--ink-primary);
+    }
+
+    .seq-box::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .seq-box::-webkit-scrollbar-track {
+      background: var(--surface-soft);
+      border-radius: 99px;
+    }
+
+    .seq-box::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: 99px;
+    }
+
+    .seq-char {
+      font-weight: 700;
+      margin-right: 1px;
+    }
+
+    .seq-char[data-base="A"] {
+      color: var(--base-a);
+    }
+
+    .seq-char[data-base="T"] {
+      color: var(--base-t);
+    }
+
+    .seq-char[data-base="C"] {
+      color: var(--base-c);
+    }
+
+    .seq-char[data-base="G"] {
+      color: var(--base-g);
+    }
+
+    .seq-end {
+      color: var(--ink-secondary);
+      font-weight: 500;
+    }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      min-height: 44px;
+      padding: 10px 18px;
+      border-radius: var(--radius-btn);
+      font-family: var(--font-body);
+      font-size: 0.92rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: background-color 150ms ease, border-color 150ms ease, transform 120ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .btn-primary {
+      background: var(--accent-primary);
+      color: #FFFFFF;
+      border: 1.5px solid var(--accent-primary);
+      box-shadow: 0 4px 12px rgba(219, 39, 119, 0.22);
+      flex: 1 1 auto;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active {
+      background: var(--accent-active);
+      transform: scale(0.97);
+    }
+
+    .btn-secondary {
+      background: #FFFFFF;
+      color: var(--ink-primary);
+      border: 1.5px solid var(--border-subtle);
+      box-shadow: var(--shadow-control);
+      flex: 0 1 auto;
+    }
+
+    .btn-secondary:hover {
+      background: var(--surface-soft);
+      border-color: var(--border-strong);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary:active {
+      transform: scale(0.97);
+    }
+
+    .controls-hint {
+      margin: 12px 0 0;
+      font-size: 0.76rem;
+      color: var(--ink-secondary);
+    }
+
+    /* Bottom Strip */
+    .bottom-strip {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 36px;
+    }
+
+    .ticker-bar {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface-hud);
+      border: 1.5px solid var(--border-subtle);
+      border-radius: var(--radius-pill);
+      padding: 5px 12px;
+      box-shadow: var(--shadow-control);
+      overflow: hidden;
+    }
+
+    .ticker-label {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--ink-secondary);
+      flex-shrink: 0;
+    }
+
+    .ticker-bases {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      overflow: hidden;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .ticker-chip {
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #FFFFFF;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .ticker-chip[data-base="A"] {
+      background: var(--base-a);
+    }
+
+    .ticker-chip[data-base="T"] {
+      background: var(--base-t);
+    }
+
+    .ticker-chip[data-base="C"] {
+      background: var(--base-c);
+    }
+
+    .ticker-chip[data-base="G"] {
+      background: var(--base-g);
+    }
+
+    .shortcut-hint {
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: var(--ink-secondary);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* Touch D-pad (visible on touch/mobile viewports) */
+    .touch-dpad {
+      display: none;
+      grid-template-columns: repeat(3, 46px);
+      grid-template-rows: repeat(2, 46px);
+      gap: 6px;
+      margin: 0 auto;
+      touch-action: none;
+    }
+
+    .dpad-btn {
+      width: 46px;
+      height: 46px;
+      border-radius: 13px;
+      border: 1.5px solid var(--border-subtle);
+      background: var(--surface-hud);
+      color: var(--ink-primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: var(--shadow-control);
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      padding: 0;
+      transition: background-color 100ms ease, transform 100ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .dpad-btn:active,
+    .dpad-btn.is-pressed {
+      background: var(--accent-primary);
+      border-color: var(--accent-primary);
+      color: #FFFFFF;
+      transform: scale(0.93);
+    }
+
+    .dpad-up {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .dpad-left {
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    .dpad-down {
+      grid-column: 2;
+      grid-row: 2;
+    }
+
+    .dpad-right {
+      grid-column: 3;
+      grid-row: 2;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 767px) {
+      .app-shell {
+        gap: 8px;
+        padding:
+          max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) calc(74px + env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left));
+      }
+
+      .hud-bar {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .brand {
+        order: 1;
+      }
+
+      .hud-actions {
+        order: 2;
+      }
+
+      .hud-strip {
+        order: 3;
+        width: 100%;
+        justify-content: space-between;
+        padding: 5px 10px;
+        gap: 6px;
+      }
+
+      .hud-stat {
+        padding-right: 8px;
+      }
+
+      .pair-indicator {
+        padding-left: 8px;
+      }
+
+      .pair-caption {
+        display: none;
+      }
+
+      .shortcut-hint {
+        display: none;
+      }
+    }
+
+    @media (pointer: coarse),
+    (max-width: 767px) {
+      .ticker-bar {
+        display: none;
+      }
+
+      .touch-dpad {
+        display: grid;
+      }
+    }
+
+    @media (max-height: 680px) and (max-width: 767px) {
+      .overlay-panel {
+        padding: 14px 14px 12px;
+      }
+
+      .base-legend {
+        margin-bottom: 10px;
+      }
+
+      .controls-hint {
+        display: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      .overlay,
+      .overlay-panel,
+      .icon-btn,
+      .btn-primary,
+      .btn-secondary,
+      .base-badge,
+      .dpad-btn {
+        transition-duration: 0.01ms !important;
+      }
+
+      .combo-pill.is-visible {
+        animation: none !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+    <header class="hud-bar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7 3c0 4.5 10 4.5 10 9s-10 4.5-10 9" />
+            <path d="M17 3c0 4.5-10 4.5-10 9s10 4.5 10 9" />
+            <line x1="9" y1="7.5" x2="15" y2="7.5" />
+            <line x1="9" y1="16.5" x2="15" y2="16.5" />
+          </svg>
+        </span>
+        <h1>DNA Snake</h1>
+      </div>
+
+      <div class="hud-strip" role="region" aria-label="Placar da partida">
+        <div class="hud-stat">
+          <span class="hud-label">Pontos</span>
+          <span class="hud-value" id="hud-score">0</span>
+        </div>
+        <div class="hud-stat">
+          <span class="hud-label">Recorde</span>
+          <span class="hud-value" id="hud-best">0</span>
+        </div>
+        <div class="hud-stat">
+          <span class="hud-label">Fita</span>
+          <span class="hud-value" id="hud-length">4 bp</span>
+        </div>
+        <div class="pair-indicator" aria-label="Última base e próximo par complementar">
+          <span class="pair-caption">Par</span>
+          <span class="base-badge" id="hud-last-base" data-base="G" title="Última base capturada">G</span>
+          <svg class="pair-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14" />
+            <path d="m13 6 6 6-6 6" />
+          </svg>
+          <span class="base-badge" id="hud-target-base" data-base="C" title="Próxima base complementar bônus">C</span>
+          <span class="combo-pill" id="hud-combo" aria-live="polite">×2</span>
+        </div>
+      </div>
+
+      <div class="hud-actions">
+        <button type="button" class="icon-btn" id="btn-pause" aria-label="Pausar jogo" aria-pressed="false"
+          title="Pausar (Espaço)">
+          <svg id="icon-pause" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="6" y="5" width="4" height="14" rx="1.2" />
+            <rect x="14" y="5" width="4" height="14" rx="1.2" />
+          </svg>
+          <svg id="icon-play" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+            <polygon points="7 5 19 12 7 19 7 5" />
+          </svg>
+        </button>
+        <button type="button" class="icon-btn" id="btn-audio" aria-label="Silenciar áudio" aria-pressed="false"
+          title="Alternar áudio (M)">
+          <svg id="icon-sound-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+            <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+          </svg>
+          <svg id="icon-sound-off" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            <line x1="22" y1="9" x2="16" y2="15" />
+            <line x1="16" y1="9" x2="22" y2="15" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="stage-wrap" id="stage-wrap">
+      <div class="board-frame" id="board-frame">
+        <canvas id="game-canvas" role="img" aria-label="Tabuleiro do jogo DNA Snake"></canvas>
+        <div id="sr-status" class="sr-only" aria-live="polite"></div>
+
+        <!-- Title Overlay -->
+        <section class="overlay is-active" id="overlay-title" aria-labelledby="title-heading">
+          <div class="overlay-panel">
+            <div class="overlay-title-row">
+              <h2 id="title-heading">Síntese de Fita</h2>
+            </div>
+            <p class="overlay-desc">
+              Capture nucleotídeos livres para estender sua dupla-hélice. Pares complementares multiplicam o combo.
+            </p>
+            <div class="base-legend" aria-label="Regras de pareamento de bases">
+              <div class="legend-pair">
+                <span class="legend-bases">
+                  <span class="base-badge" data-base="A">A</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M7 16l-4-4 4-4" />
+                    <path d="M17 8l4 4-4 4" />
+                    <path d="M3 12h18" />
+                  </svg>
+                  <span class="base-badge" data-base="T">T</span>
+                </span>
+                <span class="legend-names">2 ligações</span>
+              </div>
+              <div class="legend-pair">
+                <span class="legend-bases">
+                  <span class="base-badge" data-base="C">C</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M7 16l-4-4 4-4" />
+                    <path d="M17 8l4 4-4 4" />
+                    <path d="M3 12h18" />
+                  </svg>
+                  <span class="base-badge" data-base="G">G</span>
+                </span>
+                <span class="legend-names">3 ligações</span>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button type="button" class="btn-primary" id="btn-start">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polygon points="6 4 20 12 6 20 6 4" />
+                </svg>
+                Iniciar Síntese
+              </button>
+            </div>
+            <p class="controls-hint">Setas ou WASD para guiar · Espaço para pausar</p>
+          </div>
+        </section>
+
+        <!-- Pause Overlay -->
+        <section class="overlay" id="overlay-paused" aria-labelledby="pause-heading" aria-hidden="true">
+          <div class="overlay-panel">
+            <div class="overlay-title-row">
+              <h2 id="pause-heading">Pausado</h2>
+            </div>
+            <p class="overlay-desc" id="pause-summary">Fita atual: 4 bp · 0 pontos</p>
+            <div class="btn-row">
+              <button type="button" class="btn-primary" id="btn-resume">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polygon points="6 4 20 12 6 20 6 4" />
+                </svg>
+                Retomar
+              </button>
+              <button type="button" class="btn-secondary" id="btn-restart-pause">
+                Reiniciar
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Game Over Overlay -->
+        <section class="overlay" id="overlay-gameover" aria-labelledby="gameover-heading" aria-hidden="true">
+          <div class="overlay-panel">
+            <div class="overlay-title-row">
+              <h2 id="gameover-heading">Fita Finalizada</h2>
+              <span class="record-pill" id="gameover-record-pill">Novo Recorde</span>
+            </div>
+            <div class="stats-grid">
+              <div class="stat-cell">
+                <span class="stat-cell-label">Pontuação</span>
+                <span class="stat-cell-val" id="go-score">0</span>
+              </div>
+              <div class="stat-cell">
+                <span class="stat-cell-label">Recorde</span>
+                <span class="stat-cell-val" id="go-best">0</span>
+              </div>
+              <div class="stat-cell">
+                <span class="stat-cell-label">Comprimento</span>
+                <span class="stat-cell-val" id="go-length">4 bp</span>
+              </div>
+              <div class="stat-cell">
+                <span class="stat-cell-label">Maior Fita</span>
+                <span class="stat-cell-val" id="go-longest">4 bp</span>
+              </div>
+            </div>
+            <div class="seq-section">
+              <div class="seq-header">
+                <span>Sequência Genética Formada</span>
+                <span id="go-seq-count">4 bases</span>
+              </div>
+              <div class="seq-box" id="go-sequence" tabindex="0" aria-label="Sequência genética formada na partida">
+              </div>
+            </div>
+            <div class="btn-row">
+              <button type="button" class="btn-primary" id="btn-restart">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+                  <path d="M3 3v5h5" />
+                </svg>
+                Jogar Novamente
+              </button>
+              <button type="button" class="btn-secondary" id="btn-copy-seq">
+                Copiar Sequência
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="bottom-strip">
+      <div class="ticker-bar" aria-label="Sequência recente da fita de DNA">
+        <span class="ticker-label">5&prime; &rarr; 3&prime;</span>
+        <div class="ticker-bases" id="ticker-bases"></div>
+      </div>
+      <span class="shortcut-hint">Setas / WASD · Espaço Pausar · M Áudio</span>
+
+      <div class="touch-dpad" role="group" aria-label="Controles direcionais por toque">
+        <button type="button" class="dpad-btn dpad-up" data-dir="up" aria-label="Mover para cima">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m18 15-6-6-6 6" />
+          </svg>
+        </button>
+        <button type="button" class="dpad-btn dpad-left" data-dir="left" aria-label="Mover para a esquerda">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+        </button>
+        <button type="button" class="dpad-btn dpad-down" data-dir="down" aria-label="Mover para baixo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+        <button type="button" class="dpad-btn dpad-right" data-dir="right" aria-label="Mover para a direita">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m9 18 6-6-6-6" />
+          </svg>
+        </button>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const GRID_SIZE = 20;
+      const SAVE_KEY = 'dna_snake_save_v1';
+      const SAVE_BAK_KEY = 'dna_snake_save_v1_bak';
+      const SAVE_VERSION = 1;
+
+      const BASES = {
+        A: { name: 'Adenina', pair: 'T', bonds: 2, type: 'purine', fill: '#C81E68', light: '#FCE7F3', rim: '#F472B6', freq: 523.25 },
+        T: { name: 'Timina', pair: 'A', bonds: 2, type: 'pyrimidine', fill: '#B45309', light: '#FEF3C7', rim: '#F59E0B', freq: 587.33 },
+        C: { name: 'Citosina', pair: 'G', bonds: 3, type: 'pyrimidine', fill: '#0369A1', light: '#E0F2FE', rim: '#38BDF8', freq: 659.25 },
+        G: { name: 'Guanina', pair: 'C', bonds: 3, type: 'purine', fill: '#15803D', light: '#DCFCE7', rim: '#4ADE80', freq: 783.99 }
+      };
+      const BASE_KEYS = ['A', 'T', 'C', 'G'];
+
+      const DIRS = {
+        up: { dx: 0, dy: -1 },
+        down: { dx: 0, dy: 1 },
+        left: { dx: -1, dy: 0 },
+        right: { dx: 1, dy: 0 }
+      };
+
+      const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+      let prefersReducedMotion = reducedMotionQuery.matches;
+      if (reducedMotionQuery.addEventListener) {
+        reducedMotionQuery.addEventListener('change', (e) => {
+          prefersReducedMotion = e.matches;
+          if (prefersReducedMotion) trauma = 0;
+        });
+      }
+
+      // DOM References
+      const stageWrap = document.getElementById('stage-wrap');
+      const boardFrame = document.getElementById('board-frame');
+      const canvas = document.getElementById('game-canvas');
+      const ctx = canvas.getContext('2d');
+      const srStatus = document.getElementById('sr-status');
+
+      const hudScore = document.getElementById('hud-score');
+      const hudBest = document.getElementById('hud-best');
+      const hudLength = document.getElementById('hud-length');
+      const hudLastBase = document.getElementById('hud-last-base');
+      const hudTargetBase = document.getElementById('hud-target-base');
+      const hudCombo = document.getElementById('hud-combo');
+      const tickerBases = document.getElementById('ticker-bases');
+
+      const btnPause = document.getElementById('btn-pause');
+      const iconPause = document.getElementById('icon-pause');
+      const iconPlay = document.getElementById('icon-play');
+      const btnAudio = document.getElementById('btn-audio');
+      const iconSoundOn = document.getElementById('icon-sound-on');
+      const iconSoundOff = document.getElementById('icon-sound-off');
+
+      const overlayTitle = document.getElementById('overlay-title');
+      const overlayPaused = document.getElementById('overlay-paused');
+      const overlayGameover = document.getElementById('overlay-gameover');
+
+      const btnStart = document.getElementById('btn-start');
+      const btnResume = document.getElementById('btn-resume');
+      const btnRestartPause = document.getElementById('btn-restart-pause');
+      const btnRestart = document.getElementById('btn-restart');
+      const btnCopySeq = document.getElementById('btn-copy-seq');
+
+      const pauseSummary = document.getElementById('pause-summary');
+      const goRecordPill = document.getElementById('gameover-record-pill');
+      const goScore = document.getElementById('go-score');
+      const goBest = document.getElementById('go-best');
+      const goLength = document.getElementById('go-length');
+      const goLongest = document.getElementById('go-longest');
+      const goSeqCount = document.getElementById('go-seq-count');
+      const goSequence = document.getElementById('go-sequence');
+      const goHeading = document.getElementById('gameover-heading');
+
+      // Versioned Save System (localStorage with backup fallback)
+      function defaultSave() {
+        return {
+          version: SAVE_VERSION,
+          highScore: 0,
+          longestStrandBp: 4,
+          longestSequence: 'ATCG',
+          muted: false
+        };
+      }
+
+      function validateSave(raw) {
+        if (!raw || typeof raw !== 'object') return null;
+        const v = Number(raw.version || 1);
+        if (!Number.isInteger(v) || v > SAVE_VERSION || v < 1) return null;
+        const safe = defaultSave();
+        safe.highScore = Math.max(0, Math.min(9999999, Math.floor(Number(raw.highScore) || 0)));
+        safe.longestStrandBp = Math.max(4, Math.min(GRID_SIZE * GRID_SIZE, Math.floor(Number(raw.longestStrandBp) || 4)));
+        safe.longestSequence = typeof raw.longestSequence === 'string'
+          ? raw.longestSequence.replace(/[^ATCG]/g, '').slice(0, GRID_SIZE * GRID_SIZE) || 'ATCG'
+          : 'ATCG';
+        safe.muted = Boolean(raw.muted);
+        return safe;
+      }
+
+      function loadSave() {
+        for (const key of [SAVE_KEY, SAVE_BAK_KEY]) {
+          try {
+            const rawStr = localStorage.getItem(key);
+            if (!rawStr) continue;
+            const parsed = JSON.parse(rawStr);
+            const validated = validateSave(parsed);
+            if (validated) return validated;
+          } catch (_) {
+            // Ignore malformed storage and try backup
+          }
+        }
+        return defaultSave();
+      }
+
+      function persistSave(data) {
+        const payload = JSON.stringify(validateSave(data) || defaultSave());
+        try {
+          const prev = localStorage.getItem(SAVE_KEY);
+          if (prev) localStorage.setItem(SAVE_BAK_KEY, prev);
+          localStorage.setItem(SAVE_KEY, payload);
+        } catch (_) {
+          // Storage quota or private mode unavailable
+        }
+      }
+
+      let saveState = loadSave();
+
+      // Web Audio API Procedural Synthesizer
+      const audio = (() => {
+        let ctxAudio = null;
+        let masterGain = null;
+        let sfxBus = null;
+
+        function ensureContext() {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return null;
+          if (!ctxAudio) {
+            ctxAudio = new AudioCtx();
+            masterGain = ctxAudio.createGain();
+            masterGain.gain.value = saveState.muted ? 0 : 0.72;
+            const limiter = ctxAudio.createDynamicsCompressor();
+            limiter.threshold.value = -10;
+            limiter.ratio.value = 6;
+            limiter.attack.value = 0.003;
+            limiter.release.value = 0.12;
+            sfxBus = ctxAudio.createGain();
+            sfxBus.gain.value = 1.0;
+            sfxBus.connect(masterGain);
+            masterGain.connect(limiter);
+            limiter.connect(ctxAudio.destination);
+          }
+          if (ctxAudio.state === 'suspended') {
+            ctxAudio.resume().catch(() => { });
+          }
+          return ctxAudio;
+        }
+
+        function setMuted(muted) {
+          saveState.muted = muted;
+          persistSave(saveState);
+          if (masterGain && ctxAudio) {
+            masterGain.gain.setTargetAtTime(muted ? 0 : 0.72, ctxAudio.currentTime, 0.02);
+          }
+        }
+
+        function playTone(freq, duration, type, peakGain, delay = 0, slideTo = null) {
+          if (saveState.muted) return;
+          const ac = ensureContext();
+          if (!ac) return;
+          const now = ac.currentTime + delay;
+          const osc = ac.createOscillator();
+          const gain = ac.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, now);
+          if (slideTo) {
+            osc.frequency.exponentialRampToValueAtTime(Math.max(40, slideTo), now + duration);
+          }
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.linearRampToValueAtTime(peakGain, now + 0.012);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+          osc.connect(gain);
+          gain.connect(sfxBus);
+          osc.start(now);
+          osc.stop(now + duration + 0.02);
+        }
+
+        return {
+          unlock() {
+            if (!saveState.muted) ensureContext();
+          },
+          setMuted,
+          playTurn() {
+            const jitter = 0.97 + Math.random() * 0.06;
+            playTone(260 * jitter, 0.032, 'sine', 0.035);
+          },
+          playPickup(baseKey) {
+            const base = BASES[baseKey] || BASES.A;
+            const jitter = 0.985 + Math.random() * 0.03;
+            playTone(base.freq * jitter, 0.14, 'triangle', 0.16);
+            playTone(base.freq * 1.5 * jitter, 0.09, 'sine', 0.06, 0.02);
+          },
+          playComplement(baseKey, combo) {
+            const base = BASES[baseKey] || BASES.A;
+            const steps = [1, 1.125, 1.25, 1.333, 1.5];
+            const mult = steps[Math.min(combo - 1, steps.length - 1)] || 1;
+            const f1 = base.freq * mult;
+            const f2 = f1 * 1.5;
+            playTone(f1, 0.19, 'triangle', 0.17);
+            playTone(f2, 0.24, 'sine', 0.14, 0.045);
+            playTone(f1 * 2, 0.16, 'sine', 0.07, 0.085);
+          },
+          playCrash() {
+            playTone(230, 0.22, 'triangle', 0.18, 0, 110);
+            playTone(155, 0.28, 'sine', 0.16, 0.05, 72);
+          },
+          playUi() {
+            playTone(620, 0.06, 'sine', 0.07);
+          }
+        };
+      })();
+
+      // Pre-allocated Object Pools (zero per-frame GC churn)
+      const PARTICLE_POOL = Array.from({ length: 96 }, () => ({
+        active: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 3, color: '#DB2777'
+      }));
+      const RING_POOL = Array.from({ length: 10 }, () => ({
+        active: false, x: 0, y: 0, life: 0, maxLife: 0.45, color: '#DB2777', maxRadius: 1.5
+      }));
+      const POPUP_POOL = Array.from({ length: 12 }, () => ({
+        active: false, x: 0, y: 0, life: 0, maxLife: 0.9, text: '', color: '#4A152B'
+      }));
+
+      function spawnParticle(gx, gy, vx, vy, maxLife, size, color) {
+        for (let i = 0; i < PARTICLE_POOL.length; i++) {
+          const p = PARTICLE_POOL[i];
+          if (!p.active) {
+            p.active = true;
+            p.x = gx;
+            p.y = gy;
+            p.vx = vx;
+            p.vy = vy;
+            p.life = 0;
+            p.maxLife = maxLife;
+            p.size = size;
+            p.color = color;
+            return;
+          }
+        }
+      }
+
+      function spawnRing(gx, gy, color, maxRadius) {
+        for (let i = 0; i < RING_POOL.length; i++) {
+          const r = RING_POOL[i];
+          if (!r.active) {
+            r.active = true;
+            r.x = gx;
+            r.y = gy;
+            r.life = 0;
+            r.maxLife = 0.45;
+            r.color = color;
+            r.maxRadius = maxRadius;
+            return;
+          }
+        }
+      }
+
+      function spawnPopup(gx, gy, text, color) {
+        for (let i = 0; i < POPUP_POOL.length; i++) {
+          const pop = POPUP_POOL[i];
+          if (!pop.active) {
+            pop.active = true;
+            pop.x = gx;
+            pop.y = gy;
+            pop.life = 0;
+            pop.maxLife = 0.95;
+            pop.text = text;
+            pop.color = color;
+            return;
+          }
+        }
+      }
+
+      function clearPools() {
+        for (let i = 0; i < PARTICLE_POOL.length; i++) PARTICLE_POOL[i].active = false;
+        for (let i = 0; i < RING_POOL.length; i++) RING_POOL[i].active = false;
+        for (let i = 0; i < POPUP_POOL.length; i++) POPUP_POOL[i].active = false;
+      }
+
+      // Game State & Feel Variables
+      let gameState = 'title'; // 'title' | 'playing' | 'paused' | 'gameover'
+      let boardCssSize = 480;
+      let dpr = 1;
+      let cellPx = 24;
+
+      const bgCacheCanvas = document.createElement('canvas');
+      const bgCacheCtx = bgCacheCanvas.getContext('2d');
+
+      let segments = [];      // [{ x, y, base }]
+      let prevSegments = [];  // [{ x, y }]
+      let currentDir = DIRS.right;
+      let prevDir = DIRS.right;
+      let dirQueue = [];
+      let pendingGrowth = 0;
+
+      let nucleotides = [];   // [{ x, y, base, bornAt }]
+      let score = 0;
+      let combo = 1;
+      let lastBase = 'G';
+      let isNewRecord = false;
+      let boardCleared = false;
+
+      let stepAccumulator = 0;
+      let stepDurationMs = 140;
+      let elapsedAnimTime = 0;
+      let headPopTimer = 0;
+      let synthesisWave = -1; // travels from 0 to segments.length
+
+      // Game feel: trauma shake & monotonic hit-stop
+      let trauma = 0;
+      let shakeClock = 0;
+      let timeScale = 1.0;
+      let hitStopId = 0;
+
+      function triggerHitStop(durationMs, slowScale) {
+        if (prefersReducedMotion) return;
+        const id = ++hitStopId;
+        timeScale = slowScale;
+        window.setTimeout(() => {
+          if (id === hitStopId) {
+            timeScale = 1.0;
+          }
+        }, durationMs);
+      }
+
+      function triggerFeedback(tier, gx, gy, meta) {
+        if (tier === 'small') {
+          headPopTimer = 0.16;
+          synthesisWave = 0;
+          const color = BASES[meta.base].fill;
+          const count = prefersReducedMotion ? 4 : 10;
+          for (let i = 0; i < count; i++) {
+            const ang = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+            const spd = 1.8 + Math.random() * 2.8;
+            spawnParticle(gx + 0.5, gy + 0.5, Math.cos(ang) * spd, Math.sin(ang) * spd, 0.36 + Math.random() * 0.14, 0.11, color);
+          }
+          spawnRing(gx + 0.5, gy + 0.5, color, 1.15);
+          spawnPopup(gx + 0.5, gy + 0.15, `+${meta.points}`, '#4A152B');
+          audio.playPickup(meta.base);
+        } else if (tier === 'medium') {
+          headPopTimer = 0.22;
+          synthesisWave = 0;
+          if (!prefersReducedMotion) {
+            trauma = Math.min(1, trauma + 0.26);
+          }
+          triggerHitStop(36, 0.12);
+          const color = BASES[meta.base].fill;
+          const count = prefersReducedMotion ? 6 : 18;
+          for (let i = 0; i < count; i++) {
+            const ang = (Math.PI * 2 * i) / count + Math.random() * 0.3;
+            const spd = 2.4 + Math.random() * 4.2;
+            const pColor = i % 3 === 0 ? '#DB2777' : (i % 3 === 1 ? '#F59E0B' : color);
+            spawnParticle(gx + 0.5, gy + 0.5, Math.cos(ang) * spd, Math.sin(ang) * spd, 0.48 + Math.random() * 0.2, 0.13, pColor);
+          }
+          spawnRing(gx + 0.5, gy + 0.5, '#DB2777', 1.65);
+          spawnPopup(gx + 0.5, gy + 0.05, `Par ${meta.prevBase}↔${meta.base}! +${meta.points}`, '#BE185D');
+          audio.playComplement(meta.base, meta.combo);
+        } else if (tier === 'large') {
+          if (!prefersReducedMotion) {
+            trauma = 0.72;
+          }
+          triggerHitStop(110, 0.05);
+          const count = prefersReducedMotion ? 8 : 26;
+          for (let i = 0; i < count; i++) {
+            const ang = (Math.PI * 2 * i) / count + Math.random() * 0.25;
+            const spd = 2.2 + Math.random() * 5.0;
+            const pColor = i % 2 === 0 ? '#DB2777' : '#4A152B';
+            spawnParticle(gx + 0.5, gy + 0.5, Math.cos(ang) * spd, Math.sin(ang) * spd, 0.55 + Math.random() * 0.25, 0.14, pColor);
+          }
+          spawnRing(gx + 0.5, gy + 0.5, '#DB2777', 2.1);
+          audio.playCrash();
+        }
+      }
+
+      // Board Resize & Offscreen Background Cache
+      function rebuildBgCache() {
+        const pxSize = Math.max(1, Math.round(boardCssSize * dpr));
+        bgCacheCanvas.width = pxSize;
+        bgCacheCanvas.height = pxSize;
+        bgCacheCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        const grad = bgCacheCtx.createRadialGradient(
+          boardCssSize * 0.5, boardCssSize * 0.45, boardCssSize * 0.08,
+          boardCssSize * 0.5, boardCssSize * 0.5, boardCssSize * 0.78
+        );
+        grad.addColorStop(0, '#FFFFFF');
+        grad.addColorStop(1, '#FFF4F8');
+        bgCacheCtx.fillStyle = grad;
+        bgCacheCtx.fillRect(0, 0, boardCssSize, boardCssSize);
+
+        // Subtle bio-lab grid lines
+        bgCacheCtx.strokeStyle = 'rgba(190, 24, 93, 0.065)';
+        bgCacheCtx.lineWidth = 1;
+        bgCacheCtx.beginPath();
+        for (let i = 1; i < GRID_SIZE; i++) {
+          const pos = Math.round(i * cellPx) + 0.5;
+          bgCacheCtx.moveTo(pos, 0);
+          bgCacheCtx.lineTo(pos, boardCssSize);
+          bgCacheCtx.moveTo(0, pos);
+          bgCacheCtx.lineTo(boardCssSize, pos);
+        }
+        bgCacheCtx.stroke();
+
+        // Subtle intersection micro-dots every 4 cells
+        bgCacheCtx.fillStyle = 'rgba(219, 39, 119, 0.14)';
+        for (let gx = 4; gx < GRID_SIZE; gx += 4) {
+          for (let gy = 4; gy < GRID_SIZE; gy += 4) {
+            bgCacheCtx.beginPath();
+            bgCacheCtx.arc(gx * cellPx, gy * cellPx, 1.5, 0, Math.PI * 2);
+            bgCacheCtx.fill();
+          }
+        }
+
+        // Corner calibration brackets
+        const m = 10;
+        const len = 10;
+        bgCacheCtx.strokeStyle = 'rgba(219, 39, 119, 0.22)';
+        bgCacheCtx.lineWidth = 1.5;
+        bgCacheCtx.beginPath();
+        // TL
+        bgCacheCtx.moveTo(m, m + len); bgCacheCtx.lineTo(m, m); bgCacheCtx.lineTo(m + len, m);
+        // TR
+        bgCacheCtx.moveTo(boardCssSize - m - len, m); bgCacheCtx.lineTo(boardCssSize - m, m); bgCacheCtx.lineTo(boardCssSize - m, m + len);
+        // BL
+        bgCacheCtx.moveTo(m, boardCssSize - m - len); bgCacheCtx.lineTo(m, boardCssSize - m); bgCacheCtx.lineTo(m + len, boardCssSize - m);
+        // BR
+        bgCacheCtx.moveTo(boardCssSize - m - len, boardCssSize - m); bgCacheCtx.lineTo(boardCssSize - m, boardCssSize - m); bgCacheCtx.lineTo(boardCssSize - m, boardCssSize - m - len);
+        bgCacheCtx.stroke();
+      }
+
+      function resizeBoard() {
+        const rect = stageWrap.getBoundingClientRect();
+        const rawSize = Math.floor(Math.min(rect.width, rect.height));
+        const clampedSize = Math.max(220, Math.min(rawSize, 660));
+        dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+        boardCssSize = clampedSize;
+        cellPx = boardCssSize / GRID_SIZE;
+
+        boardFrame.style.width = `${boardCssSize}px`;
+        boardFrame.style.height = `${boardCssSize}px`;
+        canvas.width = Math.round(boardCssSize * dpr);
+        canvas.height = Math.round(boardCssSize * dpr);
+        rebuildBgCache();
+      }
+
+      if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => resizeBoard());
+        ro.observe(stageWrap);
+      } else {
+        window.addEventListener('resize', resizeBoard);
+      }
+
+      // Nucleotide Spawner
+      function getFreeCells() {
+        const occupied = new Set();
+        for (let i = 0; i < segments.length; i++) {
+          occupied.add(segments[i].x + ',' + segments[i].y);
+        }
+        for (let i = 0; i < nucleotides.length; i++) {
+          occupied.add(nucleotides[i].x + ',' + nucleotides[i].y);
+        }
+        const free = [];
+        for (let y = 0; y < GRID_SIZE; y++) {
+          for (let x = 0; x < GRID_SIZE; x++) {
+            if (!occupied.has(x + ',' + y)) {
+              free.push({ x, y });
+            }
+          }
+        }
+        return free;
+      }
+
+      function replenishNucleotides() {
+        const targetComplement = BASES[lastBase].pair;
+
+        // Ensure at least one complementary nucleotide exists when >= 1 nucleotide is on board
+        const hasComplement = nucleotides.some((n) => n.base === targetComplement);
+        if (!hasComplement && nucleotides.length >= 2) {
+          nucleotides[0].base = targetComplement;
+        }
+
+        while (nucleotides.length < 2) {
+          const free = getFreeCells();
+          if (free.length === 0) break;
+          const cell = free[Math.floor(Math.random() * free.length)];
+          let chosenBase;
+          if (!nucleotides.some((n) => n.base === targetComplement)) {
+            chosenBase = targetComplement;
+          } else {
+            const others = BASE_KEYS.filter((b) => b !== targetComplement);
+            chosenBase = others[Math.floor(Math.random() * others.length)];
+          }
+          nucleotides.push({
+            x: cell.x,
+            y: cell.y,
+            base: chosenBase,
+            bornAt: elapsedAnimTime
+          });
+        }
+      }
+
+      function getSequenceString() {
+        let s = '';
+        for (let i = 1; i < segments.length; i++) {
+          s += segments[i].base;
+        }
+        return s;
+      }
+
+      // Event-driven HUD Synchronization (never called per frame)
+      function syncHud() {
+        const target = BASES[lastBase].pair;
+        const bpCount = Math.max(0, segments.length - 1);
+
+        hudScore.textContent = String(score);
+        hudBest.textContent = String(saveState.highScore);
+        hudLength.textContent = `${bpCount} bp`;
+
+        hudLastBase.textContent = lastBase;
+        hudLastBase.dataset.base = lastBase;
+        hudTargetBase.textContent = target;
+        hudTargetBase.dataset.base = target;
+
+        if (combo >= 2) {
+          hudCombo.textContent = `×${combo}`;
+          hudCombo.classList.add('is-visible');
+        } else {
+          hudCombo.classList.remove('is-visible');
+        }
+
+        // Update 5' -> 3' ticker with latest 24 bases
+        const fullSeq = getSequenceString();
+        const recent = fullSeq.slice(-24);
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < recent.length; i++) {
+          const ch = recent[i];
+          const chip = document.createElement('span');
+          chip.className = 'ticker-chip';
+          chip.dataset.base = ch;
+          chip.textContent = ch;
+          frag.appendChild(chip);
+        }
+        tickerBases.replaceChildren(frag);
+      }
+
+      function syncAudioButton() {
+        const muted = saveState.muted;
+        btnAudio.setAttribute('aria-pressed', muted ? 'true' : 'false');
+        btnAudio.setAttribute('aria-label', muted ? 'Ativar áudio' : 'Silenciar áudio');
+        iconSoundOn.hidden = muted;
+        iconSoundOff.hidden = !muted;
+      }
+
+      function syncPauseButton() {
+        const paused = gameState === 'paused';
+        btnPause.setAttribute('aria-pressed', paused ? 'true' : 'false');
+        btnPause.setAttribute('aria-label', paused ? 'Retomar jogo' : 'Pausar jogo');
+        btnPause.disabled = gameState === 'title' || gameState === 'gameover';
+        iconPause.hidden = paused;
+        iconPlay.hidden = !paused;
+      }
+
+      function setOverlayState(nextState) {
+        gameState = nextState;
+        const map = {
+          title: overlayTitle,
+          paused: overlayPaused,
+          gameover: overlayGameover
+        };
+        for (const [key, el] of Object.entries(map)) {
+          const active = key === nextState;
+          el.classList.toggle('is-active', active);
+          el.setAttribute('aria-hidden', active ? 'false' : 'true');
+        }
+        syncPauseButton();
+
+        if (nextState === 'title') {
+          btnStart.focus({ preventScroll: true });
+        } else if (nextState === 'paused') {
+          const bpCount = Math.max(0, segments.length - 1);
+          pauseSummary.textContent = `Fita atual: ${bpCount} bp · ${score} pontos`;
+          btnResume.focus({ preventScroll: true });
+        } else if (nextState === 'gameover') {
+          const bpCount = Math.max(0, segments.length - 1);
+          const seq = getSequenceString();
+          goHeading.textContent = boardCleared ? 'Fita Completa!' : 'Fita Finalizada';
+          goRecordPill.classList.toggle('is-visible', isNewRecord);
+          goScore.textContent = String(score);
+          goBest.textContent = String(saveState.highScore);
+          goLength.textContent = `${bpCount} bp`;
+          goLongest.textContent = `${saveState.longestStrandBp} bp`;
+          goSeqCount.textContent = `${seq.length} bases`;
+
+          const seqFrag = document.createDocumentFragment();
+          const prefix = document.createElement('span');
+          prefix.className = 'seq-end';
+          prefix.textContent = "5'-";
+          seqFrag.appendChild(prefix);
+          for (let i = 0; i < seq.length; i++) {
+            const sp = document.createElement('span');
+            sp.className = 'seq-char';
+            sp.dataset.base = seq[i];
+            sp.textContent = seq[i];
+            seqFrag.appendChild(sp);
+          }
+          const suffix = document.createElement('span');
+          suffix.className = 'seq-end';
+          suffix.textContent = "-3'";
+          seqFrag.appendChild(suffix);
+          goSequence.replaceChildren(seqFrag);
+          btnCopySeq.textContent = 'Copiar Sequência';
+          btnRestart.focus({ preventScroll: true });
+        }
+      }
+
+      // Initialize / Reset Match
+      function initGame(autoPlay) {
+        const cx = Math.floor(GRID_SIZE / 2);
+        const cy = Math.floor(GRID_SIZE / 2);
+        // Segment 0 is the 3' polymerase head; segments 1..4 are initial 4 bp strand
+        segments = [
+          { x: cx + 1, y: cy, base: 'HEAD' },
+          { x: cx, y: cy, base: 'G' },
+          { x: cx - 1, y: cy, base: 'C' },
+          { x: cx - 2, y: cy, base: 'T' },
+          { x: cx - 3, y: cy, base: 'A' }
+        ];
+        prevSegments = segments.map((s) => ({ x: s.x, y: s.y }));
+        currentDir = DIRS.right;
+        prevDir = DIRS.right;
+        dirQueue = [];
+        pendingGrowth = 0;
+
+        score = 0;
+        combo = 1;
+        lastBase = 'G';
+        isNewRecord = false;
+        boardCleared = false;
+        stepAccumulator = 0;
+        stepDurationMs = 142;
+        headPopTimer = 0;
+        synthesisWave = -1;
+        trauma = 0;
+        timeScale = 1.0;
+
+        nucleotides = [];
+        clearPools();
+        replenishNucleotides();
+        syncHud();
+
+        if (autoPlay) {
+          setOverlayState('playing');
+          srStatus.textContent = 'Síntese iniciada.';
+        } else {
+          setOverlayState('title');
+        }
+      }
+
+      // Input Buffer (no accidental 180° turns inside the same tick)
+      function enqueueDirection(dirKey) {
+        if (gameState !== 'playing') return;
+        const nextDir = DIRS[dirKey];
+        if (!nextDir) return;
+        const reference = dirQueue.length > 0 ? dirQueue[dirQueue.length - 1] : currentDir;
+        if (nextDir.dx === reference.dx && nextDir.dy === reference.dy) return;
+        if (nextDir.dx + reference.dx === 0 && nextDir.dy + reference.dy === 0) return;
+        if (dirQueue.length < 2) {
+          dirQueue.push(nextDir);
+          audio.playTurn();
+        }
+      }
+
+      function togglePause() {
+        if (gameState === 'playing') {
+          dirQueue = [];
+          setOverlayState('paused');
+          audio.playUi();
+          srStatus.textContent = 'Jogo pausado.';
+        } else if (gameState === 'paused') {
+          stepAccumulator = 0;
+          setOverlayState('playing');
+          audio.playUi();
+          srStatus.textContent = 'Jogo retomado.';
+        }
+      }
+
+      function toggleAudio() {
+        audio.setMuted(!saveState.muted);
+        syncAudioButton();
+        if (!saveState.muted) audio.playUi();
+      }
+
+      // Simulation Step
+      function finishGame(cleared) {
+        boardCleared = cleared;
+        dirQueue = [];
+        const bpCount = Math.max(0, segments.length - 1);
+        let saveDirty = false;
+        if (score > saveState.highScore) {
+          saveState.highScore = score;
+          isNewRecord = true;
+          saveDirty = true;
+        }
+        if (bpCount > saveState.longestStrandBp) {
+          saveState.longestStrandBp = bpCount;
+          saveState.longestSequence = getSequenceString();
+          isNewRecord = true;
+          saveDirty = true;
+        }
+        if (saveDirty) persistSave(saveState);
+        syncHud();
+        setOverlayState('gameover');
+        srStatus.textContent = `Partida encerrada. ${score} pontos e ${bpCount} pares de bases.`;
+      }
+
+      function stepSimulation() {
+        prevSegments = segments.map((s) => ({ x: s.x, y: s.y }));
+        prevDir = currentDir;
+
+        if (dirQueue.length > 0) {
+          currentDir = dirQueue.shift();
+        }
+
+        const head = segments[0];
+        const nextX = head.x + currentDir.dx;
+        const nextY = head.y + currentDir.dy;
+
+        // Wall collision
+        if (nextX < 0 || nextX >= GRID_SIZE || nextY < 0 || nextY >= GRID_SIZE) {
+          triggerFeedback('large', head.x, head.y, {});
+          finishGame(false);
+          return;
+        }
+
+        // Check pickup before tail check (if not growing, tail moves away)
+        let hitNucIndex = -1;
+        for (let i = 0; i < nucleotides.length; i++) {
+          if (nucleotides[i].x === nextX && nucleotides[i].y === nextY) {
+            hitNucIndex = i;
+            break;
+          }
+        }
+        const willGrow = hitNucIndex !== -1 || pendingGrowth > 0;
+        const checkLimit = willGrow ? segments.length : segments.length - 1;
+
+        for (let i = 0; i < checkLimit; i++) {
+          if (segments[i].x === nextX && segments[i].y === nextY) {
+            triggerFeedback('large', nextX, nextY, {});
+            finishGame(false);
+            return;
+          }
+        }
+
+        // Advance body
+        if (hitNucIndex !== -1) {
+          const picked = nucleotides.splice(hitNucIndex, 1)[0];
+          const prevBase = lastBase;
+          const isComplement = BASES[prevBase].pair === picked.base;
+
+          if (isComplement) {
+            combo = Math.min(5, combo + 1);
+          } else {
+            combo = 1;
+          }
+          const gained = isComplement ? 10 * combo : 10;
+          score += gained;
+          lastBase = picked.base;
+
+          // Insert captured base right behind the 3' polymerase head
+          segments.unshift({ x: nextX, y: nextY, base: 'HEAD' });
+          segments[1].base = picked.base;
+          prevSegments.unshift({ x: head.x, y: head.y });
+
+          triggerFeedback(
+            isComplement ? 'medium' : 'small',
+            nextX,
+            nextY,
+            { base: picked.base, prevBase, combo, points: gained }
+          );
+
+          const bpCount = segments.length - 1;
+          stepDurationMs = Math.max(76, 142 - Math.floor((bpCount - 4) * 1.45));
+
+          let saveDirty = false;
+          if (score > saveState.highScore) {
+            saveState.highScore = score;
+            isNewRecord = true;
+            saveDirty = true;
+          }
+          if (bpCount > saveState.longestStrandBp) {
+            saveState.longestStrandBp = bpCount;
+            saveState.longestSequence = getSequenceString();
+            isNewRecord = true;
+            saveDirty = true;
+          }
+          if (saveDirty) persistSave(saveState);
+
+          if (segments.length >= GRID_SIZE * GRID_SIZE) {
+            syncHud();
+            finishGame(true);
+            return;
+          }
+
+          replenishNucleotides();
+          syncHud();
+        } else {
+          for (let i = segments.length - 1; i >= 1; i--) {
+            segments[i].x = segments[i - 1].x;
+            segments[i].y = segments[i - 1].y;
+          }
+          segments[0].x = nextX;
+          segments[0].y = nextY;
+        }
+      }
+
+      // Canvas Drawing Helpers
+      function drawPolygon(x, y, radius, sides, rotation) {
+        ctx.beginPath();
+        for (let i = 0; i < sides; i++) {
+          const a = rotation + (i * Math.PI * 2) / sides;
+          const px = x + Math.cos(a) * radius;
+          const py = y + Math.sin(a) * radius;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+      }
+
+      function drawNucleotide(nuc, time) {
+        const base = BASES[nuc.base];
+        const targetComplement = BASES[lastBase].pair;
+        const isBonus = nuc.base === targetComplement;
+        const cx = (nuc.x + 0.5) * cellPx;
+        const cy = (nuc.y + 0.5) * cellPx;
+
+        const age = Math.min(1, (elapsedAnimTime - nuc.bornAt) * 4.5);
+        const popScale = age < 1 ? 0.5 + 0.5 * (1 - Math.pow(1 - age, 3)) : 1;
+        const pulse = prefersReducedMotion ? 1 : 1 + Math.sin(time * 4.2 + nuc.x * 0.7) * 0.055;
+        const r = cellPx * 0.36 * popScale * pulse;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+
+        // Soft glow halo
+        const haloR = r * (isBonus ? 1.85 : 1.45);
+        const halo = ctx.createRadialGradient(0, 0, r * 0.25, 0, 0, haloR);
+        halo.addColorStop(0, isBonus ? 'rgba(219, 39, 119, 0.22)' : 'rgba(236, 72, 153, 0.12)');
+        halo.addColorStop(1, 'rgba(255, 245, 248, 0)');
+        ctx.fillStyle = halo;
+        ctx.beginPath();
+        ctx.arc(0, 0, haloR, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Complementary bonus orbital ring
+        if (isBonus) {
+          ctx.save();
+          if (!prefersReducedMotion) ctx.rotate(time * 1.4);
+          ctx.strokeStyle = 'rgba(219, 39, 119, 0.58)';
+          ctx.lineWidth = Math.max(1.4, cellPx * 0.065);
+          ctx.setLineDash([cellPx * 0.16, cellPx * 0.12]);
+          ctx.beginPath();
+          ctx.arc(0, 0, r * 1.24, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Stylized pentose + phosphate satellites (subtle molecular silhouette)
+        const phosX = -r * 0.88;
+        const phosY = -r * 0.62;
+        const sugX = -r * 0.42;
+        const sugY = -r * 0.22;
+
+        ctx.strokeStyle = 'rgba(125, 59, 86, 0.45)';
+        ctx.lineWidth = Math.max(1.1, cellPx * 0.05);
+        ctx.beginPath();
+        ctx.moveTo(phosX, phosY);
+        ctx.lineTo(sugX, sugY);
+        ctx.lineTo(0, 0);
+        ctx.stroke();
+
+        // Pentose pentagon
+        drawPolygon(sugX, sugY, r * 0.30, 5, -Math.PI / 2);
+        ctx.fillStyle = '#FFE4EE';
+        ctx.fill();
+        ctx.strokeStyle = '#DB2777';
+        ctx.lineWidth = Math.max(1, cellPx * 0.045);
+        ctx.stroke();
+
+        // Phosphate orb
+        ctx.beginPath();
+        ctx.arc(phosX, phosY, r * 0.22, 0, Math.PI * 2);
+        ctx.fillStyle = '#EC4899';
+        ctx.fill();
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = Math.max(1, cellPx * 0.04);
+        ctx.stroke();
+
+        // Nitrogenous base core (Purines A/G get double-ring rim; Pyrimidines T/C get single hex rim)
+        if (base.type === 'purine') {
+          ctx.beginPath();
+          ctx.arc(0, 0, r * 0.96, 0, Math.PI * 2);
+          ctx.fillStyle = base.fill;
+          ctx.fill();
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = Math.max(1.5, cellPx * 0.075);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(0, 0, r * 0.74, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.42)';
+          ctx.lineWidth = Math.max(1, cellPx * 0.04);
+          ctx.stroke();
+        } else {
+          drawPolygon(0, 0, r * 0.98, 6, Math.PI / 6);
+          ctx.fillStyle = base.fill;
+          ctx.fill();
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = Math.max(1.5, cellPx * 0.075);
+          ctx.stroke();
+        }
+
+        // Base letter
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = `700 ${Math.max(10, Math.round(cellPx * 0.43))}px "JetBrains Mono", monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(nuc.base, 0, cellPx * 0.025);
+
+        ctx.restore();
+      }
+
+      function buildSpinePoints(alpha, isTitlePreview, time) {
+        if (isTitlePreview) {
+          const pts = [];
+          const count = 9;
+          const baseX = GRID_SIZE * 0.23;
+          const baseY = GRID_SIZE * 0.52;
+          const previewSeq = ['HEAD', 'G', 'C', 'T', 'A', 'G', 'A', 'T', 'C'];
+          for (let i = 0; i < count; i++) {
+            const x = baseX + (count - 1 - i) * 0.72;
+            const sway = prefersReducedMotion ? 0 : Math.sin(time * 1.8 - i * 0.55) * 0.35;
+            pts.push({
+              x: x * cellPx,
+              y: (baseY + sway) * cellPx,
+              base: previewSeq[i]
+            });
+          }
+          return pts;
+        }
+
+        const pts = [];
+        for (let i = 0; i < segments.length; i++) {
+          const curr = segments[i];
+          const prev = prevSegments[i] || curr;
+          const ix = prev.x + (curr.x - prev.x) * alpha;
+          const iy = prev.y + (curr.y - prev.y) * alpha;
+          pts.push({
+            x: (ix + 0.5) * cellPx,
+            y: (iy + 0.5) * cellPx,
+            base: curr.base
+          });
+        }
+        return pts;
+      }
+
+      function drawDnaStrand(alpha, isTitlePreview, time) {
+        const pts = buildSpinePoints(alpha, isTitlePreview, time);
+        if (pts.length < 2) return;
+
+        // Compute smooth tangents and normals per spine node
+        const normals = [];
+        for (let i = 0; i < pts.length; i++) {
+          const p0 = pts[Math.max(0, i - 1)];
+          const p1 = pts[Math.min(pts.length - 1, i + 1)];
+          let dx = p1.x - p0.x;
+          let dy = p1.y - p0.y;
+          const len = Math.hypot(dx, dy) || 1;
+          dx /= len;
+          dy /= len;
+          normals.push({ nx: -dy, ny: dx, tx: dx, ty: dy });
+        }
+
+        const amp = cellPx * 0.34;
+        const phaseSpeed = prefersReducedMotion ? 0 : time * 3.8;
+        const samplesPerSeg = 4;
+        const strandA = [];
+        const strandB = [];
+
+        for (let i = 0; i < pts.length - 1; i++) {
+          const pA = pts[i];
+          const pB = pts[i + 1];
+          const nA = normals[i];
+          const nB = normals[i + 1];
+          const subCount = i === pts.length - 2 ? samplesPerSeg + 1 : samplesPerSeg;
+          for (let s = 0; s < subCount; s++) {
+            const t = s / samplesPerSeg;
+            const idx = i + t;
+            const taper = idx < 0.7 ? (idx / 0.7) : (idx > pts.length - 1.5 ? Math.max(0.25, (pts.length - 1 - idx) / 0.5 + 0.25) : 1);
+            const x = pA.x + (pB.x - pA.x) * t;
+            const y = pA.y + (pB.y - pA.y) * t;
+            let nx = nA.nx + (nB.nx - nA.nx) * t;
+            let ny = nA.ny + (nB.ny - nA.ny) * t;
+            const nLen = Math.hypot(nx, ny) || 1;
+            nx /= nLen;
+            ny /= nLen;
+            const wave = Math.sin(idx * 1.28 - phaseSpeed) * amp * Math.min(1, taper);
+            const depth = Math.cos(idx * 1.28 - phaseSpeed);
+            strandA.push({ x: x + nx * wave, y: y + ny * wave, depth });
+            strandB.push({ x: x - nx * wave, y: y - ny * wave, depth: -depth });
+          }
+        }
+
+        const backboneW = Math.max(2.2, cellPx * 0.13);
+
+        // 1. Back sugar-phosphate backbone (softer blush-rose)
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = 'rgba(244, 114, 182, 0.78)';
+        ctx.lineWidth = backboneW * 0.88;
+        ctx.beginPath();
+        for (let i = 0; i < strandB.length; i++) {
+          if (i === 0) ctx.moveTo(strandB[i].x, strandB[i].y);
+          else ctx.lineTo(strandB[i].x, strandB[i].y);
+        }
+        ctx.stroke();
+
+        // 2. Hydrogen-bond rungs & base-pair bars at each body segment
+        for (let i = 1; i < pts.length; i++) {
+          const p = pts[i];
+          const n = normals[i];
+          const wave = Math.sin(i * 1.28 - phaseSpeed) * amp;
+          const x1 = p.x + n.nx * wave;
+          const y1 = p.y + n.ny * wave;
+          const x2 = p.x - n.nx * wave;
+          const y2 = p.y - n.ny * wave;
+
+          const baseInfo = BASES[p.base] || BASES.A;
+          const compInfo = BASES[baseInfo.pair];
+
+          // Rung half 1 (captured base)
+          ctx.strokeStyle = baseInfo.fill;
+          ctx.lineWidth = Math.max(2.2, cellPx * 0.12);
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+
+          // Rung half 2 (complementary strand tint)
+          ctx.strokeStyle = compInfo.rim;
+          ctx.lineWidth = Math.max(1.8, cellPx * 0.095);
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+
+          // 2 or 3 hydrogen bond ticks near center when rung has width
+          const rungSpan = Math.hypot(x1 - x2, y1 - y2);
+          if (rungSpan > cellPx * 0.25) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.lineWidth = 1.2;
+            const bondCount = baseInfo.bonds;
+            for (let b = 0; b < bondCount; b++) {
+              const offset = (b - (bondCount - 1) / 2) * (cellPx * 0.08);
+              ctx.beginPath();
+              ctx.moveTo(p.x + n.tx * offset - n.nx * 2, p.y + n.ty * offset - n.ny * 2);
+              ctx.lineTo(p.x + n.tx * offset + n.nx * 2, p.y + n.ty * offset + n.ny * 2);
+              ctx.stroke();
+            }
+          }
+        }
+
+        // 3. Front sugar-phosphate backbone (vibrant rose)
+        ctx.strokeStyle = '#EC4899';
+        ctx.lineWidth = backboneW;
+        ctx.beginPath();
+        for (let i = 0; i < strandA.length; i++) {
+          if (i === 0) ctx.moveTo(strandA[i].x, strandA[i].y);
+          else ctx.lineTo(strandA[i].x, strandA[i].y);
+        }
+        ctx.stroke();
+
+        // Translucent phosphate beads on backbone nodes
+        for (let i = 1; i < pts.length; i++) {
+          const p = pts[i];
+          const n = normals[i];
+          const wave = Math.sin(i * 1.28 - phaseSpeed) * amp;
+          ctx.fillStyle = '#FCE7F3';
+          ctx.strokeStyle = '#DB2777';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.arc(p.x + n.nx * wave, p.y + n.ny * wave, Math.max(2, cellPx * 0.09), 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+
+        // 4. Captured nucleotide base badges along the body
+        for (let i = pts.length - 1; i >= 1; i--) {
+          const p = pts[i];
+          const baseInfo = BASES[p.base] || BASES.A;
+          let waveBoost = 1;
+          if (synthesisWave >= 0) {
+            const dist = Math.abs(i - synthesisWave);
+            if (dist < 1.5) waveBoost = 1 + (1.5 - dist) * 0.16;
+          }
+          const badgeR = cellPx * 0.255 * waveBoost;
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, badgeR, 0, Math.PI * 2);
+          ctx.fillStyle = baseInfo.fill;
+          ctx.fill();
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = Math.max(1.3, cellPx * 0.06);
+          ctx.stroke();
+
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = `700 ${Math.max(8, Math.round(cellPx * 0.30))}px "JetBrains Mono", monospace`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(p.base, p.x, p.y + cellPx * 0.015);
+        }
+
+        // 5. 3' Polymerase Head (segment 0)
+        const head = pts[0];
+        const neck = pts[1];
+        const heading = Math.atan2(head.y - neck.y, head.x - neck.x);
+
+        // Squash-and-stretch pop on pickup
+        let stretchX = 1;
+        let stretchY = 1;
+        if (headPopTimer > 0 && !prefersReducedMotion) {
+          const t = headPopTimer / 0.22;
+          stretchX = 1 + Math.sin(t * Math.PI) * 0.22;
+          stretchY = 1 / stretchX;
+        }
+
+        // Proximity jaw/clamp openness near nucleotides
+        let proximity = 0;
+        if (!isTitlePreview) {
+          const hCell = segments[0];
+          for (let i = 0; i < nucleotides.length; i++) {
+            const d = Math.hypot(nucleotides[i].x - hCell.x, nucleotides[i].y - hCell.y);
+            if (d < 2.4) proximity = Math.max(proximity, 1 - d / 2.4);
+          }
+        }
+
+        ctx.save();
+        ctx.translate(head.x, head.y);
+        ctx.rotate(heading);
+        ctx.scale(stretchX, stretchY);
+
+        const hr = cellPx * 0.44;
+        const mouthGap = 0.22 + proximity * 0.24;
+
+        // Soft rose shadow under polymerase head
+        ctx.fillStyle = 'rgba(219, 39, 119, 0.16)';
+        ctx.beginPath();
+        ctx.ellipse(0, cellPx * 0.06, hr * 1.08, hr * 0.96, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Sculpted 3' polymerase clamp shape
+        ctx.beginPath();
+        ctx.moveTo(hr * 0.22, 0);
+        ctx.arc(0, 0, hr, mouthGap, Math.PI * 2 - mouthGap);
+        ctx.closePath();
+        ctx.fillStyle = '#DB2777';
+        ctx.fill();
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = Math.max(1.8, cellPx * 0.08);
+        ctx.stroke();
+
+        // Delicate highlight arc
+        ctx.beginPath();
+        ctx.arc(-hr * 0.1, -hr * 0.12, hr * 0.62, Math.PI * 0.85, Math.PI * 1.55);
+        ctx.strokeStyle = 'rgba(252, 231, 243, 0.65)';
+        ctx.lineWidth = Math.max(1.4, cellPx * 0.06);
+        ctx.stroke();
+
+        // Dual directional sensor eyes
+        const eyeX = hr * 0.24;
+        const eyeY = hr * 0.36;
+        for (const side of [-1, 1]) {
+          ctx.beginPath();
+          ctx.arc(eyeX, side * eyeY, hr * 0.18, 0, Math.PI * 2);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(eyeX + hr * 0.04, side * eyeY, hr * 0.09, 0, Math.PI * 2);
+          ctx.fillStyle = '#4A152B';
+          ctx.fill();
+        }
+
+        // Tiny 3' marker on polymerase crest
+        ctx.fillStyle = '#FCE7F3';
+        ctx.font = `700 ${Math.max(7, Math.round(cellPx * 0.23))}px "JetBrains Mono", monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText("3'", -hr * 0.36, 0);
+
+        ctx.restore();
+        ctx.restore();
+      }
+
+      function drawEffects() {
+        // Expanding rings
+        for (let i = 0; i < RING_POOL.length; i++) {
+          const r = RING_POOL[i];
+          if (!r.active) continue;
+          const t = r.life / r.maxLife;
+          const ease = 1 - Math.pow(1 - t, 3);
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, 1 - t) * 0.7;
+          ctx.strokeStyle = r.color;
+          ctx.lineWidth = Math.max(1.5, cellPx * 0.08 * (1 - t));
+          ctx.beginPath();
+          ctx.arc(r.x * cellPx, r.y * cellPx, ease * r.maxRadius * cellPx, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Particles
+        for (let i = 0; i < PARTICLE_POOL.length; i++) {
+          const p = PARTICLE_POOL[i];
+          if (!p.active) continue;
+          const t = p.life / p.maxLife;
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, 1 - t);
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x * cellPx, p.y * cellPx, p.size * cellPx * (1 - t * 0.45), 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // World-space floating score / pair popups
+        for (let i = 0; i < POPUP_POOL.length; i++) {
+          const pop = POPUP_POOL[i];
+          if (!pop.active) continue;
+          const t = pop.life / pop.maxLife;
+          const easeY = 1 - Math.pow(1 - t, 2);
+          const px = Math.max(cellPx * 2.4, Math.min(boardCssSize - cellPx * 2.4, pop.x * cellPx));
+          const py = Math.max(cellPx * 1.1, (pop.y - easeY * 0.9) * cellPx);
+          ctx.save();
+          ctx.globalAlpha = t < 0.7 ? 1 : Math.max(0, (1 - t) / 0.3);
+          ctx.font = `700 ${Math.max(11, Math.round(cellPx * 0.44))}px "Nunito Sans", sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.lineWidth = 3.5;
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+          ctx.strokeText(pop.text, px, py);
+          ctx.fillStyle = pop.color;
+          ctx.fillText(pop.text, px, py);
+          ctx.restore();
+        }
+      }
+
+      // Main Frame Loop
+      let lastFrameTs = 0;
+      function frame(ts) {
+        if (!lastFrameTs) lastFrameTs = ts;
+        const rawDt = Math.min(0.05, Math.max(0, (ts - lastFrameTs) / 1000));
+        lastFrameTs = ts;
+
+        const dt = rawDt * timeScale;
+        elapsedAnimTime += dt;
+
+        // Trauma shake decay in real time
+        if (trauma > 0) {
+          trauma = Math.max(0, trauma - rawDt * 2.1);
+          shakeClock += rawDt * 34;
+        }
+
+        if (headPopTimer > 0) {
+          headPopTimer = Math.max(0, headPopTimer - rawDt);
+        }
+
+        if (synthesisWave >= 0) {
+          synthesisWave += rawDt * 22;
+          if (synthesisWave > segments.length) synthesisWave = -1;
+        }
+
+        // Update pooled VFX
+        for (let i = 0; i < PARTICLE_POOL.length; i++) {
+          const p = PARTICLE_POOL[i];
+          if (!p.active) continue;
+          p.life += rawDt;
+          if (p.life >= p.maxLife) { p.active = false; continue; }
+          p.x += p.vx * rawDt;
+          p.y += p.vy * rawDt;
+          p.vx *= 0.92;
+          p.vy *= 0.92;
+        }
+        for (let i = 0; i < RING_POOL.length; i++) {
+          const r = RING_POOL[i];
+          if (!r.active) continue;
+          r.life += rawDt;
+          if (r.life >= r.maxLife) r.active = false;
+        }
+        for (let i = 0; i < POPUP_POOL.length; i++) {
+          const pop = POPUP_POOL[i];
+          if (!pop.active) continue;
+          pop.life += rawDt;
+          if (pop.life >= pop.maxLife) pop.active = false;
+        }
+
+        if (gameState === 'playing') {
+          stepAccumulator += dt * 1000;
+          while (stepAccumulator >= stepDurationMs && gameState === 'playing') {
+            stepAccumulator -= stepDurationMs;
+            stepSimulation();
+          }
+        }
+
+        // Render
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, boardCssSize, boardCssSize);
+
+        // Apply visual-only camera shake offset
+        if (trauma > 0 && !prefersReducedMotion) {
+          const shake = trauma * trauma;
+          const ox = 8 * shake * Math.sin(shakeClock * 1.7);
+          const oy = 7 * shake * Math.sin(shakeClock * 2.3);
+          ctx.translate(ox, oy);
+        }
+
+        // Static cached background
+        ctx.drawImage(bgCacheCanvas, 0, 0, boardCssSize, boardCssSize);
+
+        if (gameState === 'title') {
+          drawDnaStrand(1, true, elapsedAnimTime);
+        } else {
+          const alpha = gameState === 'playing'
+            ? Math.min(1, stepAccumulator / stepDurationMs)
+            : 1;
+          for (let i = 0; i < nucleotides.length; i++) {
+            drawNucleotide(nucleotides[i], elapsedAnimTime);
+          }
+          drawDnaStrand(alpha, false, elapsedAnimTime);
+        }
+
+        drawEffects();
+        window.requestAnimationFrame(frame);
+      }
+
+      // Keyboard Controls
+      const KEY_TO_DIR = {
+        ArrowUp: 'up', KeyW: 'up',
+        ArrowDown: 'down', KeyS: 'down',
+        ArrowLeft: 'left', KeyA: 'left',
+        ArrowRight: 'right', KeyD: 'right'
+      };
+
+      window.addEventListener('keydown', (e) => {
+        if (e.altKey || e.ctrlKey || e.metaKey) {
+          if (e.altKey && (e.key || '').toLowerCase() === 'e' && gameState === 'playing') {
+            dirQueue = [];
+            setOverlayState('paused');
+          }
+          return;
+        }
+        const ecoNav = document.querySelector('biotec-ecosystem-nav');
+        const ecoDlg = ecoNav && ecoNav.shadowRoot && ecoNav.shadowRoot.getElementById('eco-dialog');
+        if (ecoDlg && ecoDlg.open) return;
+
+        audio.unlock();
+
+        if (KEY_TO_DIR[e.code]) {
+          e.preventDefault();
+          enqueueDirection(KEY_TO_DIR[e.code]);
+          return;
+        }
+
+        if (e.code === 'Space' || e.code === 'KeyP') {
+          const activeTag = document.activeElement && document.activeElement.tagName;
+          if (e.code === 'Space' && activeTag === 'BUTTON') return;
+          e.preventDefault();
+          if (gameState === 'title') {
+            initGame(true);
+            audio.playUi();
+          } else if (gameState === 'playing' || gameState === 'paused') {
+            togglePause();
+          } else if (gameState === 'gameover') {
+            initGame(true);
+            audio.playUi();
+          }
+          return;
+        }
+
+        if (e.code === 'KeyM') {
+          e.preventDefault();
+          toggleAudio();
+        }
+      });
+
+      // Touch Swipe Controls on Canvas (Pointer Events)
+      let swipePointerId = null;
+      let swipeStartX = 0;
+      let swipeStartY = 0;
+      const SWIPE_DEADZONE = 22;
+
+      function resetSwipe() {
+        swipePointerId = null;
+      }
+
+      canvas.addEventListener('pointerdown', (e) => {
+        audio.unlock();
+        if (gameState !== 'playing') return;
+        swipePointerId = e.pointerId;
+        swipeStartX = e.clientX;
+        swipeStartY = e.clientY;
+        if (canvas.setPointerCapture) {
+          try { canvas.setPointerCapture(e.pointerId); } catch (_) { }
+        }
+      });
+
+      canvas.addEventListener('pointermove', (e) => {
+        if (swipePointerId !== e.pointerId || gameState !== 'playing') return;
+        const dx = e.clientX - swipeStartX;
+        const dy = e.clientY - swipeStartY;
+        if (Math.hypot(dx, dy) < SWIPE_DEADZONE) return;
+
+        if (Math.abs(dx) > Math.abs(dy)) {
+          enqueueDirection(dx > 0 ? 'right' : 'left');
+        } else {
+          enqueueDirection(dy > 0 ? 'down' : 'up');
+        }
+        swipeStartX = e.clientX;
+        swipeStartY = e.clientY;
+      });
+
+      canvas.addEventListener('pointerup', resetSwipe);
+      canvas.addEventListener('pointercancel', resetSwipe);
+      canvas.addEventListener('lostpointercapture', resetSwipe);
+
+      // D-pad Touch Buttons
+      document.querySelectorAll('.dpad-btn').forEach((btn) => {
+        const dirKey = btn.dataset.dir;
+        btn.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          audio.unlock();
+          btn.classList.add('is-pressed');
+          enqueueDirection(dirKey);
+        });
+        const release = () => btn.classList.remove('is-pressed');
+        btn.addEventListener('pointerup', release);
+        btn.addEventListener('pointercancel', release);
+        btn.addEventListener('pointerleave', release);
+        btn.addEventListener('click', (e) => {
+          // Support keyboard Enter/Space activation
+          if (e.detail === 0) {
+            audio.unlock();
+            enqueueDirection(dirKey);
+          }
+        });
+      });
+
+      // UI Button Handlers
+      btnStart.addEventListener('click', () => {
+        audio.unlock();
+        audio.playUi();
+        initGame(true);
+      });
+
+      btnPause.addEventListener('click', () => {
+        audio.unlock();
+        togglePause();
+      });
+
+      btnResume.addEventListener('click', () => {
+        audio.unlock();
+        togglePause();
+      });
+
+      btnRestartPause.addEventListener('click', () => {
+        audio.unlock();
+        audio.playUi();
+        initGame(true);
+      });
+
+      btnRestart.addEventListener('click', () => {
+        audio.unlock();
+        audio.playUi();
+        initGame(true);
+      });
+
+      btnAudio.addEventListener('click', () => {
+        toggleAudio();
+      });
+
+      btnCopySeq.addEventListener('click', () => {
+        const seq = `5'-${getSequenceString()}-3'`;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(seq).then(() => {
+            btnCopySeq.textContent = 'Copiado!';
+            window.setTimeout(() => {
+              btnCopySeq.textContent = 'Copiar Sequência';
+            }, 1600);
+          }).catch(() => { });
+        }
+      });
+
+      // Auto-pause cleanly when tab loses visibility or window loses focus
+      document.addEventListener('visibilitychange', () => {
+        resetSwipe();
+        if (document.hidden && gameState === 'playing') {
+          dirQueue = [];
+          setOverlayState('paused');
+        }
+      });
+
+      window.addEventListener('blur', () => {
+        resetSwipe();
+        if (gameState === 'playing') {
+          dirQueue = [];
+          setOverlayState('paused');
+        }
+      });
+
+      document.addEventListener('focusin', (e) => {
+        if (e.target && e.target.tagName === 'BIOTEC-ECOSYSTEM-NAV' && gameState === 'playing') {
+          resetSwipe();
+          dirQueue = [];
+          setOverlayState('paused');
+        }
+      });
+
+      // Boot
+      resizeBoard();
+      syncAudioButton();
+      initGame(false);
+      window.requestAnimationFrame(frame);
+    })();
+  </script>
+
+  <!-- Navegação Universal do Ecossistema Biotecnologia Vermelha (UFPA) -->
+  <script src="./ecosystem-nav.js" defer data-page="dna-snake.html" data-theme="light" data-pos="default"></script>
+</body>
+
+</html>
