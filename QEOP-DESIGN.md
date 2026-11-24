@@ -8,7 +8,7 @@
 ## 1. Visual Theme & Atmosphere
 
 **Identidade Autoral:** **Laboratório de Espectroscopia UV & Eletroforese Forense (UV-Violeta)**
-- Preserva a assinatura cromática violácea/lavanda que diferencia `qeop.html` dos outros 7 ambientes do ecossistema UFPA, eliminando o aspecto genérico de "glassmorphism roxo uniforme sobre tudo".
+- Preserva a assinatura cromática violácea/lavanda que diferencia `qeop.html` dos outros 8 ambientes do ecossistema UFPA, eliminando o aspecto genérico de "glassmorphism roxo uniforme sobre tudo".
 - **Superfícies tonais com profundidade real:** fundo abissal de espectroscopia (`#080410`), bancada de leitura sólida (`#110922`), bandejas de amostra (`#190e31`) e trilhas de gel (`#0b0617`) separadas por hairlines nítidas de `1px` e sombras com deslocamento real.
 
 **Modo de Superfície (`impeccable`):** **Operate + Experience**
@@ -88,7 +88,7 @@ Trio tipográfico alinhado ao ecossistema UFPA, com fallbacks métricos seguros 
 - **Casos SEQ / QUIZ_SEQ:** botão **"Régua 1–12"** (`aria-pressed`) exibe índices de posição `01..12` e permite clicar em qualquer coluna/base para **marcar divergências manualmente** em sincronia entre a amostra analisada e as amostras de comparação.
 - **Mapa de Casos & Revisão:** gaveta/modal listando os 9 casos com status (`Não iniciado`, `Acertou`, `Errou`), precisão e sequência (*streak*), permitindo navegar para revisar justificativas sem soft-lock.
 
-### Tiers de Feedback (`triggerGameFeel(tier, outcome)`)
+### Tiers de Feedback (`PurpleDNA3D.triggerFeedback(tier, outcome)`)
 | Tier | Cena 3D (`PurpleDNA3D`) | UI / Movimento | Áudio (`SoundFX`) | Gatilhos |
 |---|---|---|---|---|
 | `small` | Pulso curto em 1 par de bases + boost `0.28` | Escala tátil `0.98` no botão/célula | Tom curto filtrado com variação ±5% de pitch | Marcar alelo, marcar coluna 1–12, abrir/fechar painel, trocar caso |
@@ -115,5 +115,5 @@ Trio tipográfico alinhado ao ecossistema UFPA, com fallbacks métricos seguros 
 - **Atalhos de Teclado:** `1`/`S` (Sim) e `2`/`N` (Não) ou `A`–`D` (Caso 9), `Enter` (Próximo Caso após resposta), `R` (alternar Régua 1–12 em casos SEQ), `C` (Mapa de Casos), `G` (Guia Rápido), `M` (Áudio), `Esc` (fechar modal ativo).
 - **Navegação do Ecossistema (`ecosystem-nav.js`):**
   - Carregado com `data-page="qeop.html" data-theme="dark" data-pos="default"`.
-  - **Zero Colisão:** `#ui-layer` reserva `padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px))` em mobile e desktop para que o `.eco-dock` no canto inferior direito nunca encubra botões de ação ou o botão `Próximo Caso`.
+  - **Zero Colisão:** `#ui-layer` reserva `padding-bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px))` em mobile e desktop para que o `.eco-dock` no canto inferior direito nunca encubra botões de ação ou o botão `Próximo Caso`.
   - **Alvos de toque:** todos os controles interativos possuem `min-height: 44px` e `min-width: 44px` com espaçamento `>= 8px`.

@@ -2224,8 +2224,14 @@
                 const dockRect = bottomDockEl.getBoundingClientRect();
 
                 const overlapsHeaderHoriz = vw <= 640 || hudLeft < headerRect.right + 8;
-                const hudTop = overlapsHeaderHoriz ? Math.ceil(headerRect.bottom + 8) : (vw <= 640 ? 56 : 56);
-                hudDrawer.style.top = overlapsHeaderHoriz ? `${hudTop}px` : '';
+                let hudTop;
+                if (overlapsHeaderHoriz) {
+                    hudTop = Math.ceil(headerRect.bottom + 8);
+                    hudDrawer.style.top = `${hudTop}px`;
+                } else {
+                    hudDrawer.style.top = '';
+                    hudTop = Math.ceil(hudDrawer.getBoundingClientRect().top) || 56;
+                }
 
                 const overlapsDockHoriz = vw <= 640 || hudLeft < dockRect.right + 8;
                 if (overlapsDockHoriz) {

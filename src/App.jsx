@@ -2226,7 +2226,7 @@ function Module1DNAView({ onSelectModule }) {
               onClick={openEcosystemHub}
               className="px-5 py-3 bg-zinc-950 hover:border-cyan-400 hover:text-cyan-300 border border-cyan-500/40 text-cyan-300 font-mono uppercase font-semibold text-xs tracking-[0.1em] transition-[border-color,color] duration-200"
             >
-              ◈ ECOSSISTEMA 3D (8 APPS)
+              ◈ ECOSSISTEMA 3D ({ECOSYSTEM_APPS.length} APPS)
             </button>
           </div>
 
@@ -2245,9 +2245,9 @@ function Module1DNAView({ onSelectModule }) {
               </div>
             </div>
             <div className="p-2.5 sm:p-3.5 min-w-0">
-              <div className="text-sm sm:text-2xl font-display font-bold text-cyan-400">8 APPS</div>
+              <div className="text-sm sm:text-2xl font-display font-bold text-cyan-400">{ECOSYSTEM_APPS.length + 1} APPS</div>
               <div className="text-[9px] sm:text-[10px] font-mono uppercase tracking-[0.06em] sm:tracking-[0.1em] text-zinc-400 mt-0.5">
-                Portal + 7 Extras
+                Portal + {ECOSYSTEM_APPS.length} Extras
               </div>
             </div>
           </div>
@@ -6069,7 +6069,7 @@ function EcosystemShowcaseSection() {
           <div>
             <div className="inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.16em] text-yellow-400 mb-2">
               <span className="w-2 h-2 bg-yellow-400"></span>
-              <span>ECOSSISTEMA INTERATIVO // 8 EXPERIÊNCIAS CONECTADAS</span>
+              <span>ECOSSISTEMA INTERATIVO // {ECOSYSTEM_APPS.length} EXPERIÊNCIAS CONECTADAS</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-display font-bold tracking-[-0.02em] text-zinc-100">
               Ambientes 3D, Laboratório &amp; Experiências Especiais
@@ -6332,7 +6332,7 @@ export default function App() {
               <div className="pt-3 border-t border-zinc-800">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-cyan-400">
-                    ECOSSISTEMA INTERATIVO // 8 EXPERIÊNCIAS STANDALONE
+                    ECOSSISTEMA INTERATIVO // {ECOSYSTEM_APPS.length} EXPERIÊNCIAS STANDALONE
                   </span>
                   <button
                     type="button"
@@ -6382,7 +6382,7 @@ export default function App() {
                   }}
                   className="w-full sm:w-auto px-4 py-2.5 text-xs font-mono font-bold uppercase tracking-[0.12em] text-cyan-300 bg-zinc-950 border border-cyan-500/50 hover:border-cyan-400 transition-colors"
                 >
-                  ◈ MAPA DO ECOSSISTEMA (9 AMBIENTES)
+                  ◈ MAPA DO ECOSSISTEMA ({ECOSYSTEM_APPS.length + 1} AMBIENTES)
                 </button>
               </div>
             </div>

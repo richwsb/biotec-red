@@ -129,7 +129,7 @@
       shortTitle: 'DNA Snake',
       category: 'interativo',
       categoryLabel: 'Jogo Arcade DNA',
-      accent: '#EC4899',
+      accent: '#DB2777',
       description:
         'Jogo arcade biomolecular de síntese de fita 5′→3′: capture nucleotídeos livres (A, T, C, G) e encadeie pares complementares para multiplicar o combo.',
       icon:
@@ -368,8 +368,6 @@
   const currentScript = document.currentScript;
   const SCRIPT_CONFIG = {
     page: currentScript ? currentScript.getAttribute('data-page') : null,
-    theme: currentScript ? currentScript.getAttribute('data-theme') : 'dark',
-    pos: currentScript ? currentScript.getAttribute('data-pos') : 'default',
     idleDim: currentScript ? currentScript.getAttribute('data-idle-dim') === 'true' : false,
   };
 
@@ -451,8 +449,6 @@
     connectedCallback() {
       const attrPage = this.getAttribute('data-page');
       this._currentFile = attrPage ? normalizePageFile(attrPage) : detectCurrentFile();
-      this._theme = this.getAttribute('data-theme') || SCRIPT_CONFIG.theme || 'dark';
-      this._pos = this.getAttribute('data-pos') || SCRIPT_CONFIG.pos || 'default';
       this._idleDim =
         this.getAttribute('data-idle-dim') === 'true' || SCRIPT_CONFIG.idleDim;
       this._visited = loadVisited(this._currentFile);
@@ -1417,8 +1413,6 @@
     if (document.querySelector('biotec-ecosystem-nav')) return;
     const el = document.createElement('biotec-ecosystem-nav');
     if (SCRIPT_CONFIG.page) el.setAttribute('data-page', SCRIPT_CONFIG.page);
-    if (SCRIPT_CONFIG.theme) el.setAttribute('data-theme', SCRIPT_CONFIG.theme);
-    if (SCRIPT_CONFIG.pos) el.setAttribute('data-pos', SCRIPT_CONFIG.pos);
     if (SCRIPT_CONFIG.idleDim) el.setAttribute('data-idle-dim', 'true');
     document.body.appendChild(el);
   }

@@ -1170,6 +1170,8 @@
         reducedMotionQuery.addEventListener('change', (e) => {
           prefersReducedMotion = e.matches;
           if (prefersReducedMotion) trauma = 0;
+          needsRender = true;
+          startLoop();
         });
       }
 
@@ -1267,6 +1269,7 @@
       }
 
       let saveState = loadSave();
+      let saveDirty = false;
 
       // Web Audio API Procedural Synthesizer
       const audio = (() => {
@@ -1430,6 +1433,7 @@
       }
 
       // Game State & Feel Variables
+      const INITIAL_STEP_MS = 142;
       let gameState = 'title'; // 'title' | 'playing' | 'paused' | 'gameover'
       let boardCssSize = 480;
       let dpr = 1;
@@ -1441,9 +1445,7 @@
       let segments = [];      // [{ x, y, base }]
       let prevSegments = [];  // [{ x, y }]
       let currentDir = DIRS.right;
-      let prevDir = DIRS.right;
       let dirQueue = [];
-      let pendingGrowth = 0;
 
       let nucleotides = [];   // [{ x, y, base, bornAt }]
       let score = 0;
@@ -1453,10 +1455,12 @@
       let boardCleared = false;
 
       let stepAccumulator = 0;
-      let stepDurationMs = 140;
+      let stepDurationMs = INITIAL_STEP_MS;
       let elapsedAnimTime = 0;
       let headPopTimer = 0;
       let synthesisWave = -1; // travels from 0 to segments.length
+      let rafId = null;
+      let needsRender = true;
 
       // Game feel: trauma shake & monotonic hit-stop
       let trauma = 0;
@@ -1522,6 +1526,8 @@
           spawnRing(gx + 0.5, gy + 0.5, '#DB2777', 2.1);
           audio.playCrash();
         }
+        needsRender = true;
+        startLoop();
       }
 
       // Board Resize & Offscreen Background Cache
@@ -1593,6 +1599,8 @@
         canvas.width = Math.round(boardCssSize * dpr);
         canvas.height = Math.round(boardCssSize * dpr);
         rebuildBgCache();
+        needsRender = true;
+        startLoop();
       }
 
       if (typeof ResizeObserver !== 'undefined') {
@@ -1653,7 +1661,8 @@
 
       function getSequenceString() {
         let s = '';
-        for (let i = 1; i < segments.length; i++) {
+        // Segment 1 is the 3' end (most recent base); segment length-1 is the 5' start
+        for (let i = segments.length - 1; i >= 1; i--) {
           s += segments[i].base;
         }
         return s;
@@ -1763,6 +1772,8 @@
           btnCopySeq.textContent = 'Copiar Sequência';
           btnRestart.focus({ preventScroll: true });
         }
+        needsRender = true;
+        startLoop();
       }
 
       // Initialize / Reset Match
@@ -1779,17 +1790,16 @@
         ];
         prevSegments = segments.map((s) => ({ x: s.x, y: s.y }));
         currentDir = DIRS.right;
-        prevDir = DIRS.right;
         dirQueue = [];
-        pendingGrowth = 0;
 
         score = 0;
         combo = 1;
         lastBase = 'G';
         isNewRecord = false;
+        saveDirty = false;
         boardCleared = false;
         stepAccumulator = 0;
-        stepDurationMs = 142;
+        stepDurationMs = INITIAL_STEP_MS;
         headPopTimer = 0;
         synthesisWave = -1;
         trauma = 0;
@@ -1842,12 +1852,9 @@
         if (!saveState.muted) audio.playUi();
       }
 
-      // Simulation Step
-      function finishGame(cleared) {
-        boardCleared = cleared;
-        dirQueue = [];
+      // Record Tracking & Simulation Step
+      function updateRecords() {
         const bpCount = Math.max(0, segments.length - 1);
-        let saveDirty = false;
         if (score > saveState.highScore) {
           saveState.highScore = score;
           isNewRecord = true;
@@ -1859,7 +1866,21 @@
           isNewRecord = true;
           saveDirty = true;
         }
-        if (saveDirty) persistSave(saveState);
+      }
+
+      function flushSave() {
+        if (saveDirty) {
+          persistSave(saveState);
+          saveDirty = false;
+        }
+      }
+
+      function finishGame(cleared) {
+        boardCleared = cleared;
+        dirQueue = [];
+        const bpCount = Math.max(0, segments.length - 1);
+        updateRecords();
+        flushSave();
         syncHud();
         setOverlayState('gameover');
         srStatus.textContent = `Partida encerrada. ${score} pontos e ${bpCount} pares de bases.`;
@@ -1867,7 +1888,6 @@
 
       function stepSimulation() {
         prevSegments = segments.map((s) => ({ x: s.x, y: s.y }));
-        prevDir = currentDir;
 
         if (dirQueue.length > 0) {
           currentDir = dirQueue.shift();
@@ -1892,7 +1912,7 @@
             break;
           }
         }
-        const willGrow = hitNucIndex !== -1 || pendingGrowth > 0;
+        const willGrow = hitNucIndex !== -1;
         const checkLimit = willGrow ? segments.length : segments.length - 1;
 
         for (let i = 0; i < checkLimit; i++) {
@@ -1931,21 +1951,9 @@
           );
 
           const bpCount = segments.length - 1;
-          stepDurationMs = Math.max(76, 142 - Math.floor((bpCount - 4) * 1.45));
+          stepDurationMs = Math.max(76, INITIAL_STEP_MS - Math.floor((bpCount - 4) * 1.45));
 
-          let saveDirty = false;
-          if (score > saveState.highScore) {
-            saveState.highScore = score;
-            isNewRecord = true;
-            saveDirty = true;
-          }
-          if (bpCount > saveState.longestStrandBp) {
-            saveState.longestStrandBp = bpCount;
-            saveState.longestSequence = getSequenceString();
-            isNewRecord = true;
-            saveDirty = true;
-          }
-          if (saveDirty) persistSave(saveState);
+          updateRecords();
 
           if (segments.length >= GRID_SIZE * GRID_SIZE) {
             syncHud();
@@ -2408,7 +2416,28 @@
 
       // Main Frame Loop
       let lastFrameTs = 0;
+
+      function startLoop() {
+        if (rafId !== null || document.hidden) return;
+        lastFrameTs = 0;
+        rafId = window.requestAnimationFrame(frame);
+      }
+
+      function stopLoop() {
+        if (rafId !== null) {
+          window.cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        lastFrameTs = 0;
+      }
+
       function frame(ts) {
+        rafId = null;
+        if (document.hidden) {
+          lastFrameTs = 0;
+          return;
+        }
+
         if (!lastFrameTs) lastFrameTs = ts;
         const rawDt = Math.min(0.05, Math.max(0, (ts - lastFrameTs) / 1000));
         lastFrameTs = ts;
@@ -2431,28 +2460,33 @@
           if (synthesisWave > segments.length) synthesisWave = -1;
         }
 
-        // Update pooled VFX
+        // Update pooled VFX (frame-rate independent damping)
+        let hasActiveVfx = false;
+        const drag = Math.pow(0.92, rawDt * 60);
         for (let i = 0; i < PARTICLE_POOL.length; i++) {
           const p = PARTICLE_POOL[i];
           if (!p.active) continue;
           p.life += rawDt;
           if (p.life >= p.maxLife) { p.active = false; continue; }
+          hasActiveVfx = true;
           p.x += p.vx * rawDt;
           p.y += p.vy * rawDt;
-          p.vx *= 0.92;
-          p.vy *= 0.92;
+          p.vx *= drag;
+          p.vy *= drag;
         }
         for (let i = 0; i < RING_POOL.length; i++) {
           const r = RING_POOL[i];
           if (!r.active) continue;
           r.life += rawDt;
           if (r.life >= r.maxLife) r.active = false;
+          else hasActiveVfx = true;
         }
         for (let i = 0; i < POPUP_POOL.length; i++) {
           const pop = POPUP_POOL[i];
           if (!pop.active) continue;
           pop.life += rawDt;
           if (pop.life >= pop.maxLife) pop.active = false;
+          else hasActiveVfx = true;
         }
 
         if (gameState === 'playing') {
@@ -2463,35 +2497,51 @@
           }
         }
 
-        // Render
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.clearRect(0, 0, boardCssSize, boardCssSize);
+        const shouldAnimate =
+          gameState === 'playing' ||
+          (gameState === 'title' && !prefersReducedMotion) ||
+          hasActiveVfx ||
+          trauma > 0 ||
+          headPopTimer > 0 ||
+          synthesisWave >= 0;
 
-        // Apply visual-only camera shake offset
-        if (trauma > 0 && !prefersReducedMotion) {
-          const shake = trauma * trauma;
-          const ox = 8 * shake * Math.sin(shakeClock * 1.7);
-          const oy = 7 * shake * Math.sin(shakeClock * 2.3);
-          ctx.translate(ox, oy);
-        }
+        if (shouldAnimate || needsRender) {
+          // Render
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          ctx.clearRect(0, 0, boardCssSize, boardCssSize);
 
-        // Static cached background
-        ctx.drawImage(bgCacheCanvas, 0, 0, boardCssSize, boardCssSize);
-
-        if (gameState === 'title') {
-          drawDnaStrand(1, true, elapsedAnimTime);
-        } else {
-          const alpha = gameState === 'playing'
-            ? Math.min(1, stepAccumulator / stepDurationMs)
-            : 1;
-          for (let i = 0; i < nucleotides.length; i++) {
-            drawNucleotide(nucleotides[i], elapsedAnimTime);
+          // Apply visual-only camera shake offset
+          if (trauma > 0 && !prefersReducedMotion) {
+            const shake = trauma * trauma;
+            const ox = 8 * shake * Math.sin(shakeClock * 1.7);
+            const oy = 7 * shake * Math.sin(shakeClock * 2.3);
+            ctx.translate(ox, oy);
           }
-          drawDnaStrand(alpha, false, elapsedAnimTime);
+
+          // Static cached background
+          ctx.drawImage(bgCacheCanvas, 0, 0, boardCssSize, boardCssSize);
+
+          if (gameState === 'title') {
+            drawDnaStrand(1, true, elapsedAnimTime);
+          } else {
+            const alpha = gameState === 'playing'
+              ? Math.min(1, stepAccumulator / stepDurationMs)
+              : 1;
+            for (let i = 0; i < nucleotides.length; i++) {
+              drawNucleotide(nucleotides[i], elapsedAnimTime);
+            }
+            drawDnaStrand(alpha, false, elapsedAnimTime);
+          }
+
+          drawEffects();
+          needsRender = false;
         }
 
-        drawEffects();
-        window.requestAnimationFrame(frame);
+        if (shouldAnimate) {
+          rafId = window.requestAnimationFrame(frame);
+        } else {
+          lastFrameTs = 0;
+        }
       }
 
       // Keyboard Controls
@@ -2639,26 +2689,84 @@
         toggleAudio();
       });
 
+      let copyFeedbackTimer = null;
+
+      function showCopyFeedback(label, durationMs = 1600) {
+        btnCopySeq.textContent = label;
+        window.clearTimeout(copyFeedbackTimer);
+        copyFeedbackTimer = window.setTimeout(() => {
+          btnCopySeq.textContent = 'Copiar Sequência';
+        }, durationMs);
+      }
+
+      function copyTextFallback(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '-9999px';
+        ta.style.left = '-9999px';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        let ok = false;
+        try {
+          ok = document.execCommand('copy');
+        } catch (_) {
+          ok = false;
+        }
+        ta.remove();
+        return ok;
+      }
+
+      function selectSequenceElement() {
+        try {
+          const range = document.createRange();
+          range.selectNodeContents(goSequence);
+          const sel = window.getSelection();
+          if (sel) {
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        } catch (_) { }
+      }
+
       btnCopySeq.addEventListener('click', () => {
         const seq = `5'-${getSequenceString()}-3'`;
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(seq).then(() => {
-            btnCopySeq.textContent = 'Copiado!';
-            window.setTimeout(() => {
-              btnCopySeq.textContent = 'Copiar Sequência';
-            }, 1600);
-          }).catch(() => { });
+        const handleFallback = () => {
+          if (copyTextFallback(seq)) {
+            showCopyFeedback('Copiado!');
+          } else {
+            selectSequenceElement();
+            showCopyFeedback('Selecione (Ctrl+C)', 2200);
+          }
+        };
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          navigator.clipboard.writeText(seq)
+            .then(() => showCopyFeedback('Copiado!'))
+            .catch(handleFallback);
+        } else {
+          handleFallback();
         }
       });
 
       // Auto-pause cleanly when tab loses visibility or window loses focus
       document.addEventListener('visibilitychange', () => {
         resetSwipe();
-        if (document.hidden && gameState === 'playing') {
-          dirQueue = [];
-          setOverlayState('paused');
+        if (document.hidden) {
+          flushSave();
+          if (gameState === 'playing') {
+            dirQueue = [];
+            setOverlayState('paused');
+          }
+          stopLoop();
+        } else {
+          needsRender = true;
+          startLoop();
         }
       });
+
+      window.addEventListener('pagehide', flushSave);
 
       window.addEventListener('blur', () => {
         resetSwipe();
@@ -2680,7 +2788,7 @@
       resizeBoard();
       syncAudioButton();
       initGame(false);
-      window.requestAnimationFrame(frame);
+      startLoop();
     })();
   </script>
 

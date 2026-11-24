@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
 
   <!-- Three.js r128 (pinado para estabilidade offline-friendly) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
   <style>
     /* ============================================================
@@ -2614,11 +2614,20 @@
         if (raw.answersByCaseId && typeof raw.answersByCaseId === 'object') {
           for (const c of CASES) {
             const entry = raw.answersByCaseId[c.id];
-            if (entry && typeof entry === 'object' && typeof entry.chosen === 'string' && typeof entry.isCorrect === 'boolean') {
+            if (!entry || typeof entry !== 'object' || typeof entry.chosen !== 'string') continue;
+            if (c.type === 'QUIZ_SEQ') {
+              const opt = c.options.find((o) => o.key === entry.chosen);
+              if (!opt) continue;
+              out.answersByCaseId[c.id] = {
+                chosen: opt.key,
+                chosenDisplay: `${opt.key}) ${opt.name}`,
+                isCorrect: opt.key === c.correctAnswer
+              };
+            } else if (entry.chosen === 'Sim' || entry.chosen === 'Não') {
               out.answersByCaseId[c.id] = {
                 chosen: entry.chosen,
-                chosenDisplay: typeof entry.chosenDisplay === 'string' ? entry.chosenDisplay : entry.chosen,
-                isCorrect: entry.isCorrect
+                chosenDisplay: entry.chosen,
+                isCorrect: entry.chosen === c.correctAnswer
               };
             }
           }
@@ -2766,25 +2775,30 @@
       let animFrameId = null;
       let reducedMotion = false;
 
-      // Cores pré-alocadas para evitar GC no loop
-      const themePresets = {
-        autosomal: { b1: new THREE.Color(0xa855f7), b2: new THREE.Color(0xe879f9), e1: new THREE.Color(0x7c3aed), e2: new THREE.Color(0xc084fc) },
-        chrY:      { b1: new THREE.Color(0x6366f1), b2: new THREE.Color(0xa855f7), e1: new THREE.Color(0x4f46e5), e2: new THREE.Color(0x818cf8) },
-        chrX:      { b1: new THREE.Color(0xc084fc), b2: new THREE.Color(0xf472b6), e1: new THREE.Color(0x9333ea), e2: new THREE.Color(0xf0abfc) },
-        mtdna:     { b1: new THREE.Color(0x7c3aed), b2: new THREE.Color(0x5eead4), e1: new THREE.Color(0x5b21b6), e2: new THREE.Color(0x2dd4bf) },
-        feline:    { b1: new THREE.Color(0xd946ef), b2: new THREE.Color(0xfbbf24), e1: new THREE.Color(0xa21caf), e2: new THREE.Color(0xf472b6) }
+      // Paleta numérica sem alocar THREE.Color fora de init() (seguro offline / sem CDN)
+      const THEME_HEX_PRESETS = {
+        autosomal: { b1: 0xa855f7, b2: 0xe879f9, e1: 0x7c3aed, e2: 0xc084fc },
+        chrY:      { b1: 0x6366f1, b2: 0xa855f7, e1: 0x4f46e5, e2: 0x818cf8 },
+        chrX:      { b1: 0xc084fc, b2: 0xf472b6, e1: 0x9333ea, e2: 0xf0abfc },
+        mtdna:     { b1: 0x7c3aed, b2: 0x5eead4, e1: 0x5b21b6, e2: 0x2dd4bf },
+        feline:    { b1: 0xd946ef, b2: 0xfbbf24, e1: 0xa21caf, e2: 0xf472b6 }
       };
 
-      let activeTheme = themePresets.autosomal;
-      const curBackbone1 = themePresets.autosomal.b1.clone();
-      const curBackbone2 = themePresets.autosomal.b2.clone();
-      const curEmissive1 = themePresets.autosomal.e1.clone();
-      const curEmissive2 = themePresets.autosomal.e2.clone();
+      const INTERACTIVE_UI_SELECTOR = '.bench-panel, .hud-shell, button, a, [role="dialog"], biotec-ecosystem-nav';
+
+      let themePresets = null;
+      let activeCategory = 'autosomal';
+      let activeTheme = null;
+      let curBackbone1 = null;
+      let curBackbone2 = null;
+      let curEmissive1 = null;
+      let curEmissive2 = null;
 
       // Controle de interação suave (mouse + arraste)
       let mouseNormX = 0;
       let mouseNormY = 0;
       let isMouseDown = false;
+      let isTouchDragging = false;
       let prevX = 0;
       let prevY = 0;
       let touchStartX = 0;
@@ -2796,7 +2810,7 @@
       const pulse = {
         active: false,
         tier: 'medium',
-        color: new THREE.Color(0x5eead4),
+        color: null,
         progress: 0,
         duration: 1.4,
         spinBoost: 0,
@@ -2822,6 +2836,22 @@
           if (typeof THREE === 'undefined') return;
           const container = document.getElementById('three-bg-container');
           if (!container) return;
+
+          themePresets = {};
+          for (const [k, hex] of Object.entries(THEME_HEX_PRESETS)) {
+            themePresets[k] = {
+              b1: new THREE.Color(hex.b1),
+              b2: new THREE.Color(hex.b2),
+              e1: new THREE.Color(hex.e1),
+              e2: new THREE.Color(hex.e2)
+            };
+          }
+          activeTheme = themePresets[activeCategory] || themePresets.autosomal;
+          curBackbone1 = activeTheme.b1.clone();
+          curBackbone2 = activeTheme.b2.clone();
+          curEmissive1 = activeTheme.e1.clone();
+          curEmissive2 = activeTheme.e2.clone();
+          pulse.color = new THREE.Color(0x5eead4);
 
           scene = new THREE.Scene();
           scene.fog = new THREE.FogExp2(0x080410, 0.032);
@@ -2872,8 +2902,11 @@
           window.addEventListener('mousemove', onMouseMove);
           window.addEventListener('mousedown', onMouseDown);
           window.addEventListener('mouseup', onMouseUp);
+          window.addEventListener('blur', onMouseUp);
           window.addEventListener('touchstart', onTouchStart, { passive: true });
           window.addEventListener('touchmove', onTouchMove, { passive: true });
+          window.addEventListener('touchend', onTouchEnd, { passive: true });
+          window.addEventListener('touchcancel', onTouchEnd, { passive: true });
           document.addEventListener('visibilitychange', onVisibilityChange);
 
           clock = new THREE.Clock();
@@ -3050,7 +3083,10 @@
       }
 
       function setCaseTheme(category) {
-        activeTheme = themePresets[category] || themePresets.autosomal;
+        activeCategory = THEME_HEX_PRESETS[category] ? category : 'autosomal';
+        if (themePresets) {
+          activeTheme = themePresets[activeCategory];
+        }
       }
 
       function setReducedMotion(flag) {
@@ -3061,7 +3097,7 @@
       }
 
       function triggerFeedback(tier, outcome) {
-        if (!ready) return;
+        if (!ready || !pulse.color) return;
         pulse.active = true;
         pulse.tier = tier;
         pulse.progress = 0;
@@ -3095,7 +3131,7 @@
       }
 
       function onMouseDown(e) {
-        if (e.target.closest('button, a, [role="dialog"]')) return;
+        if (e.target && e.target.closest && e.target.closest(INTERACTIVE_UI_SELECTOR)) return;
         isMouseDown = true;
         prevX = e.clientX;
         prevY = e.clientY;
@@ -3119,13 +3155,19 @@
       }
 
       function onTouchStart(e) {
+        if (e.target && e.target.closest && e.target.closest(INTERACTIVE_UI_SELECTOR)) {
+          isTouchDragging = false;
+          return;
+        }
         if (e.touches && e.touches.length === 1) {
+          isTouchDragging = true;
           touchStartX = e.touches[0].clientX;
           touchStartY = e.touches[0].clientY;
         }
       }
 
       function onTouchMove(e) {
+        if (!isTouchDragging) return;
         if (e.touches && e.touches.length === 1) {
           const x = e.touches[0].clientX;
           const y = e.touches[0].clientY;
@@ -3137,6 +3179,10 @@
           touchStartX = x;
           touchStartY = y;
         }
+      }
+
+      function onTouchEnd() {
+        isTouchDragging = false;
       }
 
       function onVisibilityChange() {
@@ -3183,23 +3229,26 @@
         }
 
         const baseSpin = reducedMotion ? 0.04 : 0.26;
+        const frameStep = dt * 60;
         helixGroup.rotation.y += (baseSpin + pulse.spinBoost) * dt;
 
         if (Math.abs(manualSpinY) > 0.0001) {
-          helixGroup.rotation.y += manualSpinY * 0.16;
-          manualSpinY *= 0.88;
+          helixGroup.rotation.y += manualSpinY * Math.min(1, 0.16 * frameStep);
+          manualSpinY *= Math.pow(0.88, frameStep);
         }
 
         const idleTilt = reducedMotion ? 0 : Math.sin(elapsed * 0.45) * 0.045;
         const targetTilt = manualTiltX + idleTilt;
-        helixGroup.rotation.x += (targetTilt - helixGroup.rotation.x) * 0.06;
+        const tiltAlpha = 1 - Math.pow(1 - 0.06, frameStep);
+        helixGroup.rotation.x += (targetTilt - helixGroup.rotation.x) * tiltAlpha;
 
+        const camAlpha = 1 - Math.pow(1 - (reducedMotion ? 0.06 : 0.04), frameStep);
         if (!reducedMotion) {
-          camera.position.x += (-mouseNormX * 0.85 - camera.position.x) * 0.04;
-          camera.position.y += (mouseNormY * 0.55 - camera.position.y) * 0.04;
+          camera.position.x += (-mouseNormX * 0.85 - camera.position.x) * camAlpha;
+          camera.position.y += (mouseNormY * 0.55 - camera.position.y) * camAlpha;
         } else {
-          camera.position.x += (0 - camera.position.x) * 0.06;
-          camera.position.y += (0 - camera.position.y) * 0.06;
+          camera.position.x += (0 - camera.position.x) * camAlpha;
+          camera.position.y += (0 - camera.position.y) * camAlpha;
         }
         camera.lookAt(0, 0, 0);
 
@@ -3343,10 +3392,19 @@
       caseMapGrid: document.getElementById('case-map-grid')
     };
 
+    let announceTimerId = null;
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, (ch) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+      ));
+    }
+
     function announce(msg) {
       if (!dom.srAnnouncer) return;
+      window.clearTimeout(announceTimerId);
       dom.srAnnouncer.textContent = '';
-      window.setTimeout(() => {
+      announceTimerId = window.setTimeout(() => {
         dom.srAnnouncer.textContent = msg;
       }, 30);
     }
@@ -3847,8 +3905,9 @@
       dom.feedbackJustification.textContent = c.justification;
       dom.btnPrevCase.hidden = State.index === 0;
       const allAnswered = Object.keys(State.answersByCaseId).length === CASES.length;
-      dom.btnNextLabel.textContent =
-        State.index === CASES.length - 1 || allAnswered ? 'Ver Relatório Final' : 'Próximo Caso';
+      dom.btnNextLabel.textContent = allAnswered
+        ? 'Ver Relatório Final'
+        : (State.index === CASES.length - 1 ? 'Próximo Caso Pendente' : 'Próximo Caso');
     }
 
     function renderCurrentCase(preserveMarks = false) {
@@ -3979,8 +4038,8 @@
               <div class="case-map-code tabular">CASO ${String(c.id).padStart(2, '0')} • ${c.markerName}</div>
               <div class="case-map-title">${c.title}</div>
               <div style="font-size: 0.8125rem; color: var(--text-secondary); margin-top: 0.2rem;">
-                ${ans ? `Sua resposta: <strong style="color: var(--text-primary);">${ans.chosenDisplay}</strong>` : 'Ainda não respondido'}
-                ${ans && !isCorrect ? ` • Correta: <strong style="color: var(--state-match);">${correctDisplay}</strong>` : ''}
+                ${ans ? `Sua resposta: <strong style="color: var(--text-primary);">${escapeHtml(ans.chosenDisplay)}</strong>` : 'Ainda não respondido'}
+                ${ans && !isCorrect ? ` • Correta: <strong style="color: var(--state-match);">${escapeHtml(correctDisplay)}</strong>` : ''}
               </div>
             </div>
             <span class="status-pill ${pillCls}">${pillIcon}<span>${pillText}</span></span>
@@ -4183,12 +4242,10 @@
       dom.btnNextCase.addEventListener('click', () => {
         SoundFX.click();
         const allAnswered = Object.keys(State.answersByCaseId).length === CASES.length;
-        if (State.index < CASES.length - 1 && !allAnswered) {
-          openCaseIndex(State.index + 1);
-        } else if (State.index < CASES.length - 1 && !State.answersByCaseId[CASES[State.index + 1].id]) {
-          openCaseIndex(State.index + 1);
-        } else if (allAnswered) {
+        if (allAnswered) {
           renderFinalReport();
+        } else if (State.index < CASES.length - 1) {
+          openCaseIndex(State.index + 1);
         } else {
           openCaseIndex(findNextPendingIndex());
         }
@@ -4210,6 +4267,15 @@
 
       document.addEventListener('keydown', (e) => {
         if (e.altKey || e.ctrlKey || e.metaKey) return;
+
+        const ecoNav = document.querySelector('biotec-ecosystem-nav');
+        const ecoDlg = ecoNav && ecoNav.shadowRoot && ecoNav.shadowRoot.getElementById('eco-dialog');
+        if (ecoDlg && ecoDlg.open) return;
+
+        const targetTag = e.target && e.target.tagName;
+        if (targetTag === 'INPUT' || targetTag === 'TEXTAREA' || targetTag === 'SELECT' || (e.target && e.target.isContentEditable)) {
+          return;
+        }
 
         const activeModal = getActiveModal();
         if (activeModal) {
@@ -4235,6 +4301,20 @@
         }
 
         const key = (e.key || '').toLowerCase();
+
+        // Em casos de múltipla escolha (Caso 9), a tecla C seleciona a alternativa C antes do atalho global
+        if (State.screen === 'case') {
+          const activeCase = CASES[State.index];
+          const isCaseAnswered = Boolean(State.answersByCaseId[activeCase.id]);
+          if (activeCase.type === 'QUIZ_SEQ' && !isCaseAnswered) {
+            const quizMap = { a: 'A', b: 'B', c: 'C', d: 'D', '1': 'A', '2': 'B', '3': 'C', '4': 'D' };
+            if (quizMap[key]) {
+              e.preventDefault();
+              handleAnswer(quizMap[key]);
+              return;
+            }
+          }
+        }
 
         if (key === 'g') {
           e.preventDefault();
@@ -4277,12 +4357,6 @@
           } else if (key === '2' || key === 'n') {
             e.preventDefault();
             handleAnswer('Não');
-          }
-        } else {
-          const map = { a: 'A', b: 'B', c: 'C', d: 'D', '1': 'A', '2': 'B', '3': 'C', '4': 'D' };
-          if (map[key]) {
-            e.preventDefault();
-            handleAnswer(map[key]);
           }
         }
       });
