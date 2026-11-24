@@ -732,18 +732,20 @@
     /* Touch D-pad (visible on touch/mobile viewports) */
     .touch-dpad {
       display: none;
-      grid-template-columns: repeat(3, 46px);
-      grid-template-rows: repeat(2, 46px);
-      gap: 6px;
+      width: 100%;
+      max-width: 264px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-rows: repeat(2, 66px);
+      gap: 10px;
       margin: 0 auto;
       touch-action: none;
     }
 
     .dpad-btn {
-      width: 46px;
-      height: 46px;
-      border-radius: 13px;
-      border: 1.5px solid var(--border-subtle);
+      width: 100%;
+      height: 100%;
+      border-radius: 18px;
+      border: 1.5px solid var(--border-strong);
       background: var(--surface-hud);
       color: var(--ink-primary);
       display: inline-flex;
@@ -754,8 +756,14 @@
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
       padding: 0;
       transition: background-color 100ms ease, transform 100ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .dpad-btn svg {
+      width: 28px;
+      height: 28px;
     }
 
     .dpad-btn:active,
@@ -834,6 +842,10 @@
 
     @media (pointer: coarse),
     (max-width: 767px) {
+      .bottom-strip {
+        justify-content: center;
+      }
+
       .ticker-bar {
         display: none;
       }
@@ -844,6 +856,21 @@
     }
 
     @media (max-height: 680px) and (max-width: 767px) {
+      .touch-dpad {
+        max-width: 236px;
+        grid-template-rows: repeat(2, 56px);
+        gap: 8px;
+      }
+
+      .dpad-btn {
+        border-radius: 15px;
+      }
+
+      .dpad-btn svg {
+        width: 24px;
+        height: 24px;
+      }
+
       .overlay-panel {
         padding: 14px 14px 12px;
       }
@@ -1086,25 +1113,25 @@
 
       <div class="touch-dpad" role="group" aria-label="Controles direcionais por toque">
         <button type="button" class="dpad-btn dpad-up" data-dir="up" aria-label="Mover para cima">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="m18 15-6-6-6 6" />
           </svg>
         </button>
         <button type="button" class="dpad-btn dpad-left" data-dir="left" aria-label="Mover para a esquerda">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="m15 18-6-6 6-6" />
           </svg>
         </button>
         <button type="button" class="dpad-btn dpad-down" data-dir="down" aria-label="Mover para baixo">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="m6 9 6 6 6-6" />
           </svg>
         </button>
         <button type="button" class="dpad-btn dpad-right" data-dir="right" aria-label="Mover para a direita">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="m9 18 6-6-6-6" />
           </svg>
