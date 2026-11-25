@@ -273,10 +273,12 @@
         left: calc(10px + env(safe-area-inset-left, 0px));
         font-size: 10px;
         padding: 6px 10px;
+        flex-wrap: wrap;
+        gap: 4px 6px;
       }
 
       .natal-hint {
-        display: none;
+        font-size: 9.5px;
       }
 
       #star-tap-feedback {
@@ -360,7 +362,7 @@
       <polygon points="12 2 15.1 8.8 22.5 9.5 16.9 14.4 18.6 21.7 12 17.8 5.4 21.7 7.1 14.4 1.5 9.5 8.9 8.8" />
     </svg>
     <span id="natal-badge-text">Noite Natalina • Arte ASCII</span>
-    <span id="natal-wind-hint" class="natal-hint">• Mova para guiar o vento</span>
+    <span id="natal-wind-hint" class="natal-hint">• Há algo suspeito com a estrela...</span>
   </aside>
 
   <div id="star-tap-feedback" role="status" aria-live="polite"></div>
@@ -412,6 +414,23 @@
         <span class="natal-btn-short">Repetir 3D</span>
       </button>
     </div>
+
+    <button type="button" id="btn-natal-audio" class="natal-btn is-active" aria-pressed="true" title="Ativar ou silenciar música natalina (M)">
+      <span id="natal-audio-icon-on" style="display:inline-flex;align-items:center;" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+        </svg>
+      </span>
+      <span id="natal-audio-icon-off" style="display:none;align-items:center;" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+          <line x1="23" y1="9" x2="17" y2="15" />
+          <line x1="17" y1="9" x2="23" y2="15" />
+        </svg>
+      </span>
+      <span id="natal-audio-label" class="natal-btn-label">Som</span>
+    </button>
   </div>
 
   <script>
@@ -1881,10 +1900,502 @@
       const tree3dEngine = createTree3DEngine(canvas3d);
 
       // =========================================================================
-      // ÁUDIO, PARTÍCULAS E TRANSIÇÃO CINEMATOGRÁFICA DO EASTER EGG (5 TOQUES)
+      // MOTOR DE ÁUDIO NATALINO PROCEDURAL (MÚSICA 2D, EFEITO 3D E ESTRELA)
+      // =========================================================================
+      const NatalAudio = (() => {
+        let audioEnabled = true;
+        let masterGain = null;
+        let warmFilter = null;
+        let bellNoiseBuf = null;
+        let loopTimer = null;
+        let loopStep = 0;
+        let nextNoteTime = 0;
+        let activeTrack = 'none'; // 'none' | '2d' | '3d-loop'
+        let formationTimers = [];
+        let gestureUnlocked = false;
+
+        // Frequências musicais (Hz)
+        const N = {
+          C3: 130.81, D3: 146.83, E3: 164.81, F3: 174.61, G3: 196.0, A3: 220.0, B3: 246.94,
+          C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, Fs4: 369.99, G4: 392.0, Ab4: 415.3, A4: 440.0, Bb4: 466.16, B4: 493.88,
+          C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, Fs5: 739.99, G5: 783.99, A5: 880.0, B5: 987.77,
+          C6: 1046.5, D6: 1174.66, E6: 1318.51, G6: 1567.98
+        };
+
+        function ensureCtx() {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return null;
+          if (!starAudioCtx) starAudioCtx = new AudioCtx();
+          if (starAudioCtx.state === 'suspended') {
+            starAudioCtx.resume().catch(() => { });
+          }
+          if (!masterGain) {
+            masterGain = starAudioCtx.createGain();
+            masterGain.gain.setValueAtTime(0.0001, starAudioCtx.currentTime);
+            warmFilter = starAudioCtx.createBiquadFilter();
+            warmFilter.type = 'lowpass';
+            warmFilter.frequency.setValueAtTime(3400, starAudioCtx.currentTime);
+            warmFilter.Q.setValueAtTime(0.6, starAudioCtx.currentTime);
+            warmFilter.connect(masterGain);
+            masterGain.connect(starAudioCtx.destination);
+          }
+          if (!bellNoiseBuf) {
+            const len = Math.floor(starAudioCtx.sampleRate * 0.1);
+            const buf = starAudioCtx.createBuffer(1, len, starAudioCtx.sampleRate);
+            const data = buf.getChannelData(0);
+            for (let i = 0; i < len; i++) {
+              data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.28));
+            }
+            bellNoiseBuf = buf;
+          }
+          return starAudioCtx;
+        }
+
+        function setMasterLevel(target, fadeSec = 0.45) {
+          if (!starAudioCtx || !masterGain) return;
+          const now = starAudioCtx.currentTime;
+          masterGain.gain.cancelScheduledValues(now);
+          masterGain.gain.setValueAtTime(Math.max(0.0001, masterGain.gain.value), now);
+          masterGain.gain.linearRampToValueAtTime(Math.max(0.0001, target), now + fadeSec);
+        }
+
+        function playMusicBoxNote(freq, startTime, duration = 0.55, vol = 0.24) {
+          if (!starAudioCtx || !warmFilter || !freq) return;
+          const osc1 = starAudioCtx.createOscillator();
+          const osc2 = starAudioCtx.createOscillator();
+          const gain = starAudioCtx.createGain();
+
+          osc1.type = 'sine';
+          osc2.type = 'triangle';
+          osc1.frequency.setValueAtTime(freq, startTime);
+          osc2.frequency.setValueAtTime(freq * 2, startTime);
+
+          const hGain = starAudioCtx.createGain();
+          hGain.gain.setValueAtTime(0.18, startTime);
+
+          gain.gain.setValueAtTime(0.0001, startTime);
+          gain.gain.exponentialRampToValueAtTime(vol, startTime + 0.01);
+          gain.gain.exponentialRampToValueAtTime(vol * 0.35, startTime + duration * 0.35);
+          gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+          osc1.connect(gain);
+          osc2.connect(hGain);
+          hGain.connect(gain);
+          gain.connect(warmFilter);
+
+          osc1.start(startTime);
+          osc2.start(startTime);
+          osc1.stop(startTime + duration + 0.03);
+          osc2.stop(startTime + duration + 0.03);
+        }
+
+        function playWarmPad(freqs, startTime, duration = 1.2, vol = 0.08) {
+          if (!starAudioCtx || !warmFilter || !freqs || freqs.length === 0) return;
+          const perVoice = vol / Math.sqrt(freqs.length);
+          freqs.forEach((f) => {
+            const osc = starAudioCtx.createOscillator();
+            const g = starAudioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(f, startTime);
+            g.gain.setValueAtTime(0.0001, startTime);
+            g.gain.linearRampToValueAtTime(perVoice, startTime + Math.min(0.22, duration * 0.25));
+            g.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+            osc.connect(g);
+            g.connect(warmFilter);
+            osc.start(startTime);
+            osc.stop(startTime + duration + 0.04);
+          });
+        }
+
+        function playSleighBell(startTime, vol = 0.08) {
+          if (!starAudioCtx || !warmFilter || !bellNoiseBuf) return;
+          const src = starAudioCtx.createBufferSource();
+          src.buffer = bellNoiseBuf;
+          const hp = starAudioCtx.createBiquadFilter();
+          hp.type = 'highpass';
+          hp.frequency.setValueAtTime(4200, startTime);
+          const nGain = starAudioCtx.createGain();
+          nGain.gain.setValueAtTime(vol, startTime);
+          nGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.09);
+          src.connect(hp);
+          hp.connect(nGain);
+          nGain.connect(warmFilter);
+          src.start(startTime);
+          src.stop(startTime + 0.1);
+
+          [4186, 5588].forEach((f, i) => {
+            const o = starAudioCtx.createOscillator();
+            const g = starAudioCtx.createGain();
+            o.type = 'sine';
+            o.frequency.setValueAtTime(f, startTime);
+            g.gain.setValueAtTime(0.0001, startTime);
+            g.gain.exponentialRampToValueAtTime(vol * (i === 0 ? 0.26 : 0.18), startTime + 0.005);
+            g.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.12);
+            o.connect(g);
+            g.connect(warmFilter);
+            o.start(startTime);
+            o.stop(startTime + 0.13);
+          });
+        }
+
+        // Partitura 2D: Noite Feliz (Silent Night) + Jingle Bells suave em caixinha de música
+        const SEQ_2D = [
+          // Noite Feliz (em Dó maior)
+          { f: N.G4, d: 0.72, pad: [N.C3, N.E3, N.G3], bell: true },
+          { f: N.A4, d: 0.24 },
+          { f: N.G4, d: 0.48 },
+          { f: N.E4, d: 1.44, pad: [N.C3, N.G3, N.E4] },
+          { f: N.G4, d: 0.72, bell: true },
+          { f: N.A4, d: 0.24 },
+          { f: N.G4, d: 0.48 },
+          { f: N.E4, d: 1.44, pad: [N.C3, N.E3, N.G3] },
+          { f: N.D5, d: 0.96, pad: [N.G3, N.B3, N.D4], bell: true },
+          { f: N.D5, d: 0.48 },
+          { f: N.B4, d: 1.44 },
+          { f: N.C5, d: 0.96, pad: [N.C3, N.E3, N.G3], bell: true },
+          { f: N.C5, d: 0.48 },
+          { f: N.G4, d: 1.44 },
+          { f: N.A4, d: 0.96, pad: [N.F3, N.A3, N.C4], bell: true },
+          { f: N.A4, d: 0.48 },
+          { f: N.C5, d: 0.72 },
+          { f: N.B4, d: 0.24 },
+          { f: N.A4, d: 0.48 },
+          { f: N.G4, d: 0.72, pad: [N.C3, N.E3, N.G3] },
+          { f: N.A4, d: 0.24 },
+          { f: N.G4, d: 0.48 },
+          { f: N.E4, d: 1.44 },
+          { f: N.D5, d: 0.96, pad: [N.G3, N.B3, N.D4], bell: true },
+          { f: N.D5, d: 0.48 },
+          { f: N.F5, d: 0.72 },
+          { f: N.D5, d: 0.24 },
+          { f: N.B4, d: 0.48 },
+          { f: N.C5, d: 1.25, pad: [N.C3, N.E3, N.G3], bell: true },
+          { f: N.E5, d: 1.15 },
+          { f: N.C5, d: 0.72, pad: [N.C3, N.G3] },
+          { f: N.G4, d: 0.24 },
+          { f: N.E4, d: 0.48 },
+          { f: N.G4, d: 0.72, pad: [N.G3, N.B3, N.D4] },
+          { f: N.F4, d: 0.24 },
+          { f: N.D4, d: 0.48 },
+          { f: N.C4, d: 1.75, pad: [N.C3, N.E3, N.G3], bell: true },
+          // Jingle Bells (refrão suave)
+          { f: N.E5, d: 0.36, pad: [N.C3, N.E3, N.G3], bell: true },
+          { f: N.E5, d: 0.36 },
+          { f: N.E5, d: 0.72, bell: true },
+          { f: N.E5, d: 0.36 },
+          { f: N.E5, d: 0.36 },
+          { f: N.E5, d: 0.72, bell: true },
+          { f: N.E5, d: 0.36, pad: [N.C3, N.G3] },
+          { f: N.G5, d: 0.36 },
+          { f: N.C5, d: 0.54 },
+          { f: N.D5, d: 0.22 },
+          { f: N.E5, d: 1.35, pad: [N.C3, N.E3, N.G3], bell: true },
+          { f: N.F5, d: 0.36, pad: [N.F3, N.A3, N.C4] },
+          { f: N.F5, d: 0.36 },
+          { f: N.F5, d: 0.54, bell: true },
+          { f: N.F5, d: 0.22 },
+          { f: N.F5, d: 0.36 },
+          { f: N.E5, d: 0.36, pad: [N.C3, N.E3, N.G3] },
+          { f: N.E5, d: 0.36 },
+          { f: N.E5, d: 0.22 },
+          { f: N.E5, d: 0.22 },
+          { f: N.G5, d: 0.36, pad: [N.G3, N.B3, N.D4], bell: true },
+          { f: N.G5, d: 0.36 },
+          { f: N.F5, d: 0.36 },
+          { f: N.D5, d: 0.36 },
+          { f: N.C5, d: 1.5, pad: [N.C3, N.E3, N.G3], bell: true },
+        ];
+
+        // Partitura 3D pós-formação: We Wish You a Merry Christmas + Deck the Halls
+        const SEQ_3D_LOOP = [
+          { f: N.D4, d: 0.36, pad: [N.G3, N.B3, N.D4], bell: true },
+          { f: N.G4, d: 0.36 },
+          { f: N.G4, d: 0.2 },
+          { f: N.A4, d: 0.2 },
+          { f: N.G4, d: 0.2 },
+          { f: N.Fs4, d: 0.2 },
+          { f: N.E4, d: 0.36, pad: [N.C3, N.E3, N.G3], bell: true },
+          { f: N.E4, d: 0.36 },
+          { f: N.E4, d: 0.36 },
+          { f: N.A4, d: 0.36, pad: [N.A3, N.C4, N.E4], bell: true },
+          { f: N.A4, d: 0.2 },
+          { f: N.B4, d: 0.2 },
+          { f: N.A4, d: 0.2 },
+          { f: N.G4, d: 0.2 },
+          { f: N.Fs4, d: 0.36, pad: [N.D3, N.G3, N.B3] },
+          { f: N.D4, d: 0.36 },
+          { f: N.D4, d: 0.36 },
+          { f: N.B4, d: 0.36, pad: [N.G3, N.B3, N.D4], bell: true },
+          { f: N.B4, d: 0.2 },
+          { f: N.C5, d: 0.2 },
+          { f: N.B4, d: 0.2 },
+          { f: N.A4, d: 0.2 },
+          { f: N.G4, d: 0.36, pad: [N.E3, N.G3, N.B3] },
+          { f: N.E4, d: 0.36 },
+          { f: N.D4, d: 0.2 },
+          { f: N.D4, d: 0.2 },
+          { f: N.E4, d: 0.36, pad: [N.C3, N.E3, N.G3], bell: true },
+          { f: N.A4, d: 0.36 },
+          { f: N.Fs4, d: 0.36 },
+          { f: N.G4, d: 1.05, pad: [N.G3, N.B3, N.D4], bell: true },
+          // Deck the Halls (frase natalina alegre)
+          { f: N.G5, d: 0.5, pad: [N.C3, N.E3, N.G3], bell: true },
+          { f: N.F5, d: 0.2 },
+          { f: N.E5, d: 0.34 },
+          { f: N.D5, d: 0.34 },
+          { f: N.C5, d: 0.34, pad: [N.C3, N.G3], bell: true },
+          { f: N.D5, d: 0.34 },
+          { f: N.E5, d: 0.34 },
+          { f: N.C5, d: 0.34 },
+          { f: N.D5, d: 0.2 },
+          { f: N.E5, d: 0.2 },
+          { f: N.F5, d: 0.2 },
+          { f: N.D5, d: 0.2 },
+          { f: N.E5, d: 0.5, pad: [N.G3, N.B3, N.D4], bell: true },
+          { f: N.D5, d: 0.2 },
+          { f: N.C5, d: 0.34 },
+          { f: N.B4, d: 0.34 },
+          { f: N.C5, d: 1.05, pad: [N.C3, N.E3, N.G3], bell: true },
+        ];
+
+        function clearFormationTimers() {
+          formationTimers.forEach((id) => clearTimeout(id));
+          formationTimers = [];
+        }
+
+        function stopLoop() {
+          if (loopTimer) {
+            clearInterval(loopTimer);
+            loopTimer = null;
+          }
+          activeTrack = 'none';
+        }
+
+        function startSequenceLoop(trackName, seq, targetMaster) {
+          stopLoop();
+          clearFormationTimers();
+          if (!audioEnabled) return;
+          const ctx = ensureCtx();
+          if (!ctx) return;
+
+          activeTrack = trackName;
+          loopStep = 0;
+          nextNoteTime = ctx.currentTime + 0.08;
+          setMasterLevel(targetMaster, 0.55);
+
+          loopTimer = setInterval(() => {
+            if (!audioEnabled || activeTrack !== trackName || !starAudioCtx) return;
+            if (starAudioCtx.state === 'suspended') return;
+            while (nextNoteTime < starAudioCtx.currentTime + 0.25) {
+              const ev = seq[loopStep];
+              if (ev.f) playMusicBoxNote(ev.f, nextNoteTime, Math.max(0.45, ev.d * 1.15), 0.24);
+              if (ev.pad) playWarmPad(ev.pad, nextNoteTime, Math.max(0.85, ev.d * 1.6), 0.085);
+              if (ev.bell) playSleighBell(nextNoteTime, 0.055);
+              nextNoteTime += ev.d;
+              loopStep = (loopStep + 1) % seq.length;
+            }
+          }, 60);
+        }
+
+        function start2DMusic() {
+          if (!gestureUnlocked || !audioEnabled) return;
+          startSequenceLoop('2d', SEQ_2D, 0.15);
+        }
+
+        function start3DMusicLoop() {
+          if (!gestureUnlocked || !audioEnabled) return;
+          startSequenceLoop('3d-loop', SEQ_3D_LOOP, 0.16);
+        }
+
+        // Efeito musical natalino sincronizado com as 7 fases da formação da Árvore 3D (~14s)
+        function play3DFormationMusic() {
+          stopLoop();
+          clearFormationTimers();
+          if (!audioEnabled) return;
+          const ctx = ensureCtx();
+          if (!ctx) return;
+          gestureUnlocked = true;
+
+          setMasterLevel(0.20, 0.15);
+          const t0 = ctx.currentTime + 0.05;
+
+          // Fase 1 (0.0s - 2.2s): Clarão estelar e chão azul — harpa/celesta cintilante ascendente
+          [N.C5, N.E5, N.G5, N.B5, N.D6, N.E6].forEach((f, idx) => {
+            playMusicBoxNote(f, t0 + idx * 0.24, 0.85, 0.22);
+          });
+          playWarmPad([N.C3, N.G3, N.E4, N.B4], t0 + 0.05, 2.2, 0.11);
+          playSleighBell(t0 + 0.1, 0.08);
+          playSleighBell(t0 + 1.1, 0.07);
+
+          // Fase 2 (1.8s - 3.2s): Tronco emerge — acorde quente de preparação
+          playWarmPad([N.G3, N.B3, N.D4, N.F4], t0 + 1.85, 1.4, 0.12);
+          playMusicBoxNote(N.G4, t0 + 1.9, 0.6, 0.22);
+          playMusicBoxNote(N.D5, t0 + 2.35, 0.65, 0.23);
+          playMusicBoxNote(N.G5, t0 + 2.75, 0.6, 0.24);
+
+          // Fase 3 (3.0s - 7.4s): Espiral da árvore subindo ("We Wish You a Merry Christmas")
+          const phase3Notes = [
+            { t: 3.05, f: N.D5, d: 0.35, bell: true },
+            { t: 3.40, f: N.G5, d: 0.35 },
+            { t: 3.75, f: N.G5, d: 0.20 },
+            { t: 3.95, f: N.A5, d: 0.20 },
+            { t: 4.15, f: N.G5, d: 0.20 },
+            { t: 4.35, f: N.Fs5, d: 0.20 },
+            { t: 4.55, f: N.E5, d: 0.38, bell: true },
+            { t: 4.93, f: N.E5, d: 0.38 },
+            { t: 5.31, f: N.E5, d: 0.35 },
+            { t: 5.66, f: N.A5, d: 0.35, bell: true },
+            { t: 6.01, f: N.A5, d: 0.20 },
+            { t: N.B5 ? 6.21 : 6.21, f: N.B5, d: 0.20 },
+            { t: 6.41, f: N.A5, d: 0.20 },
+            { t: 6.61, f: N.G5, d: 0.20 },
+            { t: 6.81, f: N.Fs5, d: 0.45, bell: true },
+          ];
+          playWarmPad([N.G3, N.B3, N.D4], t0 + 3.05, 1.5, 0.11);
+          playWarmPad([N.C3, N.E3, N.G3], t0 + 4.55, 1.1, 0.11);
+          playWarmPad([N.D3, N.A3, N.D4], t0 + 5.66, 1.5, 0.11);
+          phase3Notes.forEach((n) => {
+            playMusicBoxNote(n.f, t0 + n.t, Math.max(0.42, n.d * 1.3), 0.26);
+            if (n.bell) playSleighBell(t0 + n.t, 0.08);
+          });
+
+          // Fase 4 (7.2s - 10.5s): Fita dourada e bolas (Jingle Bells cintilante + sininhos nos enfeites)
+          const phase4Notes = [
+            { t: 7.25, f: N.E5, d: 0.28, bell: true },
+            { t: 7.53, f: N.E5, d: 0.28 },
+            { t: 7.81, f: N.E5, d: 0.54, bell: true },
+            { t: 8.35, f: N.E5, d: 0.28 },
+            { t: 8.63, f: N.E5, d: 0.28 },
+            { t: 8.91, f: N.E5, d: 0.54, bell: true },
+            { t: 9.45, f: N.E5, d: 0.26 },
+            { t: 9.71, f: N.G5, d: 0.26 },
+            { t: 9.97, f: N.C5, d: 0.34, bell: true },
+            { t: 10.28, f: N.D5, d: 0.22 },
+          ];
+          playWarmPad([N.C3, N.E3, N.G3, N.C4], t0 + 7.25, 3.1, 0.11);
+          phase4Notes.forEach((n) => {
+            playMusicBoxNote(n.f, t0 + n.t, Math.max(0.4, n.d * 1.35), 0.26);
+            if (n.bell) playSleighBell(t0 + n.t, 0.075);
+          });
+          // Brilhos aleatórios dos enfeites surgindo
+          [N.C6, N.G5, N.E6, N.D6, N.G6].forEach((f, idx) => {
+            playMusicBoxNote(f, t0 + 8.6 + idx * 0.36, 0.45, 0.13);
+          });
+
+          // Fase 5 (10.5s - 11.8s): Estrela 3D no topo + feixe de luz triunfante
+          playWarmPad([N.G3, N.B3, N.D4, N.G4], t0 + 10.5, 1.5, 0.14);
+          [N.G5, N.B5, N.D6, N.G6].forEach((f, idx) => {
+            playMusicBoxNote(f, t0 + 10.5 + idx * 0.11, 1.15, 0.28);
+          });
+          playSleighBell(t0 + 10.55, 0.10);
+          playSleighBell(t0 + 11.0, 0.08);
+
+          // Fase 6 (11.6s - 13.8s): Presentes 3D quicando embaixo da árvore
+          [
+            { t: 11.65, f: N.C5 },
+            { t: 12.02, f: N.E5 },
+            { t: 12.38, f: N.G5 },
+            { t: 12.74, f: N.A5 },
+            { t: 13.10, f: N.B5 },
+          ].forEach((g) => {
+            playMusicBoxNote(g.f, t0 + g.t, 0.48, 0.24);
+            playSleighBell(t0 + g.t, 0.065);
+          });
+
+          // Fase 7 (13.6s+): Acorde final "FELIZ NATAL 2026" e transição para loop natalino
+          playWarmPad([N.C3, N.E3, N.G3, N.C4, N.E4], t0 + 13.55, 2.2, 0.14);
+          playMusicBoxNote(N.C6, t0 + 13.6, 1.8, 0.30);
+          playMusicBoxNote(N.E6, t0 + 13.72, 1.6, 0.20);
+          playSleighBell(t0 + 13.6, 0.09);
+
+          const loopStartDelay = setTimeout(() => {
+            if (currentMode === '3d' && audioEnabled) {
+              start3DMusicLoop();
+            }
+          }, 15600);
+          formationTimers.push(loopStartDelay);
+        }
+
+        function stopAllMusic() {
+          stopLoop();
+          clearFormationTimers();
+          if (starAudioCtx && masterGain) {
+            setMasterLevel(0.0001, 0.25);
+          }
+        }
+
+        function syncAudioButtonUI() {
+          const btn = document.getElementById('btn-natal-audio');
+          const iconOn = document.getElementById('natal-audio-icon-on');
+          const iconOff = document.getElementById('natal-audio-icon-off');
+          const lbl = document.getElementById('natal-audio-label');
+          if (btn) {
+            btn.setAttribute('aria-pressed', String(audioEnabled));
+            btn.classList.toggle('is-active', audioEnabled);
+          }
+          if (iconOn) iconOn.style.display = audioEnabled ? 'inline-flex' : 'none';
+          if (iconOff) iconOff.style.display = audioEnabled ? 'none' : 'inline-flex';
+          if (lbl) lbl.textContent = audioEnabled ? 'Som' : 'Mudo';
+        }
+
+        function setAudioEnabled(next) {
+          audioEnabled = Boolean(next);
+          syncAudioButtonUI();
+          if (!audioEnabled) {
+            stopAllMusic();
+            return;
+          }
+          gestureUnlocked = true;
+          ensureCtx();
+          if (currentMode === '3d') {
+            start3DMusicLoop();
+          } else {
+            start2DMusic();
+          }
+        }
+
+        function unlockOnFirstGesture() {
+          if (gestureUnlocked) return;
+          gestureUnlocked = true;
+          if (!audioEnabled) return;
+          ensureCtx();
+          if (currentMode === '3d') {
+            play3DFormationMusic();
+          } else {
+            start2DMusic();
+          }
+        }
+
+        function handleVisibilityChange() {
+          if (document.hidden) {
+            stopAllMusic();
+          } else if (gestureUnlocked && audioEnabled) {
+            if (currentMode === '3d') {
+              start3DMusicLoop();
+            } else {
+              start2DMusic();
+            }
+          }
+        }
+
+        return {
+          isEnabled: () => audioEnabled,
+          setAudioEnabled,
+          start2DMusic,
+          play3DFormationMusic,
+          stopAllMusic,
+          unlockOnFirstGesture,
+          handleVisibilityChange,
+          syncAudioButtonUI
+        };
+      })();
+
+      // =========================================================================
+      // ÁUDIO, PARTÍCULAS E TRANSIÇÃO CINEMATOGRÁFICA DA ESTRELA
       // =========================================================================
       function playStarTapChime(step) {
         try {
+          if (!NatalAudio.isEnabled()) return;
           const AudioCtx = window.AudioContext || window.webkitAudioContext;
           if (!AudioCtx) return;
           if (!starAudioCtx) starAudioCtx = new AudioCtx();
@@ -1951,8 +2462,9 @@
         flashOverlay.style.setProperty('--flash-y', `${starHitBox.y || height * 0.35}px`);
         flashOverlay.classList.add('is-flashing');
 
-        // Inicia o motor 3D e dispara crossfade suave de 700ms
+        // Inicia o motor 3D e dispara crossfade suave de 700ms + efeito musical natalino
         tree3dEngine.start();
+        NatalAudio.play3DFormationMusic();
         canvas.classList.add('is-hidden-mode');
         canvas3d.classList.add('is-visible');
 
@@ -1988,9 +2500,10 @@
 
         if (badgeTextEl) badgeTextEl.textContent = 'Noite Natalina • Arte ASCII';
         if (windHintEl) {
-          windHintEl.textContent = '• Mova para guiar o vento';
-          windHintEl.classList.toggle('is-hidden', hasInteracted);
+          windHintEl.textContent = '• Há algo suspeito com a estrela...';
+          windHintEl.classList.remove('is-hidden');
         }
+        NatalAudio.start2DMusic();
         controls3dEl.classList.add('hidden');
         controls3dEl.classList.remove('inline-flex');
         controls2dEl.classList.remove('hidden');
@@ -2023,7 +2536,6 @@
         targetWind = mouseNormalizedX * 1.35;
         if (!hasInteracted && currentMode === '2d') {
           hasInteracted = true;
-          if (windHintEl) windHintEl.classList.add('is-hidden');
         }
       }
 
@@ -2054,6 +2566,7 @@
         const btnSnow = document.getElementById('btn-natal-snow');
         const btnBack2d = document.getElementById('btn-natal-back-2d');
         const btnReplay3d = document.getElementById('btn-natal-replay-3d');
+        const btnAudio = document.getElementById('btn-natal-audio');
 
         if (btnPlay) {
           btnPlay.addEventListener('click', () => setPaused(!isPaused));
@@ -2090,11 +2603,22 @@
         }
 
         if (btnReplay3d) {
-          btnReplay3d.addEventListener('click', () => tree3dEngine.replay());
+          btnReplay3d.addEventListener('click', () => {
+            tree3dEngine.replay();
+            NatalAudio.play3DFormationMusic();
+          });
         }
 
-        // Easter Egg: 5 toques ou cliques consecutivos na estrela da árvore 2D
+        if (btnAudio) {
+          NatalAudio.syncAudioButtonUI();
+          btnAudio.addEventListener('click', () => {
+            NatalAudio.setAudioEnabled(!NatalAudio.isEnabled());
+          });
+        }
+
+        // Easter Egg secreto na estrela da árvore 2D
         window.addEventListener('pointerdown', (e) => {
+          NatalAudio.unlockOnFirstGesture();
           if (currentMode !== '2d' || isTransitioning) return;
           if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
           if (e.target && e.target.closest && e.target.closest('.natal-controls, biotec-ecosystem-nav, button, a')) {
@@ -2114,10 +2638,10 @@
 
           if (starTapCount >= 5) {
             starTapCount = 0;
-            showStarFeedback('★ 5/5 • ÁRVORE 3D 2026');
+            showStarFeedback('★ A ESTRELA DESPERTOU • FELIZ NATAL 2026');
             activate3DMode();
           } else {
-            showStarFeedback(`✦ ${starTapCount}/5`);
+            showStarFeedback('✦ '.repeat(starTapCount).trim());
             if (isPaused) {
               drawSceneFrame(sceneTime, 0.016);
             }
@@ -2125,16 +2649,24 @@
         });
 
         window.addEventListener('keydown', (e) => {
+          NatalAudio.unlockOnFirstGesture();
           if (e.code === 'Space' && !e.altKey && !e.ctrlKey && !e.metaKey && currentMode === '2d') {
             const tag = (e.target && e.target.tagName) || '';
             if (tag !== 'BUTTON' && tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'A') {
               e.preventDefault();
               setPaused(!isPaused);
             }
+          } else if ((e.key === 'm' || e.key === 'M') && !e.altKey && !e.ctrlKey && !e.metaKey) {
+            const tag = (e.target && e.target.tagName) || '';
+            if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
+              NatalAudio.setAudioEnabled(!NatalAudio.isEnabled());
+            }
           } else if (e.key === 'Escape' && currentMode === '3d') {
             activate2DMode();
           }
         });
+
+        document.addEventListener('visibilitychange', NatalAudio.handleVisibilityChange);
       }
 
       window.addEventListener('mousemove', (e) => {

@@ -2076,7 +2076,7 @@
           </div>
 
           <p class="start-hint">
-            Toque em alelos ou bases para marcar pistas antes do veredito. Arraste o fundo para girar a dupla-hélice 3D.
+            Toque em alelos ou bases para marcar pistas antes do veredito.
           </p>
         </div>
       </section>
@@ -3449,6 +3449,9 @@
     function applyReducedMotionUI() {
       const osPrefers = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const effective = State.reducedMotion || osPrefers;
+      document.querySelectorAll('.panel-enter, .ui-pop').forEach((el) => {
+        el.classList.remove('panel-enter', 'ui-pop');
+      });
       document.body.classList.toggle('reduced-motion', State.reducedMotion);
       dom.btnMotionToggle.setAttribute('aria-pressed', String(State.reducedMotion));
       PurpleDNA3D.setReducedMotion(effective);
@@ -3944,8 +3947,10 @@
       }
 
       dom.screenCase.classList.remove('panel-enter');
-      void dom.screenCase.offsetWidth;
-      dom.screenCase.classList.add('panel-enter');
+      if (!State.reducedMotion) {
+        void dom.screenCase.offsetWidth;
+        dom.screenCase.classList.add('panel-enter');
+      }
       persistState();
     }
 
@@ -4256,6 +4261,12 @@
         applySoundUI();
         persistState();
         if (State.soundEnabled) SoundFX.click();
+      });
+
+      document.addEventListener('animationend', (e) => {
+        if (e.animationName === 'panelEnter' && e.target && e.target.classList) {
+          e.target.classList.remove('panel-enter', 'ui-pop');
+        }
       });
 
       dom.btnMotionToggle.addEventListener('click', () => {

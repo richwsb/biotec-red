@@ -285,18 +285,8 @@
             </button>
         </div>
 
-        <!-- Legenda Dinâmica do Pareamento de Bases -->
+        <!-- Barra de progresso sutil da intro -->
         <div class="flex flex-col items-center mb-[72px] sm:mb-10">
-            <div id="intro-subtitle-box"
-                class="glass-panel rounded-2xl px-5 py-3 text-center transition-all duration-300">
-                <div id="intro-pair-badge" class="text-lg sm:text-2xl font-extrabold tracking-wider text-white">
-                    G <span class="text-amber-300">≡</span> C
-                </div>
-                <div id="intro-pair-desc" class="text-xs sm:text-sm text-gray-200 mt-0.5">
-                    Guanina — Citosina • 3 pontes de hidrogênio
-                </div>
-            </div>
-            <!-- Barra de progresso sutil da intro -->
             <div class="w-56 sm:w-72 h-1 bg-white/15 rounded-full overflow-hidden mt-3">
                 <div id="intro-progress-bar"
                     class="h-full bg-gradient-to-r from-red-600 via-rose-400 to-white transition-all duration-75"
@@ -2338,9 +2328,6 @@
             document.getElementById('intro-progress-bar').style.width = `${progressPct}%`;
 
             const phaseTitleEl = document.getElementById('intro-phase-title');
-            const pairBadgeEl = document.getElementById('intro-pair-badge');
-            const pairDescEl = document.getElementById('intro-pair-desc');
-            const subtitleBox = document.getElementById('intro-subtitle-box');
 
             // -----------------------------------------------------------------------
             // FASE 1 (0.0s a 4.5s): Pareamento Sequencial dos 8 Nucleotídeos
@@ -2353,7 +2340,6 @@
                 introEnergyCore.visible = false;
 
                 phaseTitleEl.textContent = 'Fase 1 • Pareamento Molecular (Purina ↔ Pirimidina)';
-                subtitleBox.style.opacity = '1';
 
                 const pairInterval = 0.48;
                 const pairAnimDur = 0.56;
@@ -2416,13 +2402,9 @@
                     seg.mesh.scale.setScalar(1);
                 });
 
-                // Atualiza legenda científica com identificação Purina / Pirimidina
+                // Acompanha índice do par ativo
                 if (activeIdx !== introState.lastShownPair) {
                     introState.lastShownPair = activeIdx;
-                    const pData = DNA_SEQUENCE[activeIdx];
-                    const sym = pData.bonds === 3 ? '≡' : '=';
-                    pairBadgeEl.innerHTML = `${pData.top} <span class="text-amber-300">${sym}</span> ${pData.bottom} <span class="text-xs font-mono font-semibold text-rose-300 ml-2">(${activeIdx + 1}/8)</span>`;
-                    pairDescEl.textContent = pData.desc;
                 }
 
                 // Câmera orbital suave acompanhando cada par acoplado
@@ -2448,8 +2430,6 @@
                 const p2Smooth = easeInOutCubic(p2);
 
                 phaseTitleEl.textContent = 'Fase 2 • Metamorfose Molecular → Tripé UFPA';
-                pairBadgeEl.innerHTML = 'DNA <span class="text-rose-400">→</span> ESTRUTURA DE EXPOSIÇÃO';
-                pairDescEl.textContent = 'A hélice condensa-se no eixo central enquanto as 3 pernas a 120° assentam no solo';
 
                 // Clareia gradualmente o estúdio
                 setStudioBrightness(smoothstep(0.05, 0.92, p2));
@@ -2517,8 +2497,6 @@
                 bannerSystemGroup.visible = true;
 
                 phaseTitleEl.textContent = 'Fase 3 • Desenrolamento em Espiral de Arquimedes';
-                pairBadgeEl.innerHTML = 'BIOTECNOLOGIA VERMELHA';
-                pairDescEl.textContent = 'DNA e Diagnóstico • Universidade Federal do Pará (ICB / FABIOTEC)';
 
                 // Desenrola suavemente com leve amortecimento no final
                 unrollProgress = easeInOutCubic(p3);

@@ -103,7 +103,7 @@
       categoryLabel: 'Arte Generativa',
       accent: '#38BDF8',
       description:
-        'Experiência visual generativa em arte ASCII em tempo real com neve reativa, vila natalina 2D e modo 3D Volumétrico 2026 (toque 5× na estrela).',
+        'Experiência visual generativa em arte ASCII em tempo real com neve reativa e vila natalina 2D — dizem que há algo suspeito com a estrela...',
       icon:
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 9 22 9.5 16.5 14 18.2 21 12 17.2 5.8 21 7.5 14 2 9.5 9 9 12 2"/></svg>',
     },
@@ -1351,7 +1351,7 @@
           ? `
               <a href="./index.html" class="eco-home-banner">
                 <div>
-                  <strong>← Voltar ao Portal Principal (index.html)</strong>
+                  <strong>← Voltar ao Portal Principal</strong>
                   <span>Acesse os 6 módulos educacionais completos, caixinhas ilustradas, jogos e dossiês da extensão UFPA.</span>
                 </div>
                 <span class="eco-home-cta">IR AO PORTAL</span>

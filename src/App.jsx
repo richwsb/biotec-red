@@ -8,6 +8,13 @@ class SoundEngine {
   constructor() {
     this.ctx = null;
     this.enabled = true;
+    this.bgmActive = false;
+    this.bgmTimer = null;
+    this.bgmStep = 0;
+    this.bgmNextTime = 0;
+    this.bgmMasterGain = null;
+    this.bgmFilter = null;
+    this.bgmNoiseBuf = null;
   }
 
   init() {
@@ -22,6 +29,172 @@ class SoundEngine {
       this.ctx.resume().catch(() => {});
     }
     return this.ctx;
+  }
+
+  _ensureBgmNodes(ctx) {
+    if (!this.bgmMasterGain) {
+      this.bgmMasterGain = ctx.createGain();
+      this.bgmMasterGain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      this.bgmFilter = ctx.createBiquadFilter();
+      this.bgmFilter.type = 'lowpass';
+      this.bgmFilter.frequency.setValueAtTime(1400, ctx.currentTime);
+      this.bgmFilter.Q.setValueAtTime(0.7, ctx.currentTime);
+      this.bgmFilter.connect(this.bgmMasterGain);
+      this.bgmMasterGain.connect(ctx.destination);
+    }
+    if (!this.bgmNoiseBuf) {
+      const len = Math.floor(ctx.sampleRate * 0.08);
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.25));
+      }
+      this.bgmNoiseBuf = buf;
+    }
+  }
+
+  _scheduleBgmStep(ctx, stepIdx, time) {
+    if (!this.bgmFilter) return;
+    const bar = Math.floor(stepIdx / 10) % 8;
+    const step = stepIdx % 10;
+
+    // Groove 5/4 estilo espionagem (G menor: G2 - G2 - Bb2 - C3)
+    const bassMap = {
+      0: { freq: 98.0, dur: 0.42 },
+      3: { freq: 98.0, dur: 0.42 },
+      6: { freq: 116.54, dur: 0.28 },
+      8: { freq: 130.81, dur: 0.28 },
+    };
+    const bassNote = bassMap[step];
+    if (bassNote) {
+      const osc = ctx.createOscillator();
+      const sub = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'triangle';
+      sub.type = 'sine';
+      osc.frequency.setValueAtTime(bassNote.freq, time);
+      sub.frequency.setValueAtTime(bassNote.freq, time);
+
+      g.gain.setValueAtTime(0.0001, time);
+      g.gain.exponentialRampToValueAtTime(0.22, time + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, time + bassNote.dur);
+
+      osc.connect(g);
+      sub.connect(g);
+      g.connect(this.bgmFilter);
+      osc.start(time);
+      sub.start(time);
+      osc.stop(time + bassNote.dur + 0.02);
+      sub.stop(time + bassNote.dur + 0.02);
+    }
+
+    // Percussão leve de escovinha + bongo abafado
+    if (this.bgmNoiseBuf) {
+      const nSrc = ctx.createBufferSource();
+      nSrc.buffer = this.bgmNoiseBuf;
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.setValueAtTime(3400, time);
+      const nGain = ctx.createGain();
+      const isAccent = step === 0 || step === 3 || step === 6 || step === 8;
+      nGain.gain.setValueAtTime(isAccent ? 0.06 : 0.025, time);
+      nGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.055);
+      nSrc.connect(hp);
+      hp.connect(nGain);
+      nGain.connect(this.bgmFilter);
+      nSrc.start(time);
+      nSrc.stop(time + 0.06);
+    }
+
+    if (step === 0 || step === 3 || step === 6 || step === 8) {
+      const tom = ctx.createOscillator();
+      const tGain = ctx.createGain();
+      tom.type = 'sine';
+      tom.frequency.setValueAtTime(step === 0 ? 175 : 145, time);
+      tom.frequency.exponentialRampToValueAtTime(88, time + 0.09);
+      tGain.gain.setValueAtTime(0.0001, time);
+      tGain.gain.exponentialRampToValueAtTime(step === 0 ? 0.085 : 0.055, time + 0.008);
+      tGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.11);
+      tom.connect(tGain);
+      tGain.connect(this.bgmFilter);
+      tom.start(time);
+      tom.stop(time + 0.12);
+    }
+
+    // Motivo melódico sutil de suspense (compassos 2..5 do ciclo de 8)
+    if (bar >= 2 && bar <= 5) {
+      const leadBars = {
+        2: { 0: { f: 466.16, d: 0.24 }, 2: { f: 392.0, d: 0.24 }, 4: { f: 293.66, d: 0.72 } },
+        3: { 0: { f: 466.16, d: 0.24 }, 2: { f: 392.0, d: 0.24 }, 4: { f: 277.18, d: 0.72 } },
+        4: { 0: { f: 466.16, d: 0.24 }, 2: { f: 392.0, d: 0.24 }, 4: { f: 261.63, d: 0.72 } },
+        5: { 0: { f: 233.08, d: 0.22 }, 2: { f: 261.63, d: 0.45 } },
+      };
+      const leadNote = leadBars[bar] && leadBars[bar][step];
+      if (leadNote) {
+        const lOsc = ctx.createOscillator();
+        const lGain = ctx.createGain();
+        lOsc.type = 'triangle';
+        lOsc.frequency.setValueAtTime(leadNote.f, time);
+        lGain.gain.setValueAtTime(0.0001, time);
+        lGain.gain.exponentialRampToValueAtTime(0.095, time + 0.025);
+        lGain.gain.exponentialRampToValueAtTime(0.0001, time + leadNote.d);
+        lOsc.connect(lGain);
+        lGain.connect(this.bgmFilter);
+        lOsc.start(time);
+        lOsc.stop(time + leadNote.d + 0.03);
+      }
+    }
+  }
+
+  startBgm() {
+    if (!this.enabled || typeof window === 'undefined') return;
+    const ctx = this.init();
+    if (!ctx) return;
+    this._ensureBgmNodes(ctx);
+
+    const now = ctx.currentTime;
+    this.bgmMasterGain.gain.cancelScheduledValues(now);
+    this.bgmMasterGain.gain.setValueAtTime(Math.max(0.0001, this.bgmMasterGain.gain.value), now);
+    this.bgmMasterGain.gain.linearRampToValueAtTime(0.14, now + 0.9);
+
+    if (this.bgmActive) return;
+    this.bgmActive = true;
+    this.bgmNextTime = now + 0.06;
+
+    const stepDur = 0.185;
+    const scheduleAhead = 0.18;
+    this.bgmTimer = window.setInterval(() => {
+      if (!this.bgmActive || !this.enabled || !this.ctx) return;
+      if (this.ctx.state === 'suspended') return;
+      while (this.bgmNextTime < this.ctx.currentTime + scheduleAhead) {
+        this._scheduleBgmStep(this.ctx, this.bgmStep, this.bgmNextTime);
+        this.bgmNextTime += stepDur;
+        this.bgmStep = (this.bgmStep + 1) % 80;
+      }
+    }, 60);
+  }
+
+  stopBgm() {
+    if (this.bgmTimer) {
+      clearInterval(this.bgmTimer);
+      this.bgmTimer = null;
+    }
+    this.bgmActive = false;
+    if (this.ctx && this.bgmMasterGain) {
+      const now = this.ctx.currentTime;
+      this.bgmMasterGain.gain.cancelScheduledValues(now);
+      this.bgmMasterGain.gain.setValueAtTime(Math.max(0.0001, this.bgmMasterGain.gain.value), now);
+      this.bgmMasterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+    }
+  }
+
+  setEnabled(next) {
+    this.enabled = Boolean(next);
+    if (this.enabled) {
+      this.startBgm();
+    } else {
+      this.stopBgm();
+    }
   }
 
   playTone(freq, duration = 0.12, type = 'sine', volume = 0.08, delay = 0) {
@@ -82,6 +255,29 @@ const soundEngine = new SoundEngine();
  * 2. ARQUITETURA MODULAR (6 MÓDULOS) E DADOS CIENTÍFICOS (UFPA / FABIOTEC)
  * ============================================================================ */
 const POSTER_IMAGE_PATH = './DNA%20E%20DIAGN%C3%93STICO%20BIOTEC%2024_20261115_150346_0000.png';
+
+const BANNER_REFERENCES = [
+  {
+    num: '01',
+    citation: 'NATIONAL HUMAN GENOME RESEARCH INSTITUTE. DNA Fact Sheet. 2020. Disponível em:',
+    url: 'https://www.genome.gov/about-genomics/fact-sheets/Deoxyribonucleic-Acid-Fact-Sheet',
+  },
+  {
+    num: '02',
+    citation: 'NATIONAL HUMAN GENOME RESEARCH INSTITUTE. PCR Fact Sheet. s. d.. Disponível em:',
+    url: 'https://www.genome.gov/about-genomics/fact-sheets/Polymerase-Chain-Reaction-Fact-Sheet',
+  },
+  {
+    num: '03',
+    citation: 'BRASIL. MINISTÉRIO DA SAÚDE. Doença Falciforme. 2025. Disponível em:',
+    url: 'https://www.gov.br/saude/pt-br/assuntos/pcdt/d/doenca-falciforme/view',
+  },
+  {
+    num: '04',
+    citation: 'NELSON, David L.; COX, Michael M. Princípios de bioquímica de Lehninger. 6. ed. Porto Alegre: Artmed, 2014.',
+    url: null,
+  },
+];
 
 const MODULES_CONFIG = [
   {
@@ -229,7 +425,7 @@ const ECOSYSTEM_APPS = [
     accentBar: 'bg-sky-400',
     accentText: 'text-sky-400',
     accentBadge: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
-    description: 'Experiência visual em arte ASCII em tempo real com neve reativa, vila natalina 2D e modo 3D Volumétrico 2026.',
+    description: 'Experiência visual em arte ASCII em tempo real com neve reativa e vila natalina 2D — há algo suspeito com a estrela...',
   },
   {
     id: 'qeop',
@@ -5434,7 +5630,7 @@ function GamesHubModule({ badges, onCompletePairing, onWinMemory, onCompleteQuiz
     },
     {
       id: 'quiz',
-      number: 'JOGO 03 [NOVO]',
+      number: 'JOGO 03',
       title: 'Quiz de Verdadeiro ou Falso',
       subtitle: 'Desafio Rápido de Biologia Molecular & Forense',
       done: badges.quiz,
@@ -5903,6 +6099,92 @@ function PosterModal({ open, onClose }) {
   );
 }
 
+function BannerReferencesModal({ open, onClose }) {
+  const dialogRef = useRef(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (open && !dialog.open) {
+      if (typeof dialog.showModal === 'function') {
+        dialog.showModal();
+      } else {
+        dialog.setAttribute('open', '');
+      }
+    } else if (!open && dialog.open) {
+      if (typeof dialog.close === 'function') {
+        dialog.close();
+      } else {
+        dialog.removeAttribute('open');
+      }
+    }
+  }, [open]);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      data-testid="banner-references-modal"
+      aria-label="Referências do Banner"
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="tactical-dialog overflow-visible"
+    >
+      <div className="bg-zinc-950 w-full max-h-[90vh] overflow-y-auto border border-zinc-700 p-6 sm:p-8 relative">
+        <span className="absolute top-0 inset-x-0 h-0.5 bg-yellow-400" aria-hidden="true"></span>
+        <div className="flex items-start justify-between gap-4 border-b border-zinc-800 pb-4 mb-5">
+          <div>
+            <span className="text-[11px] font-mono text-yellow-400 uppercase tracking-[0.14em]">
+              Universidade Federal do Pará (UFPA) • ICB • FABIOTEC
+            </span>
+            <h3 className="text-lg sm:text-xl font-display font-semibold text-zinc-100 mt-1">
+              Referências do Banner
+            </h3>
+          </div>
+          <button
+            type="button"
+            data-testid="banner-references-modal-close"
+            onClick={onClose}
+            className="px-3 py-1.5 bg-yellow-400 hover:bg-yellow-300 text-xs font-mono font-bold text-black transition-colors shrink-0"
+          >
+            FECHAR [ESC]
+          </button>
+        </div>
+
+        <ol className="space-y-3">
+          {BANNER_REFERENCES.map((ref) => (
+            <li
+              key={ref.num}
+              className="bg-black border border-zinc-800 p-4 text-xs sm:text-sm font-sans text-zinc-200 leading-relaxed flex gap-3 items-start"
+            >
+              <span className="px-2 py-0.5 bg-yellow-400/15 border border-yellow-400/50 text-yellow-400 font-mono text-[11px] font-bold shrink-0">
+                {ref.num}
+              </span>
+              <div className="min-w-0 space-y-1">
+                <p className="text-zinc-200">{ref.citation}</p>
+                {ref.url && (
+                  <a
+                    href={ref.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block font-mono text-[11px] text-cyan-300 hover:text-yellow-300 underline break-all transition-colors"
+                  >
+                    {ref.url}
+                  </a>
+                )}
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </dialog>
+  );
+}
+
 function ModulePaginationFooter({ activeModule, onSelectModule }) {
   const prevMod = activeModule > 1 ? MODULES_CONFIG[activeModule - 2] : null;
   const nextMod = activeModule < MODULES_CONFIG.length ? MODULES_CONFIG[activeModule] : null;
@@ -6075,7 +6357,7 @@ function EcosystemShowcaseSection() {
               Ambientes 3D, Laboratório &amp; Experiências Especiais
             </h2>
             <p className="text-xs sm:text-sm font-sans text-zinc-400 mt-1.5 max-w-[68ch]">
-              Navegue livremente por todo o ecossistema da extensão: cada página possui barra flutuante integrada para voltar ao portal principal (<code className="text-zinc-200 font-mono">index.html</code>) ou saltar diretamente para qualquer outra experiência.
+              Navegue livremente por todo o ecossistema da extensão: cada página possui barra flutuante integrada para voltar ao portal principal ou saltar diretamente para qualquer outra experiência.
             </p>
           </div>
           <button
@@ -6118,8 +6400,7 @@ function EcosystemShowcaseSection() {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-zinc-900 flex items-center justify-between text-[11px] font-mono uppercase tracking-[0.1em]">
-                <span className="text-zinc-500">{app.file}</span>
+              <div className="pt-3 border-t border-zinc-900 flex items-center justify-end text-[11px] font-mono uppercase tracking-[0.1em]">
                 <span className={`${app.accentText} font-bold group-hover:translate-x-0.5 transition-transform`}>
                   ABRIR ↗
                 </span>
@@ -6139,6 +6420,7 @@ export default function App() {
   const [activeModule, setActiveModule] = useState(1);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [posterOpen, setPosterOpen] = useState(false);
+  const [referencesOpen, setReferencesOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [badges, setBadges] = useState({
     pairing: false,
@@ -6177,9 +6459,43 @@ export default function App() {
     return () => window.removeEventListener('hashchange', applyHash);
   }, []);
 
+  // Música de fundo sutil (estilo tema espionagem 5/4) iniciada na primeira interação
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    let unlocked = false;
+    const unlockBgm = () => {
+      if (unlocked) return;
+      unlocked = true;
+      if (soundEngine.enabled) {
+        soundEngine.startBgm();
+      }
+      window.removeEventListener('pointerdown', unlockBgm);
+      window.removeEventListener('keydown', unlockBgm);
+      window.removeEventListener('touchstart', unlockBgm);
+    };
+    const handleVisibility = () => {
+      if (document.hidden) {
+        soundEngine.stopBgm();
+      } else if (unlocked && soundEngine.enabled) {
+        soundEngine.startBgm();
+      }
+    };
+    window.addEventListener('pointerdown', unlockBgm, { passive: true });
+    window.addEventListener('keydown', unlockBgm, { passive: true });
+    window.addEventListener('touchstart', unlockBgm, { passive: true });
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.removeEventListener('pointerdown', unlockBgm);
+      window.removeEventListener('keydown', unlockBgm);
+      window.removeEventListener('touchstart', unlockBgm);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      soundEngine.stopBgm();
+    };
+  }, []);
+
   const toggleAudio = () => {
     const next = !audioEnabled;
-    soundEngine.enabled = next;
+    soundEngine.setEnabled(next);
     setAudioEnabled(next);
     if (next) soundEngine.playClick();
   };
@@ -6376,6 +6692,18 @@ export default function App() {
                 </button>
                 <button
                   type="button"
+                  data-testid="menu-banner-references"
+                  onClick={() => {
+                    soundEngine.playClick();
+                    setMobileMenuOpen(false);
+                    setReferencesOpen(true);
+                  }}
+                  className="w-full sm:w-auto px-4 py-2.5 text-xs font-mono font-bold uppercase tracking-[0.12em] text-zinc-200 bg-zinc-950 border border-zinc-700 hover:border-yellow-400 hover:text-yellow-400 transition-colors"
+                >
+                  REFERÊNCIAS DO BANNER
+                </button>
+                <button
+                  type="button"
                   onClick={() => {
                     setMobileMenuOpen(false);
                     openEcosystemHub();
@@ -6473,6 +6801,7 @@ export default function App() {
       </footer>
 
       <PosterModal open={posterOpen} onClose={() => setPosterOpen(false)} />
+      <BannerReferencesModal open={referencesOpen} onClose={() => setReferencesOpen(false)} />
     </div>
   );
 }
