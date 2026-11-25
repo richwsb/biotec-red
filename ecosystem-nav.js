@@ -135,6 +135,20 @@
       icon:
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h9a3.5 3.5 0 0 0 0-7h-2a3.5 3.5 0 0 1 0-7h7"/><circle cx="19" cy="4" r="1.5" fill="currentColor"/><line x1="8" y1="14.5" x2="12" y2="14.5"/><line x1="12" y1="7.5" x2="16" y2="7.5"/></svg>',
     },
+    {
+      id: 'referencias',
+      file: 'referencias.html',
+      code: 'DOC 01',
+      title: 'Referências do Banner',
+      shortTitle: 'Referências',
+      category: 'portal',
+      categoryLabel: 'Bibliografia & QR',
+      accent: '#FACC15',
+      description:
+        'Fontes científicas bibliográficas (padrão ABNT) do pôster Biotecnologia Vermelha — DNA e Diagnóstico com QR Code para acesso rápido.',
+      icon:
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M8 7h8"/><path d="M8 11h6"/></svg>',
+    },
   ];
 
   const PAGE_THEMES = {
@@ -355,6 +369,30 @@
       seenColor: '#15803D',
       backdrop: 'rgba(74, 21, 43, 0.48)',
       cardFootBorder: 'rgba(219, 39, 119, 0.14)',
+    },
+    'referencias.html': {
+      colorScheme: 'dark',
+      bg: 'rgba(9, 10, 14, 0.90)',
+      border: 'rgba(250, 204, 21, 0.38)',
+      borderHover: 'rgba(244, 63, 94, 0.78)',
+      text: '#F4F4F5',
+      textMuted: '#A1A1AA',
+      sep: 'rgba(255, 255, 255, 0.14)',
+      pillHover: 'rgba(250, 204, 21, 0.12)',
+      accent: '#FACC15',
+      accentHover: '#FDE047',
+      accentContrast: '#09090B',
+      accentSecondary: '#F43F5E',
+      chipBg: 'rgba(9, 9, 11, 0.24)',
+      shadow: '0 12px 32px rgba(0, 0, 0, 0.62), 0 0 0 1px rgba(244, 63, 94, 0.10) inset',
+      dialogBg: '#09090B',
+      dialogSurface: '#121215',
+      dialogSurfaceAlt: '#050507',
+      dialogBorder: '#27272A',
+      dialogText: '#F4F4F5',
+      dialogMuted: '#A1A1AA',
+      cardHover: '#18181B',
+      seenColor: '#34D399',
     },
   };
 

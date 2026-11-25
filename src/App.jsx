@@ -6180,6 +6180,19 @@ function BannerReferencesModal({ open, onClose }) {
             </li>
           ))}
         </ol>
+
+        <div className="mt-5 pt-4 border-t border-zinc-800 flex flex-wrap items-center justify-between gap-3">
+          <span className="text-[11px] font-mono text-zinc-400">
+            Página dedicada com citação ABNT e QR Code para o banner
+          </span>
+          <a
+            href="./referencias.html"
+            data-testid="banner-references-page-link"
+            className="px-3.5 py-2 bg-zinc-900 hover:bg-yellow-400 border border-yellow-400/50 hover:border-yellow-400 text-yellow-400 hover:text-black text-xs font-mono font-bold uppercase tracking-[0.08em] transition-colors"
+          >
+            Abrir página dedicada &amp; QR Code ↗
+          </a>
+        </div>
       </div>
     </dialog>
   );
