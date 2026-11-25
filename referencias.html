@@ -103,13 +103,11 @@
     .hazard-strip {
       height: 5px;
       width: 100%;
-      background: repeating-linear-gradient(
-        -45deg,
-        #facc15 0px,
-        #facc15 8px,
-        #09090b 8px,
-        #09090b 16px
-      );
+      background: repeating-linear-gradient(-45deg,
+          #facc15 0px,
+          #facc15 8px,
+          #09090b 8px,
+          #09090b 16px);
       border-bottom: 1px solid var(--border);
     }
 
@@ -428,6 +426,11 @@
       color: #ffffff;
     }
 
+    .ref-citation strong {
+      font-weight: 700;
+      color: #ffffff;
+    }
+
     .ref-footer {
       margin-top: 12px;
       padding-top: 12px;
@@ -496,13 +499,12 @@
       box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55);
     }
 
-    .qr-plate img {
+    .qr-plate svg {
       display: block;
       width: 100%;
       height: auto;
       aspect-ratio: 1 / 1;
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
+      shape-rendering: crispEdges;
     }
 
     .qr-plate-caption {
@@ -681,6 +683,7 @@
       .section-title,
       .ref-citation,
       .ref-citation em,
+      .ref-citation strong,
       .footer-team strong {
         color: #111111 !important;
       }
@@ -735,14 +738,10 @@
 
         <div class="section-head">
           <div>
-            <span class="section-kicker">04 FONTES CIENTÍFICAS // PADRÃO ABNT</span>
+            <span class="section-kicker">06 FONTES CIENTÍFICAS // PADRÃO ABNT</span>
             <h2 id="refs-title" class="section-title">Referências Bibliográficas</h2>
           </div>
-          <button
-            type="button"
-            id="copy-all-btn"
-            class="btn btn-primary btn-sm"
-            data-copy-all>
+          <button type="button" id="copy-all-btn" class="btn btn-primary btn-sm" data-copy-all>
             Copiar todas (ABNT)
           </button>
         </div>
@@ -752,32 +751,24 @@
             <div class="ref-card-meta">
               <div class="ref-meta-left">
                 <span class="ref-num">01</span>
-                <span class="ref-tag">Fact Sheet • NHGRI / NIH</span>
+                <span class="ref-tag">Artigo • Revista Brasileira de Criminalística</span>
               </div>
               <div class="ref-actions">
-                <button
-                  type="button"
-                  class="btn btn-sm"
-                  data-copy-ref="NATIONAL HUMAN GENOME RESEARCH INSTITUTE. DNA Fact Sheet. 2020. Disponível em: https://www.genome.gov/about-genomics/fact-sheets/Deoxyribonucleic-Acid-Fact-Sheet">
+                <button type="button" class="btn btn-sm"
+                  data-copy-ref="DECANINE, D. O papel de marcadores moleculares na genética forense. Revista Brasileira de Criminalística, v. 5, n. 2, p. 18-27, 2016. Disponível em: https://doi.org/10.15260/rbc.v5i2.123.">
                   Copiar citação
                 </button>
               </div>
             </div>
             <p class="ref-citation">
-              NATIONAL HUMAN GENOME RESEARCH INSTITUTE. <em>DNA Fact Sheet</em>. 2020. Disponível em:
+              DECANINE, D. O papel de marcadores moleculares na genética forense. <em>Revista Brasileira de
+                Criminalística</em>, v. 5, n. 2, p. 18-27, 2016. Disponível em:
             </p>
             <div class="ref-footer">
-              <a
-                class="ref-url"
-                href="https://www.genome.gov/about-genomics/fact-sheets/Deoxyribonucleic-Acid-Fact-Sheet"
-                target="_blank"
-                rel="noopener noreferrer">
-                https://www.genome.gov/about-genomics/fact-sheets/Deoxyribonucleic-Acid-Fact-Sheet
+              <a class="ref-url" href="https://doi.org/10.15260/rbc.v5i2.123" target="_blank" rel="noopener noreferrer">
+                https://doi.org/10.15260/rbc.v5i2.123
               </a>
-              <a
-                class="btn btn-sm"
-                href="https://www.genome.gov/about-genomics/fact-sheets/Deoxyribonucleic-Acid-Fact-Sheet"
-                target="_blank"
+              <a class="btn btn-sm" href="https://doi.org/10.15260/rbc.v5i2.123" target="_blank"
                 rel="noopener noreferrer">
                 Abrir fonte ↗
               </a>
@@ -788,32 +779,25 @@
             <div class="ref-card-meta">
               <div class="ref-meta-left">
                 <span class="ref-num">02</span>
-                <span class="ref-tag">Fact Sheet • NHGRI / NIH</span>
+                <span class="ref-tag">Artigo • J. Bras. Patol. Med. Lab.</span>
               </div>
               <div class="ref-actions">
-                <button
-                  type="button"
-                  class="btn btn-sm"
-                  data-copy-ref="NATIONAL HUMAN GENOME RESEARCH INSTITUTE. PCR Fact Sheet. s. d.. Disponível em: https://www.genome.gov/about-genomics/fact-sheets/Polymerase-Chain-Reaction-Fact-Sheet">
+                <button type="button" class="btn btn-sm"
+                  data-copy-ref="MELO, M. R. et al. Coleta, transporte e armazenamento de amostras para diagnóstico molecular. Jornal Brasileiro de Patologia e Medicina Laboratorial, v. 46, n. 5, 2010. Disponível em: https://doi.org/10.1590/S1676-24442010000500006.">
                   Copiar citação
                 </button>
               </div>
             </div>
             <p class="ref-citation">
-              NATIONAL HUMAN GENOME RESEARCH INSTITUTE. <em>PCR Fact Sheet</em>. s. d.. Disponível em:
+              MELO, M. R. et al. Coleta, transporte e armazenamento de amostras para diagnóstico molecular. <em>Jornal
+                Brasileiro de Patologia e Medicina Laboratorial</em>, v. 46, n. 5, 2010. Disponível em:
             </p>
             <div class="ref-footer">
-              <a
-                class="ref-url"
-                href="https://www.genome.gov/about-genomics/fact-sheets/Polymerase-Chain-Reaction-Fact-Sheet"
-                target="_blank"
+              <a class="ref-url" href="https://doi.org/10.1590/S1676-24442010000500006" target="_blank"
                 rel="noopener noreferrer">
-                https://www.genome.gov/about-genomics/fact-sheets/Polymerase-Chain-Reaction-Fact-Sheet
+                https://doi.org/10.1590/S1676-24442010000500006
               </a>
-              <a
-                class="btn btn-sm"
-                href="https://www.genome.gov/about-genomics/fact-sheets/Polymerase-Chain-Reaction-Fact-Sheet"
-                target="_blank"
+              <a class="btn btn-sm" href="https://doi.org/10.1590/S1676-24442010000500006" target="_blank"
                 rel="noopener noreferrer">
                 Abrir fonte ↗
               </a>
@@ -824,32 +808,25 @@
             <div class="ref-card-meta">
               <div class="ref-meta-left">
                 <span class="ref-num">03</span>
-                <span class="ref-tag">Protocolo Clínico • Ministério da Saúde</span>
+                <span class="ref-tag">Artigo • Ciência &amp; Educação</span>
               </div>
               <div class="ref-actions">
-                <button
-                  type="button"
-                  class="btn btn-sm"
-                  data-copy-ref="BRASIL. MINISTÉRIO DA SAÚDE. Doença Falciforme. 2025. Disponível em: https://www.gov.br/saude/pt-br/assuntos/pcdt/d/doenca-falciforme/view">
+                <button type="button" class="btn btn-sm"
+                  data-copy-ref="SCHEID, N. M. J.; FERRARI, N.; DELIZOICOV, D. A construção coletiva do conhecimento científico sobre a estrutura do DNA. Ciência & Educação, v. 11, n. 2, p. 223-233, 2005. Disponível em: https://doi.org/10.1590/S1516-73132005000200006.">
                   Copiar citação
                 </button>
               </div>
             </div>
             <p class="ref-citation">
-              BRASIL. MINISTÉRIO DA SAÚDE. <em>Doença Falciforme</em>. 2025. Disponível em:
+              SCHEID, N. M. J.; FERRARI, N.; DELIZOICOV, D. A construção coletiva do conhecimento científico sobre a
+              estrutura do DNA. <em>Ciência &amp; Educação</em>, v. 11, n. 2, p. 223-233, 2005. Disponível em:
             </p>
             <div class="ref-footer">
-              <a
-                class="ref-url"
-                href="https://www.gov.br/saude/pt-br/assuntos/pcdt/d/doenca-falciforme/view"
-                target="_blank"
+              <a class="ref-url" href="https://doi.org/10.1590/S1516-73132005000200006" target="_blank"
                 rel="noopener noreferrer">
-                https://www.gov.br/saude/pt-br/assuntos/pcdt/d/doenca-falciforme/view
+                https://doi.org/10.1590/S1516-73132005000200006
               </a>
-              <a
-                class="btn btn-sm"
-                href="https://www.gov.br/saude/pt-br/assuntos/pcdt/d/doenca-falciforme/view"
-                target="_blank"
+              <a class="btn btn-sm" href="https://doi.org/10.1590/S1516-73132005000200006" target="_blank"
                 rel="noopener noreferrer">
                 Abrir fonte ↗
               </a>
@@ -860,19 +837,78 @@
             <div class="ref-card-meta">
               <div class="ref-meta-left">
                 <span class="ref-num">04</span>
+                <span class="ref-tag">Revisão • Brazilian Journal of Microbiology</span>
+              </div>
+              <div class="ref-actions">
+                <button type="button" class="btn btn-sm"
+                  data-copy-ref="VALONES, M. A. A. et al. Principles and applications of polymerase chain reaction in medical diagnostic fields: a review. Brazilian Journal of Microbiology, v. 40, p. 1-11, 2009. Disponível em: https://doi.org/10.1590/S1517-83822009000100001.">
+                  Copiar citação
+                </button>
+              </div>
+            </div>
+            <p class="ref-citation">
+              VALONES, M. A. A. et al. Principles and applications of polymerase chain reaction in medical diagnostic
+              fields: a review. <em>Brazilian Journal of Microbiology</em>, v. 40, p. 1-11, 2009. Disponível em:
+            </p>
+            <div class="ref-footer">
+              <a class="ref-url" href="https://doi.org/10.1590/S1517-83822009000100001" target="_blank"
+                rel="noopener noreferrer">
+                https://doi.org/10.1590/S1517-83822009000100001
+              </a>
+              <a class="btn btn-sm" href="https://doi.org/10.1590/S1517-83822009000100001" target="_blank"
+                rel="noopener noreferrer">
+                Abrir fonte ↗
+              </a>
+            </div>
+          </li>
+
+          <li class="ref-card">
+            <div class="ref-card-meta">
+              <div class="ref-meta-left">
+                <span class="ref-num">05</span>
+                <span class="ref-tag">Institucional • FIOCRUZ / CDTS</span>
+              </div>
+              <div class="ref-actions">
+                <button type="button" class="btn btn-sm"
+                  data-copy-ref="FUNDAÇÃO OSWALDO CRUZ (FIOCRUZ). Amplificação molecular em tempo real. Centro de Desenvolvimento Tecnológico em Saúde, [s. d.]. Disponível em: https://www.cdts.fiocruz.br/areas-de-atuacao/ciencia-molecular-aplicada/amplificacao-molecular-e-em-tempo-real.">
+                  Copiar citação
+                </button>
+              </div>
+            </div>
+            <p class="ref-citation">
+              FUNDAÇÃO OSWALDO CRUZ (FIOCRUZ). Amplificação molecular em tempo real. Centro de Desenvolvimento
+              Tecnológico em Saúde, [s. d.]. Disponível em:
+            </p>
+            <div class="ref-footer">
+              <a class="ref-url"
+                href="https://www.cdts.fiocruz.br/areas-de-atuacao/ciencia-molecular-aplicada/amplificacao-molecular-e-em-tempo-real"
+                target="_blank" rel="noopener noreferrer">
+                https://www.cdts.fiocruz.br/areas-de-atuacao/ciencia-molecular-aplicada/amplificacao-molecular-e-em-tempo-real
+              </a>
+              <a class="btn btn-sm"
+                href="https://www.cdts.fiocruz.br/areas-de-atuacao/ciencia-molecular-aplicada/amplificacao-molecular-e-em-tempo-real"
+                target="_blank" rel="noopener noreferrer">
+                Abrir fonte ↗
+              </a>
+            </div>
+          </li>
+
+          <li class="ref-card">
+            <div class="ref-card-meta">
+              <div class="ref-meta-left">
+                <span class="ref-num">06</span>
                 <span class="ref-tag">Livro-Texto • Bioquímica</span>
               </div>
               <div class="ref-actions">
-                <button
-                  type="button"
-                  class="btn btn-sm"
+                <button type="button" class="btn btn-sm"
                   data-copy-ref="NELSON, David L.; COX, Michael M. Princípios de bioquímica de Lehninger. 6. ed. Porto Alegre: Artmed, 2014.">
                   Copiar citação
                 </button>
               </div>
             </div>
             <p class="ref-citation">
-              NELSON, David L.; COX, Michael M. <em>Princípios de bioquímica de Lehninger</em>. 6. ed. Porto Alegre: Artmed, 2014.
+              NELSON, David L.; COX, Michael M. <strong>Princípios de bioquímica de Lehninger</strong>. 6. ed. Porto
+              Alegre: Artmed, 2014.
             </p>
             <div class="ref-footer">
               <span class="ref-print-note">Obra impressa / Referência bibliográfica</span>
@@ -881,7 +917,7 @@
         </ol>
       </section>
 
-      <!-- Cartão do QR Code -->
+      <!-- Cartão do QR Code (SVG inline autocontido para funcionar em qualquer ambiente) -->
       <aside id="qr-acesso" class="qr-panel" aria-labelledby="qr-title">
         <span class="panel-accent-top" aria-hidden="true"></span>
 
@@ -889,11 +925,12 @@
         <h2 id="qr-title" class="section-title">QR Code desta Página</h2>
 
         <div class="qr-plate">
-          <img
-            src="./qrcode-referencias.svg"
-            width="512"
-            height="512"
-            alt="QR Code para acessar a página Referências do Banner" />
+          <svg id="qr-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 41 41" width="512" height="512"
+            shape-rendering="crispEdges" role="img" aria-label="QR Code para acessar a página Referências do Banner">
+            <rect width="41" height="41" fill="#ffffff" />
+            <path id="qr-path" fill="#000000"
+              d="M4 4h7v1h-7zM18 4h1v1h-1zM20 4h8v1h-8zM30 4h7v1h-7zM4 5h1v1h-1zM10 5h1v1h-1zM14 5h3v1h-3zM19 5h2v1h-2zM24 5h1v1h-1zM30 5h1v1h-1zM36 5h1v1h-1zM4 6h1v1h-1zM6 6h3v1h-3zM10 6h1v1h-1zM12 6h1v1h-1zM15 6h1v1h-1zM18 6h1v1h-1zM20 6h1v1h-1zM22 6h1v1h-1zM24 6h4v1h-4zM30 6h1v1h-1zM32 6h3v1h-3zM36 6h1v1h-1zM4 7h1v1h-1zM6 7h3v1h-3zM10 7h1v1h-1zM12 7h1v1h-1zM22 7h1v1h-1zM26 7h1v1h-1zM28 7h1v1h-1zM30 7h1v1h-1zM32 7h3v1h-3zM36 7h1v1h-1zM4 8h1v1h-1zM6 8h3v1h-3zM10 8h1v1h-1zM12 8h1v1h-1zM14 8h1v1h-1zM18 8h3v1h-3zM22 8h4v1h-4zM27 8h1v1h-1zM30 8h1v1h-1zM32 8h3v1h-3zM36 8h1v1h-1zM4 9h1v1h-1zM10 9h1v1h-1zM12 9h4v1h-4zM18 9h1v1h-1zM21 9h2v1h-2zM24 9h1v1h-1zM28 9h1v1h-1zM30 9h1v1h-1zM36 9h1v1h-1zM4 10h7v1h-7zM12 10h1v1h-1zM14 10h1v1h-1zM16 10h1v1h-1zM18 10h1v1h-1zM20 10h1v1h-1zM22 10h1v1h-1zM24 10h1v1h-1zM26 10h1v1h-1zM28 10h1v1h-1zM30 10h7v1h-7zM12 11h1v1h-1zM15 11h2v1h-2zM20 11h1v1h-1zM22 11h1v1h-1zM24 11h4v1h-4zM4 12h1v1h-1zM6 12h5v1h-5zM15 12h4v1h-4zM21 12h4v1h-4zM26 12h2v1h-2zM30 12h5v1h-5zM7 13h3v1h-3zM12 13h2v1h-2zM16 13h2v1h-2zM20 13h5v1h-5zM27 13h1v1h-1zM30 13h2v1h-2zM33 13h4v1h-4zM4 14h1v1h-1zM7 14h1v1h-1zM9 14h3v1h-3zM14 14h8v1h-8zM25 14h1v1h-1zM28 14h2v1h-2zM32 14h1v1h-1zM34 14h2v1h-2zM4 15h1v1h-1zM7 15h2v1h-2zM12 15h1v1h-1zM14 15h1v1h-1zM17 15h1v1h-1zM19 15h1v1h-1zM21 15h2v1h-2zM25 15h2v1h-2zM28 15h2v1h-2zM32 15h4v1h-4zM4 16h3v1h-3zM8 16h1v1h-1zM10 16h7v1h-7zM18 16h1v1h-1zM20 16h1v1h-1zM23 16h1v1h-1zM26 16h4v1h-4zM31 16h3v1h-3zM35 16h2v1h-2zM4 17h1v1h-1zM6 17h1v1h-1zM8 17h1v1h-1zM12 17h5v1h-5zM19 17h1v1h-1zM21 17h5v1h-5zM27 17h1v1h-1zM30 17h1v1h-1zM34 17h3v1h-3zM4 18h3v1h-3zM8 18h1v1h-1zM10 18h3v1h-3zM14 18h8v1h-8zM29 18h4v1h-4zM35 18h1v1h-1zM4 19h2v1h-2zM7 19h3v1h-3zM12 19h1v1h-1zM18 19h2v1h-2zM22 19h1v1h-1zM24 19h2v1h-2zM29 19h3v1h-3zM33 19h2v1h-2zM9 20h3v1h-3zM13 20h1v1h-1zM18 20h2v1h-2zM21 20h1v1h-1zM28 20h2v1h-2zM31 20h2v1h-2zM36 20h1v1h-1zM7 21h1v1h-1zM9 21h1v1h-1zM12 21h1v1h-1zM15 21h2v1h-2zM20 21h1v1h-1zM22 21h4v1h-4zM27 21h1v1h-1zM29 21h3v1h-3zM33 21h2v1h-2zM36 21h1v1h-1zM4 22h1v1h-1zM10 22h1v1h-1zM12 22h5v1h-5zM18 22h2v1h-2zM22 22h1v1h-1zM25 22h1v1h-1zM29 22h1v1h-1zM31 22h2v1h-2zM34 22h1v1h-1zM5 23h2v1h-2zM9 23h1v1h-1zM11 23h5v1h-5zM24 23h5v1h-5zM30 23h7v1h-7zM4 24h1v1h-1zM6 24h1v1h-1zM10 24h1v1h-1zM12 24h1v1h-1zM14 24h1v1h-1zM18 24h2v1h-2zM22 24h1v1h-1zM24 24h1v1h-1zM26 24h1v1h-1zM28 24h2v1h-2zM32 24h2v1h-2zM4 25h1v1h-1zM7 25h2v1h-2zM11 25h2v1h-2zM14 25h1v1h-1zM16 25h2v1h-2zM19 25h3v1h-3zM23 25h2v1h-2zM26 25h2v1h-2zM30 25h1v1h-1zM33 25h2v1h-2zM36 25h1v1h-1zM4 26h1v1h-1zM9 26h2v1h-2zM12 26h4v1h-4zM22 26h1v1h-1zM26 26h1v1h-1zM28 26h1v1h-1zM32 26h4v1h-4zM4 27h1v1h-1zM6 27h2v1h-2zM9 27h1v1h-1zM11 27h1v1h-1zM13 27h1v1h-1zM18 27h1v1h-1zM20 27h1v1h-1zM25 27h1v1h-1zM27 27h2v1h-2zM30 27h1v1h-1zM32 27h4v1h-4zM4 28h1v1h-1zM6 28h1v1h-1zM8 28h1v1h-1zM10 28h4v1h-4zM21 28h1v1h-1zM23 28h2v1h-2zM26 28h1v1h-1zM28 28h5v1h-5zM35 28h1v1h-1zM12 29h1v1h-1zM15 29h2v1h-2zM20 29h6v1h-6zM28 29h1v1h-1zM32 29h1v1h-1zM34 29h1v1h-1zM36 29h1v1h-1zM4 30h7v1h-7zM13 30h1v1h-1zM16 30h6v1h-6zM24 30h1v1h-1zM27 30h2v1h-2zM30 30h1v1h-1zM32 30h1v1h-1zM34 30h2v1h-2zM4 31h1v1h-1zM10 31h1v1h-1zM12 31h1v1h-1zM17 31h1v1h-1zM20 31h3v1h-3zM25 31h4v1h-4zM32 31h4v1h-4zM4 32h1v1h-1zM6 32h3v1h-3zM10 32h1v1h-1zM12 32h2v1h-2zM15 32h1v1h-1zM17 32h1v1h-1zM20 32h1v1h-1zM23 32h1v1h-1zM28 32h6v1h-6zM35 32h1v1h-1zM4 33h1v1h-1zM6 33h3v1h-3zM10 33h1v1h-1zM12 33h1v1h-1zM14 33h3v1h-3zM19 33h1v1h-1zM21 33h5v1h-5zM27 33h3v1h-3zM32 33h5v1h-5zM4 34h1v1h-1zM6 34h3v1h-3zM10 34h1v1h-1zM12 34h2v1h-2zM18 34h4v1h-4zM26 34h1v1h-1zM30 34h2v1h-2zM34 34h1v1h-1zM4 35h1v1h-1zM10 35h1v1h-1zM13 35h5v1h-5zM19 35h1v1h-1zM23 35h5v1h-5zM29 35h1v1h-1zM32 35h1v1h-1zM34 35h1v1h-1zM4 36h7v1h-7zM12 36h4v1h-4zM17 36h3v1h-3zM21 36h3v1h-3zM26 36h4v1h-4zM31 36h1v1h-1zM35 36h1v1h-1z" />
+          </svg>
           <div class="qr-plate-caption">REFERÊNCIAS • BIOTECNOLOGIA VERMELHA</div>
         </div>
 
@@ -903,32 +940,24 @@
         </div>
 
         <div class="qr-buttons">
-          <button
-            type="button"
-            id="copy-url-btn"
-            class="btn btn-primary"
+          <button type="button" id="copy-url-btn" class="btn btn-primary"
             data-copy-url="https://richwsb.github.io/biotec-red/referencias.html">
             Copiar link da página
           </button>
 
           <div class="qr-downloads">
-            <a
-              href="./qrcode-referencias.svg"
-              download="qrcode-referencias.svg"
-              class="btn">
+            <a href="./qrcode-referencias.svg" download="qrcode-referencias.svg" data-download-qr="svg" class="btn">
               Baixar QR (SVG)
             </a>
-            <a
-              href="./qrcode-referencias.png"
-              download="qrcode-referencias.png"
-              class="btn">
+            <a href="./qrcode-referencias.png" download="qrcode-referencias.png" data-download-qr="png" class="btn">
               Baixar QR (PNG)
             </a>
           </div>
         </div>
 
         <p class="qr-hint">
-          Aponte a câmera do celular ou baixe o vetor SVG / imagem PNG para inserir diretamente no rodapé do banner impresso ou digital.
+          Aponte a câmera do celular ou baixe o vetor SVG / imagem PNG para inserir diretamente no rodapé do banner
+          impresso ou digital.
         </p>
 
         <div id="copy-status" class="copy-status" role="status" aria-live="polite"></div>
@@ -1010,6 +1039,19 @@
         }, 2000);
       }
 
+      function triggerBlobDownload(blob, filename) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.setTimeout(function () {
+          URL.revokeObjectURL(url);
+        }, 1500);
+      }
+
       document.querySelectorAll('[data-copy-ref]').forEach(function (btn) {
         btn.addEventListener('click', function () {
           var text = btn.getAttribute('data-copy-ref') || '';
@@ -1026,7 +1068,7 @@
             return el.getAttribute('data-copy-ref') || '';
           });
           copyText(refs.join('\n\n')).then(function () {
-            flashButton(copyAllBtn, '✓ Todas copiadas', 'Todas as 4 referências ABNT foram copiadas.');
+            flashButton(copyAllBtn, '✓ Todas copiadas', 'Todas as 6 referências ABNT foram copiadas.');
           });
         });
       }
@@ -1040,6 +1082,57 @@
           });
         });
       }
+
+      document.querySelectorAll('[data-download-qr]').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+          var kind = link.getAttribute('data-download-qr');
+          var svgEl = document.getElementById('qr-svg');
+          var pathEl = document.getElementById('qr-path');
+          if (!svgEl || !pathEl) return;
+
+          e.preventDefault();
+          if (kind === 'svg') {
+            var clone = svgEl.cloneNode(true);
+            clone.removeAttribute('id');
+            clone.removeAttribute('role');
+            clone.removeAttribute('aria-label');
+            var serializer = new XMLSerializer();
+            var svgStr = serializer.serializeToString(clone);
+            triggerBlobDownload(new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' }), 'qrcode-referencias.svg');
+            if (statusEl) statusEl.textContent = 'Download do QR Code (SVG) iniciado.';
+          } else if (kind === 'png') {
+            var scale = 20;
+            var size = 41 * scale;
+            var canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            var ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, size, size);
+            ctx.fillStyle = '#000000';
+            var d = pathEl.getAttribute('d') || '';
+            var re = /M(\d+) (\d+)h(\d+)/g;
+            var match;
+            while ((match = re.exec(d)) !== null) {
+              ctx.fillRect(
+                parseInt(match[1], 10) * scale,
+                parseInt(match[2], 10) * scale,
+                parseInt(match[3], 10) * scale,
+                scale
+              );
+            }
+            if (typeof canvas.toBlob === 'function') {
+              canvas.toBlob(function (blob) {
+                if (blob) {
+                  triggerBlobDownload(blob, 'qrcode-referencias.png');
+                  if (statusEl) statusEl.textContent = 'Download do QR Code (PNG) iniciado.';
+                }
+              }, 'image/png');
+            }
+          }
+        });
+      });
     })();
   </script>
   <script src="./ecosystem-nav.js" defer data-page="referencias.html"></script>
