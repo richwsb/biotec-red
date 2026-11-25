@@ -1156,6 +1156,10 @@
         G: { name: 'Guanina', pair: 'C', bonds: 3, type: 'purine', fill: '#15803D', light: '#DCFCE7', rim: '#4ADE80', freq: 783.99 }
       };
       const BASE_KEYS = ['A', 'T', 'C', 'G'];
+      const BASE_INDEX = { A: 0, T: 1, C: 2, G: 3 };
+      const BASE_LIST = [BASES.A, BASES.T, BASES.C, BASES.G];
+      const COMP_INDEX = [1, 0, 3, 2];
+      const PREVIEW_BASE_INDICES = new Int8Array([-1, 3, 2, 1, 0, 3, 0, 1, 2]);
 
       const DIRS = {
         up: { dx: 0, dy: -1 },
@@ -1172,6 +1176,15 @@
           if (prefersReducedMotion) trauma = 0;
           needsRender = true;
           startLoop();
+        });
+      }
+
+      const coarsePointerQuery = window.matchMedia('(pointer: coarse)');
+      let isCoarsePointer = coarsePointerQuery.matches;
+      if (coarsePointerQuery.addEventListener) {
+        coarsePointerQuery.addEventListener('change', (e) => {
+          isCoarsePointer = e.matches;
+          resizeBoard();
         });
       }
 
@@ -1442,8 +1455,61 @@
       const bgCacheCanvas = document.createElement('canvas');
       const bgCacheCtx = bgCacheCanvas.getContext('2d');
 
-      let segments = [];      // [{ x, y, base }]
-      let prevSegments = [];  // [{ x, y }]
+      // Pre-allocated typed buffers for zero-GC rendering & cell lookup
+      const MAX_SEGMENTS = GRID_SIZE * GRID_SIZE;
+      const SAMPLES_PER_SEG = 4;
+      const MAX_STRAND_SAMPLES = (MAX_SEGMENTS - 1) * SAMPLES_PER_SEG + 1;
+      const spineX = new Float32Array(MAX_SEGMENTS);
+      const spineY = new Float32Array(MAX_SEGMENTS);
+      const spineBaseIdx = new Int8Array(MAX_SEGMENTS);
+      const normX = new Float32Array(MAX_SEGMENTS);
+      const normY = new Float32Array(MAX_SEGMENTS);
+      const tangX = new Float32Array(MAX_SEGMENTS);
+      const tangY = new Float32Array(MAX_SEGMENTS);
+      const nodeWave = new Float32Array(MAX_SEGMENTS);
+      const rungX1 = new Float32Array(MAX_SEGMENTS);
+      const rungY1 = new Float32Array(MAX_SEGMENTS);
+      const rungX2 = new Float32Array(MAX_SEGMENTS);
+      const rungY2 = new Float32Array(MAX_SEGMENTS);
+      const strandAX = new Float32Array(MAX_STRAND_SAMPLES);
+      const strandAY = new Float32Array(MAX_STRAND_SAMPLES);
+      const strandBX = new Float32Array(MAX_STRAND_SAMPLES);
+      const strandBY = new Float32Array(MAX_STRAND_SAMPLES);
+      const baseBucketCounts = new Int16Array(4);
+      const baseBuckets = [
+        new Int16Array(MAX_SEGMENTS),
+        new Int16Array(MAX_SEGMENTS),
+        new Int16Array(MAX_SEGMENTS),
+        new Int16Array(MAX_SEGMENTS)
+      ];
+      const occupiedGrid = new Uint8Array(MAX_SEGMENTS);
+      const freeCellsBuf = new Int16Array(MAX_SEGMENTS);
+
+      // Offscreen sprite caches (rebuilt only on resize / font ready)
+      const badgeSprites = BASE_KEYS.map(() => document.createElement('canvas'));
+      let badgeHalf = 0;
+      let badgeSize = 0;
+      const phosphateSprite = document.createElement('canvas');
+      let phosHalf = 0;
+      let phosSize = 0;
+      const nucHaloNormal = document.createElement('canvas');
+      const nucHaloBonus = document.createElement('canvas');
+      let nucHaloNormalHalf = 0;
+      let nucHaloNormalSize = 0;
+      let nucHaloBonusHalf = 0;
+      let nucHaloBonusSize = 0;
+      const nucBonusRingSprite = document.createElement('canvas');
+      let nucRingHalf = 0;
+      let nucRingSize = 0;
+      const nucBodySprites = BASE_KEYS.map(() => document.createElement('canvas'));
+      let nucBodyHalf = 0;
+      let nucBodySize = 0;
+      let headFontStr = '700 7px "JetBrains Mono", monospace';
+      let popupFontStr = '700 11px "Nunito Sans", sans-serif';
+      let spriteCacheReady = false;
+
+      let segments = [];      // [{ x, y, prevX, prevY, base, baseIdx }]
+      let currentSequence = 'ATCG';
       let currentDir = DIRS.right;
       let dirQueue = [];
 
@@ -1586,19 +1652,198 @@
         bgCacheCtx.stroke();
       }
 
+      function prepareSpriteCanvas(c, logicalSize, scale) {
+        const phys = Math.max(1, Math.round(logicalSize * scale));
+        c.width = phys;
+        c.height = phys;
+        const sCtx = c.getContext('2d');
+        const actualScale = phys / logicalSize;
+        sCtx.setTransform(actualScale, 0, 0, actualScale, 0, 0);
+        sCtx.clearRect(0, 0, logicalSize, logicalSize);
+        return sCtx;
+      }
+
+      function rebuildSpriteCache() {
+        const badgeDpr = Math.min(dpr * 1.25, 2.5);
+        const baseR = cellPx * 0.255;
+        const badgeStrokeW = Math.max(1.3, cellPx * 0.06);
+        badgeHalf = Math.ceil(baseR + badgeStrokeW * 0.5 + 2);
+        badgeSize = badgeHalf * 2;
+        const badgeFont = `700 ${Math.max(8, Math.round(cellPx * 0.30))}px "JetBrains Mono", monospace`;
+
+        for (let b = 0; b < 4; b++) {
+          const sCtx = prepareSpriteCanvas(badgeSprites[b], badgeSize, badgeDpr);
+          sCtx.beginPath();
+          sCtx.arc(badgeHalf, badgeHalf, baseR, 0, Math.PI * 2);
+          sCtx.fillStyle = BASE_LIST[b].fill;
+          sCtx.fill();
+          sCtx.strokeStyle = '#FFFFFF';
+          sCtx.lineWidth = badgeStrokeW;
+          sCtx.stroke();
+
+          sCtx.fillStyle = '#FFFFFF';
+          sCtx.font = badgeFont;
+          sCtx.textAlign = 'center';
+          sCtx.textBaseline = 'middle';
+          sCtx.fillText(BASE_KEYS[b], badgeHalf, badgeHalf + cellPx * 0.015);
+        }
+
+        // Phosphate bead sprite
+        const phosR = Math.max(2, cellPx * 0.09);
+        const phosStrokeW = 1.2;
+        phosHalf = Math.ceil(phosR + phosStrokeW * 0.5 + 1.5);
+        phosSize = phosHalf * 2;
+        const phosCtx = prepareSpriteCanvas(phosphateSprite, phosSize, dpr);
+        phosCtx.beginPath();
+        phosCtx.arc(phosHalf, phosHalf, phosR, 0, Math.PI * 2);
+        phosCtx.fillStyle = '#FCE7F3';
+        phosCtx.fill();
+        phosCtx.strokeStyle = '#DB2777';
+        phosCtx.lineWidth = phosStrokeW;
+        phosCtx.stroke();
+
+        // Free nucleotide halos (normal & bonus)
+        const baseNucR = cellPx * 0.36;
+        const normalHaloR = baseNucR * 1.45;
+        nucHaloNormalHalf = Math.ceil(normalHaloR + 2);
+        nucHaloNormalSize = nucHaloNormalHalf * 2;
+        const hNormCtx = prepareSpriteCanvas(nucHaloNormal, nucHaloNormalSize, dpr);
+        const hNormGrad = hNormCtx.createRadialGradient(
+          nucHaloNormalHalf, nucHaloNormalHalf, baseNucR * 0.25,
+          nucHaloNormalHalf, nucHaloNormalHalf, normalHaloR
+        );
+        hNormGrad.addColorStop(0, 'rgba(236, 72, 153, 0.12)');
+        hNormGrad.addColorStop(1, 'rgba(255, 245, 248, 0)');
+        hNormCtx.fillStyle = hNormGrad;
+        hNormCtx.beginPath();
+        hNormCtx.arc(nucHaloNormalHalf, nucHaloNormalHalf, normalHaloR, 0, Math.PI * 2);
+        hNormCtx.fill();
+
+        const bonusHaloR = baseNucR * 1.85;
+        nucHaloBonusHalf = Math.ceil(bonusHaloR + 2);
+        nucHaloBonusSize = nucHaloBonusHalf * 2;
+        const hBonusCtx = prepareSpriteCanvas(nucHaloBonus, nucHaloBonusSize, dpr);
+        const hBonusGrad = hBonusCtx.createRadialGradient(
+          nucHaloBonusHalf, nucHaloBonusHalf, baseNucR * 0.25,
+          nucHaloBonusHalf, nucHaloBonusHalf, bonusHaloR
+        );
+        hBonusGrad.addColorStop(0, 'rgba(219, 39, 119, 0.22)');
+        hBonusGrad.addColorStop(1, 'rgba(255, 245, 248, 0)');
+        hBonusCtx.fillStyle = hBonusGrad;
+        hBonusCtx.beginPath();
+        hBonusCtx.arc(nucHaloBonusHalf, nucHaloBonusHalf, bonusHaloR, 0, Math.PI * 2);
+        hBonusCtx.fill();
+
+        // Complementary bonus orbital dashed ring sprite
+        const nucDpr = Math.min(dpr * 1.15, 2.3);
+        const ringR = baseNucR * 1.24;
+        const ringW = Math.max(1.4, cellPx * 0.065);
+        nucRingHalf = Math.ceil(ringR + ringW + 2);
+        nucRingSize = nucRingHalf * 2;
+        const ringCtx = prepareSpriteCanvas(nucBonusRingSprite, nucRingSize, nucDpr);
+        ringCtx.strokeStyle = 'rgba(219, 39, 119, 0.58)';
+        ringCtx.lineWidth = ringW;
+        ringCtx.setLineDash([cellPx * 0.16, cellPx * 0.12]);
+        ringCtx.beginPath();
+        ringCtx.arc(nucRingHalf, nucRingHalf, ringR, 0, Math.PI * 2);
+        ringCtx.stroke();
+
+        // Free nucleotide bodies (pentose + phosphate + base core + letter)
+        nucBodyHalf = Math.ceil(baseNucR * 1.35 + Math.max(2, cellPx * 0.1));
+        nucBodySize = nucBodyHalf * 2;
+        const nucFont = `700 ${Math.max(10, Math.round(cellPx * 0.43))}px "JetBrains Mono", monospace`;
+        const phosX = -baseNucR * 0.88;
+        const phosY = -baseNucR * 0.62;
+        const sugX = -baseNucR * 0.42;
+        const sugY = -baseNucR * 0.22;
+
+        for (let b = 0; b < 4; b++) {
+          const base = BASE_LIST[b];
+          const nCtx = prepareSpriteCanvas(nucBodySprites[b], nucBodySize, nucDpr);
+          nCtx.save();
+          nCtx.translate(nucBodyHalf, nucBodyHalf);
+
+          nCtx.strokeStyle = 'rgba(125, 59, 86, 0.45)';
+          nCtx.lineWidth = Math.max(1.1, cellPx * 0.05);
+          nCtx.beginPath();
+          nCtx.moveTo(phosX, phosY);
+          nCtx.lineTo(sugX, sugY);
+          nCtx.lineTo(0, 0);
+          nCtx.stroke();
+
+          drawPolygon(nCtx, sugX, sugY, baseNucR * 0.30, 5, -Math.PI / 2);
+          nCtx.fillStyle = '#FFE4EE';
+          nCtx.fill();
+          nCtx.strokeStyle = '#DB2777';
+          nCtx.lineWidth = Math.max(1, cellPx * 0.045);
+          nCtx.stroke();
+
+          nCtx.beginPath();
+          nCtx.arc(phosX, phosY, baseNucR * 0.22, 0, Math.PI * 2);
+          nCtx.fillStyle = '#EC4899';
+          nCtx.fill();
+          nCtx.strokeStyle = '#FFFFFF';
+          nCtx.lineWidth = Math.max(1, cellPx * 0.04);
+          nCtx.stroke();
+
+          if (base.type === 'purine') {
+            nCtx.beginPath();
+            nCtx.arc(0, 0, baseNucR * 0.96, 0, Math.PI * 2);
+            nCtx.fillStyle = base.fill;
+            nCtx.fill();
+            nCtx.strokeStyle = '#FFFFFF';
+            nCtx.lineWidth = Math.max(1.5, cellPx * 0.075);
+            nCtx.stroke();
+
+            nCtx.beginPath();
+            nCtx.arc(0, 0, baseNucR * 0.74, 0, Math.PI * 2);
+            nCtx.strokeStyle = 'rgba(255, 255, 255, 0.42)';
+            nCtx.lineWidth = Math.max(1, cellPx * 0.04);
+            nCtx.stroke();
+          } else {
+            drawPolygon(nCtx, 0, 0, baseNucR * 0.98, 6, Math.PI / 6);
+            nCtx.fillStyle = base.fill;
+            nCtx.fill();
+            nCtx.strokeStyle = '#FFFFFF';
+            nCtx.lineWidth = Math.max(1.5, cellPx * 0.075);
+            nCtx.stroke();
+          }
+
+          nCtx.fillStyle = '#FFFFFF';
+          nCtx.font = nucFont;
+          nCtx.textAlign = 'center';
+          nCtx.textBaseline = 'middle';
+          nCtx.fillText(BASE_KEYS[b], 0, cellPx * 0.025);
+          nCtx.restore();
+        }
+
+        spriteCacheReady = true;
+      }
+
       function resizeBoard() {
         const rect = stageWrap.getBoundingClientRect();
         const rawSize = Math.floor(Math.min(rect.width, rect.height));
         const clampedSize = Math.max(220, Math.min(rawSize, 660));
-        dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+        const maxDpr = (isCoarsePointer || window.innerWidth <= 767) ? 1.75 : 2;
+        const nextDpr = Math.min(window.devicePixelRatio || 1, maxDpr);
+
+        if (spriteCacheReady && clampedSize === boardCssSize && nextDpr === dpr) {
+          return;
+        }
+
+        dpr = nextDpr;
         boardCssSize = clampedSize;
         cellPx = boardCssSize / GRID_SIZE;
+        headFontStr = `700 ${Math.max(7, Math.round(cellPx * 0.23))}px "JetBrains Mono", monospace`;
+        popupFontStr = `700 ${Math.max(11, Math.round(cellPx * 0.44))}px "Nunito Sans", sans-serif`;
 
         boardFrame.style.width = `${boardCssSize}px`;
         boardFrame.style.height = `${boardCssSize}px`;
         canvas.width = Math.round(boardCssSize * dpr);
         canvas.height = Math.round(boardCssSize * dpr);
+
         rebuildBgCache();
+        rebuildSpriteCache();
         needsRender = true;
         startLoop();
       }
@@ -1611,48 +1856,63 @@
       }
 
       // Nucleotide Spawner
-      function getFreeCells() {
-        const occupied = new Set();
+      function pickRandomFreeCell() {
+        occupiedGrid.fill(0);
         for (let i = 0; i < segments.length; i++) {
-          occupied.add(segments[i].x + ',' + segments[i].y);
-        }
-        for (let i = 0; i < nucleotides.length; i++) {
-          occupied.add(nucleotides[i].x + ',' + nucleotides[i].y);
-        }
-        const free = [];
-        for (let y = 0; y < GRID_SIZE; y++) {
-          for (let x = 0; x < GRID_SIZE; x++) {
-            if (!occupied.has(x + ',' + y)) {
-              free.push({ x, y });
-            }
+          const s = segments[i];
+          if (s.x >= 0 && s.x < GRID_SIZE && s.y >= 0 && s.y < GRID_SIZE) {
+            occupiedGrid[s.y * GRID_SIZE + s.x] = 1;
           }
         }
-        return free;
+        for (let i = 0; i < nucleotides.length; i++) {
+          const n = nucleotides[i];
+          if (n.x >= 0 && n.x < GRID_SIZE && n.y >= 0 && n.y < GRID_SIZE) {
+            occupiedGrid[n.y * GRID_SIZE + n.x] = 1;
+          }
+        }
+        let freeCount = 0;
+        for (let idx = 0; idx < MAX_SEGMENTS; idx++) {
+          if (occupiedGrid[idx] === 0) {
+            freeCellsBuf[freeCount++] = idx;
+          }
+        }
+        if (freeCount === 0) return -1;
+        return freeCellsBuf[(Math.random() * freeCount) | 0];
       }
 
       function replenishNucleotides() {
         const targetComplement = BASES[lastBase].pair;
 
         // Ensure at least one complementary nucleotide exists when >= 1 nucleotide is on board
-        const hasComplement = nucleotides.some((n) => n.base === targetComplement);
+        let hasComplement = false;
+        for (let i = 0; i < nucleotides.length; i++) {
+          if (nucleotides[i].base === targetComplement) {
+            hasComplement = true;
+            break;
+          }
+        }
         if (!hasComplement && nucleotides.length >= 2) {
           nucleotides[0].base = targetComplement;
+          hasComplement = true;
         }
 
         while (nucleotides.length < 2) {
-          const free = getFreeCells();
-          if (free.length === 0) break;
-          const cell = free[Math.floor(Math.random() * free.length)];
+          const cellIdx = pickRandomFreeCell();
+          if (cellIdx === -1) break;
+          const cellX = cellIdx % GRID_SIZE;
+          const cellY = (cellIdx / GRID_SIZE) | 0;
           let chosenBase;
-          if (!nucleotides.some((n) => n.base === targetComplement)) {
+          if (!hasComplement) {
             chosenBase = targetComplement;
+            hasComplement = true;
           } else {
-            const others = BASE_KEYS.filter((b) => b !== targetComplement);
-            chosenBase = others[Math.floor(Math.random() * others.length)];
+            const targetIdx = BASE_INDEX[targetComplement];
+            const offset = 1 + ((Math.random() * 3) | 0);
+            chosenBase = BASE_KEYS[(targetIdx + offset) & 3];
           }
           nucleotides.push({
-            x: cell.x,
-            y: cell.y,
+            x: cellX,
+            y: cellY,
             base: chosenBase,
             bornAt: elapsedAnimTime
           });
@@ -1660,12 +1920,36 @@
       }
 
       function getSequenceString() {
-        let s = '';
-        // Segment 1 is the 3' end (most recent base); segment length-1 is the 5' start
-        for (let i = segments.length - 1; i >= 1; i--) {
-          s += segments[i].base;
+        return currentSequence;
+      }
+
+      const TICKER_MAX = 24;
+      const tickerChipPool = Array.from({ length: TICKER_MAX }, () => {
+        const chip = document.createElement('span');
+        chip.className = 'ticker-chip';
+        return chip;
+      });
+
+      function syncTicker() {
+        const bpCount = Math.max(0, segments.length - 1);
+        const visibleCount = Math.min(TICKER_MAX, bpCount);
+
+        while (tickerBases.children.length < visibleCount) {
+          tickerBases.appendChild(tickerChipPool[tickerBases.children.length]);
         }
-        return s;
+        while (tickerBases.children.length > visibleCount) {
+          tickerBases.removeChild(tickerBases.lastElementChild);
+        }
+
+        // Segment 1 is the 3' end (newest); segment visibleCount is oldest in the 24-chip window
+        for (let i = 0; i < visibleCount; i++) {
+          const ch = segments[visibleCount - i].base;
+          const chip = tickerChipPool[i];
+          if (chip.textContent !== ch) {
+            chip.dataset.base = ch;
+            chip.textContent = ch;
+          }
+        }
       }
 
       // Event-driven HUD Synchronization (never called per frame)
@@ -1689,19 +1973,7 @@
           hudCombo.classList.remove('is-visible');
         }
 
-        // Update 5' -> 3' ticker with latest 24 bases
-        const fullSeq = getSequenceString();
-        const recent = fullSeq.slice(-24);
-        const frag = document.createDocumentFragment();
-        for (let i = 0; i < recent.length; i++) {
-          const ch = recent[i];
-          const chip = document.createElement('span');
-          chip.className = 'ticker-chip';
-          chip.dataset.base = ch;
-          chip.textContent = ch;
-          frag.appendChild(chip);
-        }
-        tickerBases.replaceChildren(frag);
+        syncTicker();
       }
 
       function syncAudioButton() {
@@ -1782,13 +2054,13 @@
         const cy = Math.floor(GRID_SIZE / 2);
         // Segment 0 is the 3' polymerase head; segments 1..4 are initial 4 bp strand
         segments = [
-          { x: cx + 1, y: cy, base: 'HEAD' },
-          { x: cx, y: cy, base: 'G' },
-          { x: cx - 1, y: cy, base: 'C' },
-          { x: cx - 2, y: cy, base: 'T' },
-          { x: cx - 3, y: cy, base: 'A' }
+          { x: cx + 1, y: cy, prevX: cx + 1, prevY: cy, base: 'HEAD', baseIdx: -1 },
+          { x: cx, y: cy, prevX: cx, prevY: cy, base: 'G', baseIdx: BASE_INDEX.G },
+          { x: cx - 1, y: cy, prevX: cx - 1, prevY: cy, base: 'C', baseIdx: BASE_INDEX.C },
+          { x: cx - 2, y: cy, prevX: cx - 2, prevY: cy, base: 'T', baseIdx: BASE_INDEX.T },
+          { x: cx - 3, y: cy, prevX: cx - 3, prevY: cy, base: 'A', baseIdx: BASE_INDEX.A }
         ];
-        prevSegments = segments.map((s) => ({ x: s.x, y: s.y }));
+        currentSequence = 'ATCG';
         currentDir = DIRS.right;
         dirQueue = [];
 
@@ -1886,9 +2158,15 @@
         srStatus.textContent = `Partida encerrada. ${score} pontos e ${bpCount} pares de bases.`;
       }
 
-      function stepSimulation() {
-        prevSegments = segments.map((s) => ({ x: s.x, y: s.y }));
+      function syncPrevSegments() {
+        for (let i = 0; i < segments.length; i++) {
+          const s = segments[i];
+          s.prevX = s.x;
+          s.prevY = s.y;
+        }
+      }
 
+      function stepSimulation() {
         if (dirQueue.length > 0) {
           currentDir = dirQueue.shift();
         }
@@ -1899,6 +2177,7 @@
 
         // Wall collision
         if (nextX < 0 || nextX >= GRID_SIZE || nextY < 0 || nextY >= GRID_SIZE) {
+          syncPrevSegments();
           triggerFeedback('large', head.x, head.y, {});
           finishGame(false);
           return;
@@ -1917,13 +2196,14 @@
 
         for (let i = 0; i < checkLimit; i++) {
           if (segments[i].x === nextX && segments[i].y === nextY) {
+            syncPrevSegments();
             triggerFeedback('large', nextX, nextY, {});
             finishGame(false);
             return;
           }
         }
 
-        // Advance body
+        // Advance body (zero object allocation on normal moves)
         if (hitNucIndex !== -1) {
           const picked = nucleotides.splice(hitNucIndex, 1)[0];
           const prevBase = lastBase;
@@ -1938,10 +2218,22 @@
           score += gained;
           lastBase = picked.base;
 
-          // Insert captured base right behind the 3' polymerase head
-          segments.unshift({ x: nextX, y: nextY, base: 'HEAD' });
-          segments[1].base = picked.base;
-          prevSegments.unshift({ x: head.x, y: head.y });
+          syncPrevSegments();
+          const oldHeadX = head.x;
+          const oldHeadY = head.y;
+          head.base = picked.base;
+          head.baseIdx = BASE_INDEX[picked.base];
+
+          // Insert new 3' polymerase head at nextX/nextY
+          segments.unshift({
+            x: nextX,
+            y: nextY,
+            prevX: oldHeadX,
+            prevY: oldHeadY,
+            base: 'HEAD',
+            baseIdx: -1
+          });
+          currentSequence += picked.base;
 
           triggerFeedback(
             isComplement ? 'medium' : 'small',
@@ -1955,7 +2247,7 @@
 
           updateRecords();
 
-          if (segments.length >= GRID_SIZE * GRID_SIZE) {
+          if (segments.length >= MAX_SEGMENTS) {
             syncHud();
             finishGame(true);
             return;
@@ -1965,208 +2257,193 @@
           syncHud();
         } else {
           for (let i = segments.length - 1; i >= 1; i--) {
-            segments[i].x = segments[i - 1].x;
-            segments[i].y = segments[i - 1].y;
+            const seg = segments[i];
+            const ahead = segments[i - 1];
+            seg.prevX = seg.x;
+            seg.prevY = seg.y;
+            seg.x = ahead.x;
+            seg.y = ahead.y;
           }
-          segments[0].x = nextX;
-          segments[0].y = nextY;
+          head.prevX = head.x;
+          head.prevY = head.y;
+          head.x = nextX;
+          head.y = nextY;
         }
       }
 
       // Canvas Drawing Helpers
-      function drawPolygon(x, y, radius, sides, rotation) {
-        ctx.beginPath();
+      function drawPolygon(targetCtx, x, y, radius, sides, rotation) {
+        targetCtx.beginPath();
         for (let i = 0; i < sides; i++) {
           const a = rotation + (i * Math.PI * 2) / sides;
           const px = x + Math.cos(a) * radius;
           const py = y + Math.sin(a) * radius;
-          if (i === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
+          if (i === 0) targetCtx.moveTo(px, py);
+          else targetCtx.lineTo(px, py);
         }
-        ctx.closePath();
+        targetCtx.closePath();
       }
 
       function drawNucleotide(nuc, time) {
-        const base = BASES[nuc.base];
         const targetComplement = BASES[lastBase].pair;
         const isBonus = nuc.base === targetComplement;
+        const bIdx = BASE_INDEX[nuc.base];
         const cx = (nuc.x + 0.5) * cellPx;
         const cy = (nuc.y + 0.5) * cellPx;
 
         const age = Math.min(1, (elapsedAnimTime - nuc.bornAt) * 4.5);
         const popScale = age < 1 ? 0.5 + 0.5 * (1 - Math.pow(1 - age, 3)) : 1;
         const pulse = prefersReducedMotion ? 1 : 1 + Math.sin(time * 4.2 + nuc.x * 0.7) * 0.055;
-        const r = cellPx * 0.36 * popScale * pulse;
+        const scale = popScale * pulse;
 
-        ctx.save();
-        ctx.translate(cx, cy);
+        // Soft glow halo (cached radial gradient sprite)
+        const hHalf = (isBonus ? nucHaloBonusHalf : nucHaloNormalHalf) * scale;
+        const hSize = hHalf * 2;
+        ctx.drawImage(
+          isBonus ? nucHaloBonus : nucHaloNormal,
+          cx - hHalf, cy - hHalf, hSize, hSize
+        );
 
-        // Soft glow halo
-        const haloR = r * (isBonus ? 1.85 : 1.45);
-        const halo = ctx.createRadialGradient(0, 0, r * 0.25, 0, 0, haloR);
-        halo.addColorStop(0, isBonus ? 'rgba(219, 39, 119, 0.22)' : 'rgba(236, 72, 153, 0.12)');
-        halo.addColorStop(1, 'rgba(255, 245, 248, 0)');
-        ctx.fillStyle = halo;
-        ctx.beginPath();
-        ctx.arc(0, 0, haloR, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Complementary bonus orbital ring
+        // Complementary bonus orbital ring (cached dashed ring sprite)
         if (isBonus) {
-          ctx.save();
-          if (!prefersReducedMotion) ctx.rotate(time * 1.4);
-          ctx.strokeStyle = 'rgba(219, 39, 119, 0.58)';
-          ctx.lineWidth = Math.max(1.4, cellPx * 0.065);
-          ctx.setLineDash([cellPx * 0.16, cellPx * 0.12]);
-          ctx.beginPath();
-          ctx.arc(0, 0, r * 1.24, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.restore();
+          const rHalf = nucRingHalf * scale;
+          const rSize = rHalf * 2;
+          if (prefersReducedMotion) {
+            ctx.drawImage(nucBonusRingSprite, cx - rHalf, cy - rHalf, rSize, rSize);
+          } else {
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(time * 1.4);
+            ctx.drawImage(nucBonusRingSprite, -rHalf, -rHalf, rSize, rSize);
+            ctx.restore();
+          }
         }
 
-        // Stylized pentose + phosphate satellites (subtle molecular silhouette)
-        const phosX = -r * 0.88;
-        const phosY = -r * 0.62;
-        const sugX = -r * 0.42;
-        const sugY = -r * 0.22;
-
-        ctx.strokeStyle = 'rgba(125, 59, 86, 0.45)';
-        ctx.lineWidth = Math.max(1.1, cellPx * 0.05);
-        ctx.beginPath();
-        ctx.moveTo(phosX, phosY);
-        ctx.lineTo(sugX, sugY);
-        ctx.lineTo(0, 0);
-        ctx.stroke();
-
-        // Pentose pentagon
-        drawPolygon(sugX, sugY, r * 0.30, 5, -Math.PI / 2);
-        ctx.fillStyle = '#FFE4EE';
-        ctx.fill();
-        ctx.strokeStyle = '#DB2777';
-        ctx.lineWidth = Math.max(1, cellPx * 0.045);
-        ctx.stroke();
-
-        // Phosphate orb
-        ctx.beginPath();
-        ctx.arc(phosX, phosY, r * 0.22, 0, Math.PI * 2);
-        ctx.fillStyle = '#EC4899';
-        ctx.fill();
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = Math.max(1, cellPx * 0.04);
-        ctx.stroke();
-
-        // Nitrogenous base core (Purines A/G get double-ring rim; Pyrimidines T/C get single hex rim)
-        if (base.type === 'purine') {
-          ctx.beginPath();
-          ctx.arc(0, 0, r * 0.96, 0, Math.PI * 2);
-          ctx.fillStyle = base.fill;
-          ctx.fill();
-          ctx.strokeStyle = '#FFFFFF';
-          ctx.lineWidth = Math.max(1.5, cellPx * 0.075);
-          ctx.stroke();
-
-          ctx.beginPath();
-          ctx.arc(0, 0, r * 0.74, 0, Math.PI * 2);
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.42)';
-          ctx.lineWidth = Math.max(1, cellPx * 0.04);
-          ctx.stroke();
-        } else {
-          drawPolygon(0, 0, r * 0.98, 6, Math.PI / 6);
-          ctx.fillStyle = base.fill;
-          ctx.fill();
-          ctx.strokeStyle = '#FFFFFF';
-          ctx.lineWidth = Math.max(1.5, cellPx * 0.075);
-          ctx.stroke();
-        }
-
-        // Base letter
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = `700 ${Math.max(10, Math.round(cellPx * 0.43))}px "JetBrains Mono", monospace`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(nuc.base, 0, cellPx * 0.025);
-
-        ctx.restore();
+        // Molecular silhouette + nitrogenous base + letter (cached sprite)
+        const bHalf = nucBodyHalf * scale;
+        const bSize = bHalf * 2;
+        ctx.drawImage(nucBodySprites[bIdx], cx - bHalf, cy - bHalf, bSize, bSize);
       }
 
-      function buildSpinePoints(alpha, isTitlePreview, time) {
+      function fillSpinePoints(alpha, isTitlePreview, time) {
         if (isTitlePreview) {
-          const pts = [];
-          const count = 9;
+          const count = PREVIEW_BASE_INDICES.length;
           const baseX = GRID_SIZE * 0.23;
           const baseY = GRID_SIZE * 0.52;
-          const previewSeq = ['HEAD', 'G', 'C', 'T', 'A', 'G', 'A', 'T', 'C'];
           for (let i = 0; i < count; i++) {
             const x = baseX + (count - 1 - i) * 0.72;
             const sway = prefersReducedMotion ? 0 : Math.sin(time * 1.8 - i * 0.55) * 0.35;
-            pts.push({
-              x: x * cellPx,
-              y: (baseY + sway) * cellPx,
-              base: previewSeq[i]
-            });
+            spineX[i] = x * cellPx;
+            spineY[i] = (baseY + sway) * cellPx;
+            spineBaseIdx[i] = PREVIEW_BASE_INDICES[i];
           }
-          return pts;
+          return count;
         }
 
-        const pts = [];
-        for (let i = 0; i < segments.length; i++) {
+        const count = segments.length;
+        for (let i = 0; i < count; i++) {
           const curr = segments[i];
-          const prev = prevSegments[i] || curr;
-          const ix = prev.x + (curr.x - prev.x) * alpha;
-          const iy = prev.y + (curr.y - prev.y) * alpha;
-          pts.push({
-            x: (ix + 0.5) * cellPx,
-            y: (iy + 0.5) * cellPx,
-            base: curr.base
-          });
+          const ix = curr.prevX + (curr.x - curr.prevX) * alpha;
+          const iy = curr.prevY + (curr.y - curr.prevY) * alpha;
+          spineX[i] = (ix + 0.5) * cellPx;
+          spineY[i] = (iy + 0.5) * cellPx;
+          spineBaseIdx[i] = curr.baseIdx;
         }
-        return pts;
+        return count;
       }
 
       function drawDnaStrand(alpha, isTitlePreview, time) {
-        const pts = buildSpinePoints(alpha, isTitlePreview, time);
-        if (pts.length < 2) return;
-
-        // Compute smooth tangents and normals per spine node
-        const normals = [];
-        for (let i = 0; i < pts.length; i++) {
-          const p0 = pts[Math.max(0, i - 1)];
-          const p1 = pts[Math.min(pts.length - 1, i + 1)];
-          let dx = p1.x - p0.x;
-          let dy = p1.y - p0.y;
-          const len = Math.hypot(dx, dy) || 1;
-          dx /= len;
-          dy /= len;
-          normals.push({ nx: -dy, ny: dx, tx: dx, ty: dy });
-        }
+        const count = fillSpinePoints(alpha, isTitlePreview, time);
+        if (count < 2) return;
 
         const amp = cellPx * 0.34;
         const phaseSpeed = prefersReducedMotion ? 0 : time * 3.8;
-        const samplesPerSeg = 4;
-        const strandA = [];
-        const strandB = [];
+        baseBucketCounts.fill(0);
 
-        for (let i = 0; i < pts.length - 1; i++) {
-          const pA = pts[i];
-          const pB = pts[i + 1];
-          const nA = normals[i];
-          const nB = normals[i + 1];
-          const subCount = i === pts.length - 2 ? samplesPerSeg + 1 : samplesPerSeg;
+        // Compute smooth tangents, normals, wave offsets, rung endpoints, and color buckets
+        for (let i = 0; i < count; i++) {
+          const i0 = i > 0 ? i - 1 : 0;
+          const i1 = i < count - 1 ? i + 1 : count - 1;
+          let dx = spineX[i1] - spineX[i0];
+          let dy = spineY[i1] - spineY[i0];
+          const len = Math.sqrt(dx * dx + dy * dy) || 1;
+          dx /= len;
+          dy /= len;
+          const nx = -dy;
+          const ny = dx;
+          normX[i] = nx;
+          normY[i] = ny;
+          tangX[i] = dx;
+          tangY[i] = dy;
+
+          const w = Math.sin(i * 1.28 - phaseSpeed) * amp;
+          nodeWave[i] = w;
+
+          if (i >= 1) {
+            const px = spineX[i];
+            const py = spineY[i];
+            rungX1[i] = px + nx * w;
+            rungY1[i] = py + ny * w;
+            rungX2[i] = px - nx * w;
+            rungY2[i] = py - ny * w;
+            const bIdx = spineBaseIdx[i];
+            const bucketIdx = bIdx >= 0 ? bIdx : 0;
+            baseBuckets[bucketIdx][baseBucketCounts[bucketIdx]++] = i;
+          }
+        }
+
+        // Sample smooth double-helix backbones into pre-allocated typed arrays
+        let sampleCount = 0;
+        for (let i = 0; i < count - 1; i++) {
+          const xA = spineX[i];
+          const yA = spineY[i];
+          const xB = spineX[i + 1];
+          const yB = spineY[i + 1];
+          const nAx = normX[i];
+          const nAy = normY[i];
+          const nBx = normX[i + 1];
+          const nBy = normY[i + 1];
+          const sameNormal = nAx === nBx && nAy === nBy;
+          const subCount = i === count - 2 ? SAMPLES_PER_SEG + 1 : SAMPLES_PER_SEG;
+
           for (let s = 0; s < subCount; s++) {
-            const t = s / samplesPerSeg;
+            const t = s / SAMPLES_PER_SEG;
             const idx = i + t;
-            const taper = idx < 0.7 ? (idx / 0.7) : (idx > pts.length - 1.5 ? Math.max(0.25, (pts.length - 1 - idx) / 0.5 + 0.25) : 1);
-            const x = pA.x + (pB.x - pA.x) * t;
-            const y = pA.y + (pB.y - pA.y) * t;
-            let nx = nA.nx + (nB.nx - nA.nx) * t;
-            let ny = nA.ny + (nB.ny - nA.ny) * t;
-            const nLen = Math.hypot(nx, ny) || 1;
-            nx /= nLen;
-            ny /= nLen;
-            const wave = Math.sin(idx * 1.28 - phaseSpeed) * amp * Math.min(1, taper);
-            const depth = Math.cos(idx * 1.28 - phaseSpeed);
-            strandA.push({ x: x + nx * wave, y: y + ny * wave, depth });
-            strandB.push({ x: x - nx * wave, y: y - ny * wave, depth: -depth });
+            const x = xA + (xB - xA) * t;
+            const y = yA + (yB - yA) * t;
+
+            let nx, ny;
+            if (s === 0 || sameNormal) {
+              nx = nAx;
+              ny = nAy;
+            } else if (s === SAMPLES_PER_SEG) {
+              nx = nBx;
+              ny = nBy;
+            } else {
+              nx = nAx + (nBx - nAx) * t;
+              ny = nAy + (nBy - nAy) * t;
+              const nLen = Math.sqrt(nx * nx + ny * ny) || 1;
+              nx /= nLen;
+              ny /= nLen;
+            }
+
+            let wave;
+            if (s === 0 && i >= 1 && i <= count - 2 && count >= 3) {
+              wave = nodeWave[i];
+            } else if (s === SAMPLES_PER_SEG) {
+              wave = nodeWave[count - 1] * 0.25;
+            } else {
+              const taper = idx < 0.7
+                ? (idx / 0.7)
+                : (idx > count - 1.5 ? Math.max(0.25, (count - 1 - idx) * 2 + 0.25) : 1);
+              wave = Math.sin(idx * 1.28 - phaseSpeed) * amp * Math.min(1, taper);
+            }
+
+            strandAX[sampleCount] = x + nx * wave;
+            strandAY[sampleCount] = y + ny * wave;
+            strandBX[sampleCount] = x - nx * wave;
+            strandBY[sampleCount] = y - ny * wave;
+            sampleCount++;
           }
         }
 
@@ -2179,111 +2456,116 @@
         ctx.strokeStyle = 'rgba(244, 114, 182, 0.78)';
         ctx.lineWidth = backboneW * 0.88;
         ctx.beginPath();
-        for (let i = 0; i < strandB.length; i++) {
-          if (i === 0) ctx.moveTo(strandB[i].x, strandB[i].y);
-          else ctx.lineTo(strandB[i].x, strandB[i].y);
+        ctx.moveTo(strandBX[0], strandBY[0]);
+        for (let i = 1; i < sampleCount; i++) {
+          ctx.lineTo(strandBX[i], strandBY[i]);
         }
         ctx.stroke();
 
-        // 2. Hydrogen-bond rungs & base-pair bars at each body segment
-        for (let i = 1; i < pts.length; i++) {
-          const p = pts[i];
-          const n = normals[i];
-          const wave = Math.sin(i * 1.28 - phaseSpeed) * amp;
-          const x1 = p.x + n.nx * wave;
-          const y1 = p.y + n.ny * wave;
-          const x2 = p.x - n.nx * wave;
-          const y2 = p.y - n.ny * wave;
-
-          const baseInfo = BASES[p.base] || BASES.A;
-          const compInfo = BASES[baseInfo.pair];
-
-          // Rung half 1 (captured base)
-          ctx.strokeStyle = baseInfo.fill;
-          ctx.lineWidth = Math.max(2.2, cellPx * 0.12);
+        // 2. Batched base-pair rungs (at most 4 + 4 stroke calls regardless of length)
+        ctx.lineWidth = Math.max(2.2, cellPx * 0.12);
+        for (let b = 0; b < 4; b++) {
+          const bCount = baseBucketCounts[b];
+          if (bCount === 0) continue;
+          const bucket = baseBuckets[b];
+          ctx.strokeStyle = BASE_LIST[b].fill;
           ctx.beginPath();
-          ctx.moveTo(x1, y1);
-          ctx.lineTo(p.x, p.y);
-          ctx.stroke();
-
-          // Rung half 2 (complementary strand tint)
-          ctx.strokeStyle = compInfo.rim;
-          ctx.lineWidth = Math.max(1.8, cellPx * 0.095);
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(x2, y2);
-          ctx.stroke();
-
-          // 2 or 3 hydrogen bond ticks near center when rung has width
-          const rungSpan = Math.hypot(x1 - x2, y1 - y2);
-          if (rungSpan > cellPx * 0.25) {
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
-            ctx.lineWidth = 1.2;
-            const bondCount = baseInfo.bonds;
-            for (let b = 0; b < bondCount; b++) {
-              const offset = (b - (bondCount - 1) / 2) * (cellPx * 0.08);
-              ctx.beginPath();
-              ctx.moveTo(p.x + n.tx * offset - n.nx * 2, p.y + n.ty * offset - n.ny * 2);
-              ctx.lineTo(p.x + n.tx * offset + n.nx * 2, p.y + n.ty * offset + n.ny * 2);
-              ctx.stroke();
-            }
+          for (let k = 0; k < bCount; k++) {
+            const idx = bucket[k];
+            ctx.moveTo(rungX1[idx], rungY1[idx]);
+            ctx.lineTo(spineX[idx], spineY[idx]);
           }
+          ctx.stroke();
         }
+
+        ctx.lineWidth = Math.max(1.8, cellPx * 0.095);
+        for (let b = 0; b < 4; b++) {
+          const bCount = baseBucketCounts[b];
+          if (bCount === 0) continue;
+          const bucket = baseBuckets[b];
+          ctx.strokeStyle = BASE_LIST[COMP_INDEX[b]].rim;
+          ctx.beginPath();
+          for (let k = 0; k < bCount; k++) {
+            const idx = bucket[k];
+            ctx.moveTo(spineX[idx], spineY[idx]);
+            ctx.lineTo(rungX2[idx], rungY2[idx]);
+          }
+          ctx.stroke();
+        }
+
+        // Batched hydrogen-bond ticks (single beginPath + single stroke)
+        let hasBonds = false;
+        const minWaveForBonds = cellPx * 0.125;
+        const bondSpacing = cellPx * 0.08;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for (let i = 1; i < count; i++) {
+          if (Math.abs(nodeWave[i]) <= minWaveForBonds) continue;
+          const nx = normX[i];
+          const ny = normY[i];
+          if (nx === 0 && ny === 0) continue;
+          const px = spineX[i];
+          const py = spineY[i];
+          const tx = tangX[i];
+          const ty = tangY[i];
+          const bIdx = spineBaseIdx[i];
+          const bondCount = (bIdx === 2 || bIdx === 3) ? 3 : 2;
+          const halfSpan = (bondCount - 1) * 0.5;
+          const nx2 = nx * 2;
+          const ny2 = ny * 2;
+          for (let b = 0; b < bondCount; b++) {
+            const offset = (b - halfSpan) * bondSpacing;
+            const ox = px + tx * offset;
+            const oy = py + ty * offset;
+            ctx.moveTo(ox - nx2, oy - ny2);
+            ctx.lineTo(ox + nx2, oy + ny2);
+          }
+          hasBonds = true;
+        }
+        if (hasBonds) ctx.stroke();
 
         // 3. Front sugar-phosphate backbone (vibrant rose)
         ctx.strokeStyle = '#EC4899';
         ctx.lineWidth = backboneW;
         ctx.beginPath();
-        for (let i = 0; i < strandA.length; i++) {
-          if (i === 0) ctx.moveTo(strandA[i].x, strandA[i].y);
-          else ctx.lineTo(strandA[i].x, strandA[i].y);
+        ctx.moveTo(strandAX[0], strandAY[0]);
+        for (let i = 1; i < sampleCount; i++) {
+          ctx.lineTo(strandAX[i], strandAY[i]);
         }
         ctx.stroke();
 
-        // Translucent phosphate beads on backbone nodes
-        for (let i = 1; i < pts.length; i++) {
-          const p = pts[i];
-          const n = normals[i];
-          const wave = Math.sin(i * 1.28 - phaseSpeed) * amp;
-          ctx.fillStyle = '#FCE7F3';
-          ctx.strokeStyle = '#DB2777';
-          ctx.lineWidth = 1.2;
-          ctx.beginPath();
-          ctx.arc(p.x + n.nx * wave, p.y + n.ny * wave, Math.max(2, cellPx * 0.09), 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
+        // Translucent phosphate beads on backbone nodes (cached sprite)
+        for (let i = 1; i < count; i++) {
+          ctx.drawImage(
+            phosphateSprite,
+            rungX1[i] - phosHalf,
+            rungY1[i] - phosHalf,
+            phosSize,
+            phosSize
+          );
         }
 
-        // 4. Captured nucleotide base badges along the body
-        for (let i = pts.length - 1; i >= 1; i--) {
-          const p = pts[i];
-          const baseInfo = BASES[p.base] || BASES.A;
+        // 4. Captured nucleotide base badges along the body (cached sprites)
+        for (let i = count - 1; i >= 1; i--) {
+          const bIdx = spineBaseIdx[i];
+          const sprite = badgeSprites[bIdx >= 0 ? bIdx : 0];
           let waveBoost = 1;
           if (synthesisWave >= 0) {
             const dist = Math.abs(i - synthesisWave);
             if (dist < 1.5) waveBoost = 1 + (1.5 - dist) * 0.16;
           }
-          const badgeR = cellPx * 0.255 * waveBoost;
-
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, badgeR, 0, Math.PI * 2);
-          ctx.fillStyle = baseInfo.fill;
-          ctx.fill();
-          ctx.strokeStyle = '#FFFFFF';
-          ctx.lineWidth = Math.max(1.3, cellPx * 0.06);
-          ctx.stroke();
-
-          ctx.fillStyle = '#FFFFFF';
-          ctx.font = `700 ${Math.max(8, Math.round(cellPx * 0.30))}px "JetBrains Mono", monospace`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(p.base, p.x, p.y + cellPx * 0.015);
+          const half = badgeHalf * waveBoost;
+          const size = badgeSize * waveBoost;
+          ctx.drawImage(sprite, spineX[i] - half, spineY[i] - half, size, size);
         }
 
         // 5. 3' Polymerase Head (segment 0)
-        const head = pts[0];
-        const neck = pts[1];
-        const heading = Math.atan2(head.y - neck.y, head.x - neck.x);
+        const headX = spineX[0];
+        const headY = spineY[0];
+        const neckX = spineX[1];
+        const neckY = spineY[1];
+        const heading = Math.atan2(headY - neckY, headX - neckX);
 
         // Squash-and-stretch pop on pickup
         let stretchX = 1;
@@ -2299,13 +2581,15 @@
         if (!isTitlePreview) {
           const hCell = segments[0];
           for (let i = 0; i < nucleotides.length; i++) {
-            const d = Math.hypot(nucleotides[i].x - hCell.x, nucleotides[i].y - hCell.y);
+            const dx = nucleotides[i].x - hCell.x;
+            const dy = nucleotides[i].y - hCell.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
             if (d < 2.4) proximity = Math.max(proximity, 1 - d / 2.4);
           }
         }
 
         ctx.save();
-        ctx.translate(head.x, head.y);
+        ctx.translate(headX, headY);
         ctx.rotate(heading);
         ctx.scale(stretchX, stretchY);
 
@@ -2339,7 +2623,7 @@
         // Dual directional sensor eyes
         const eyeX = hr * 0.24;
         const eyeY = hr * 0.36;
-        for (const side of [-1, 1]) {
+        for (let side = -1; side <= 1; side += 2) {
           ctx.beginPath();
           ctx.arc(eyeX, side * eyeY, hr * 0.18, 0, Math.PI * 2);
           ctx.fillStyle = '#FFFFFF';
@@ -2352,7 +2636,7 @@
 
         // Tiny 3' marker on polymerase crest
         ctx.fillStyle = '#FCE7F3';
-        ctx.font = `700 ${Math.max(7, Math.round(cellPx * 0.23))}px "JetBrains Mono", monospace`;
+        ctx.font = headFontStr;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText("3'", -hr * 0.36, 0);
@@ -2379,18 +2663,22 @@
         }
 
         // Particles
+        let particleSaved = false;
         for (let i = 0; i < PARTICLE_POOL.length; i++) {
           const p = PARTICLE_POOL[i];
           if (!p.active) continue;
+          if (!particleSaved) {
+            ctx.save();
+            particleSaved = true;
+          }
           const t = p.life / p.maxLife;
-          ctx.save();
           ctx.globalAlpha = Math.max(0, 1 - t);
           ctx.fillStyle = p.color;
           ctx.beginPath();
           ctx.arc(p.x * cellPx, p.y * cellPx, p.size * cellPx * (1 - t * 0.45), 0, Math.PI * 2);
           ctx.fill();
-          ctx.restore();
         }
+        if (particleSaved) ctx.restore();
 
         // World-space floating score / pair popups
         for (let i = 0; i < POPUP_POOL.length; i++) {
@@ -2402,7 +2690,7 @@
           const py = Math.max(cellPx * 1.1, (pop.y - easeY * 0.9) * cellPx);
           ctx.save();
           ctx.globalAlpha = t < 0.7 ? 1 : Math.max(0, (1 - t) / 0.3);
-          ctx.font = `700 ${Math.max(11, Math.round(cellPx * 0.44))}px "Nunito Sans", sans-serif`;
+          ctx.font = popupFontStr;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.lineWidth = 3.5;
@@ -2789,6 +3077,14 @@
       syncAudioButton();
       initGame(false);
       startLoop();
+
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => {
+          rebuildSpriteCache();
+          needsRender = true;
+          startLoop();
+        });
+      }
     })();
   </script>
 
